@@ -1,0 +1,53 @@
+{
+    "chatgpt": {
+        "inputSelector": [
+            "div#prompt-textarea",
+            "textarea#prompt-textarea",
+            "div[contenteditable='true'][data-placeholder]"
+        ],
+        "sendButtonSelector": [
+            "button[data-testid='send-button']",
+            "button[aria-label='Send prompt']"
+        ],
+        "loggedInSelector": [
+            "div#prompt-textarea",
+            "textarea#prompt-textarea"
+        ],
+        "loginButtonSelector": [
+            "button[data-testid='login-button']",
+            "div[class*='btn']",
+            "a[href*='/auth/login']"
+        ]
+    },
+    "claude": {
+        "inputSelector": [
+            "div.ProseMirror[contenteditable='true']",
+            "div[contenteditable='true']"
+        ],
+        "sendButtonSelector": [
+            "button[aria-label='Publish']",
+            "button[aria-label='Send Message']",
+            "button[data-testid='send-button']",
+            "div[aria-label='Send Message']"
+        ],
+        "loggedInSelector": [
+            "div.ProseMirror[contenteditable='true']"
+        ]
+    },
+    "gemini": {
+        "inputSelector": [
+            "div[contenteditable='true']",
+            "div[role='textbox'][contenteditable]",
+            "rich-textarea div[contenteditable]"
+        ],
+        "sendButtonSelector": [
+            "button[aria-label='Send message']",
+            "button.send-button",
+            "button[aria-label='전송']"
+        ],
+        "loggedInSelector": [
+            "div[contenteditable='true']",
+            "div[role='textbox']"
+        ]
+    }
+}

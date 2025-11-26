@@ -1,0 +1,46 @@
+{
+  "name": "sync-multi-chat",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:portable": "electron-packager . \"Multi-AI Chat\" --platform=win32 --arch=x64 --out=dist-packager --overwrite",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Joseph Nam",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^26.0.12",
+    "electron-packager": "^17.1.2"
+  },
+  "dependencies": {
+    "electron-log": "^5.0.0",
+    "electron-store": "^8.1.0",
+    "puppeteer-core": "^24.31.0"
+  },
+  "build": {
+    "appId": "com.multiaichat.app",
+    "productName": "Multi-AI Chat",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ]
+  }
+}
