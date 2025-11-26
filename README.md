@@ -4,6 +4,9 @@
 
 This application allows you to enter a prompt once in a **Master Input** field and broadcast it to **ChatGPT**, **Claude**, and **Gemini** at the same time. You can compare the responses from each AI model in a single, unified interface.
 
+![Multi-AI Chat Application Screenshot](assets/mutli-ai-chat.png)
+*Figure 1: Multi-AI Chat Interface showing simultaneous interactions with ChatGPT, Claude, and Gemini.*
+
 ## 📋 Overview
 
 -   **Project Name**: Multi-AI Chat
