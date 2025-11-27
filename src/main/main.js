@@ -206,6 +206,23 @@ ipcMain.on('toggle-service', (event, service, isEnabled) => {
     }
 });
 
+ipcMain.on('new-chat', () => {
+    services.forEach(service => {
+        if (views[service] && views[service].enabled) {
+            let url = serviceUrls[service];
+            if (service === 'claude') {
+                url = 'https://claude.ai/new';
+            }
+            // ChatGPT and Gemini use base URL which usually redirects to new chat
+            // For ChatGPT, https://chatgpt.com/ is correct.
+            // For Gemini, https://gemini.google.com/app is correct.
+
+            console.log(`Resetting chat for ${service} to ${url}`);
+            views[service].view.webContents.loadURL(url);
+        }
+    });
+});
+
 // Handle status updates from services
 ipcMain.on('status-update', (event, status) => {
     // Find which service sent this

@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multi-AI Chat</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div id="app-container">
         <div id="views-placeholder">
@@ -16,16 +18,19 @@
         </div>
         <div id="controls-container">
             <div id="toggles">
+                <button id="new-chat-btn" class="new-chat-btn">New Chat</button>
                 <label><input type="checkbox" id="toggle-chatgpt" checked> ChatGPT</label>
                 <label><input type="checkbox" id="toggle-claude" checked> Claude</label>
                 <label><input type="checkbox" id="toggle-gemini" checked> Gemini</label>
             </div>
             <div id="input-area">
-                <textarea id="master-input" placeholder="Type your prompt here... (Ctrl+Enter to send)"></textarea>
+                <textarea id="master-input"
+                    placeholder="Type your prompt here... (Ctrl+Enter to Send, Ctrl+Shift+Enter for New Chat)"></textarea>
                 <button id="send-btn">Send</button>
             </div>
         </div>
     </div>
     <script src="renderer.js"></script>
 </body>
+
 </html>

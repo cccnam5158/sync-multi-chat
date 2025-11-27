@@ -1,5 +1,11 @@
 const masterInput = document.getElementById('master-input');
 const sendBtn = document.getElementById('send-btn');
+const newChatBtn = document.getElementById('new-chat-btn');
+
+// Handle New Chat Button Click
+newChatBtn.addEventListener('click', () => {
+    window.electronAPI.newChat();
+});
 const toggles = {
     chatgpt: document.getElementById('toggle-chatgpt'),
     claude: document.getElementById('toggle-claude'),
@@ -13,9 +19,16 @@ sendBtn.addEventListener('click', () => {
 
 // Handle Enter Key (Ctrl+Enter to send)
 masterInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        sendPrompt();
+    if (e.key === 'Enter') {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+            // Ctrl+Shift+Enter: New Chat
+            e.preventDefault();
+            window.electronAPI.newChat();
+        } else if (e.ctrlKey || e.metaKey) {
+            // Ctrl+Enter: Send Prompt
+            e.preventDefault();
+            sendPrompt();
+        }
     }
 });
 

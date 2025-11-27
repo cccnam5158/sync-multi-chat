@@ -85,6 +85,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
     -   Type your question in the input bar at the bottom.
     -   Press **Enter** (or click Send) to broadcast the message to all enabled services.
     -   Use **Ctrl+Enter** to force send.
+    -   Use **Ctrl+Shift+Enter** or click the **New Chat** button to start a new conversation in all active panels.
 -   [x] Basic multi-view architecture
 -   [x] Prompt broadcasting
 -   [ ] Response completion detection

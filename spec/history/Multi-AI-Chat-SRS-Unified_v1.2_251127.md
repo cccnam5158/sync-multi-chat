@@ -2,8 +2,8 @@
 ## Software Requirements Specification (SRS)
 ### EARS (Easy Approach to Requirements Syntax) 기반 통합 요구사항 명세서
 
-**문서 버전**: 1.1 (New Chat 기능 추가)  
-**작성일**: 2025-11-27  
+**문서 버전**: 1.0 (통합본)  
+**작성일**: 2025-11-25  
 **프로젝트명**: Multi-AI Chat (코드명: MAPB - Multi AI Prompt Broadcaster / Clash of LLMs)
 
 ---
@@ -152,10 +152,6 @@ The system shall display a Master Input area at the bottom of the main window wi
 #### APP-004: 서비스 토글 컨트롤
 **[Ubiquitous]**  
 The system shall provide, adjacent to the Master Input, toggle controls that allow the user to enable or disable each target service (ChatGPT, Claude, Gemini) individually.
-
-#### APP-004-1: 새 대화 버튼
-**[Ubiquitous]**  
-The system shall display a "New" button to the left of the service toggle controls to allow users to quickly reset conversations.
 
 #### APP-005: 전송 버튼
 **[Ubiquitous]**  
@@ -599,29 +595,6 @@ When a service view is closed, crashed, or missing, toggling the service OFF and
 #### ERR-004: Captcha/Cloudflare 감지
 **[Unwanted]**  
 If bot detection triggers a Captcha challenge, then the system shall pause DOM manipulation and notify the user with "보안 확인 필요" status.
-
----
-
-### 4.10 대화 관리 (CONV)
-
-#### CONV-001: 새 대화 시작 (버튼)
-**[Event-Driven]**  
-When the user clicks the "New" button, the system shall initiate a new conversation for all currently enabled AI services.
-
-#### CONV-002: 새 대화 시작 (단축키)
-**[Event-Driven]**  
-When the user presses `Ctrl+Shift+Enter` in the Master Input, the system shall initiate a new conversation for all currently enabled AI services.
-
-#### CONV-003: 서비스별 초기화 URL
-**[Ubiquitous]**  
-The system shall use the following URLs to reset conversations:
-- ChatGPT: `https://chatgpt.com/`
-- Claude: `https://claude.ai/new`
-- Gemini: `https://gemini.google.com/app`
-
-#### CONV-004: DOM 기반 초기화 (Fallback)
-**[Optional]**  
-Where URL navigation fails to start a new chat (e.g., redirects to old chat), the system shall attempt to find and click the "New Chat" button within the service's DOM.
 
 ---
 
