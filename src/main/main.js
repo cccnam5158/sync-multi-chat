@@ -14,12 +14,16 @@ app.commandLine.appendSwitch('disable-site-isolation-trials');
 
 let mainWindow;
 const views = {};
-const services = ['chatgpt', 'claude', 'gemini'];
+const services = ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity'];
 const serviceUrls = {
     chatgpt: 'https://chatgpt.com',
     claude: 'https://claude.ai',
-    gemini: 'https://gemini.google.com/app'
+    gemini: 'https://gemini.google.com/app',
+    grok: 'https://grok.com',
+    perplexity: 'https://www.perplexity.ai'
 };
+
+let currentLayout = '1x4'; // Default layout
 
 let selectorsConfig = {};
 let currentZoomLevel = 0.9; // Default zoom level
@@ -52,15 +56,7 @@ function createWindow() {
         createServiceView(service);
     });
 
-    // Initial Layout
-    mainWindow.once('ready-to-show', () => {
-        updateLayout();
-    });
-
-    // Handle Resize
-    mainWindow.on('resize', () => {
-        updateLayout();
-    });
+    // Initial Layout is now handled by renderer sending bounds
 }
 
 function createServiceView(service) {
@@ -132,38 +128,50 @@ function createServiceView(service) {
     views[service] = { view, enabled: true };
 }
 
-function updateLayout() {
+// Layout Management
+ipcMain.on('update-view-bounds', (event, boundsMap) => {
     if (!mainWindow) return;
-    const bounds = mainWindow.getContentBounds();
-    const controlHeight = 120; // Height of the bottom control bar
-    const viewHeight = bounds.height - controlHeight;
 
-    // Calculate visible services
-    const enabledServices = services.filter(s => views[s] && views[s].enabled);
-    const count = enabledServices.length;
-
-    if (count === 0) return;
-
-    const viewWidth = Math.floor(bounds.width / count);
-    let x = 0;
-
-    services.forEach(service => {
-        if (views[service] && views[service].enabled) {
-            views[service].view.setBounds({ x: x, y: 0, width: viewWidth, height: viewHeight });
-            x += viewWidth;
-        } else if (views[service] && views[service].view) {
-            views[service].view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+    // Apply bounds to each service view
+    Object.entries(boundsMap).forEach(([service, rect]) => {
+        if (views[service] && views[service].view) {
+            views[service].view.setBounds({
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height
+            });
         }
     });
-}
+});
+
+ipcMain.on('set-layout', (event, layout) => {
+    currentLayout = layout;
+    // We don't calculate layout here anymore, we wait for 'update-view-bounds' from renderer
+});
 
 // IPC Handlers
-ipcMain.on('send-prompt', (event, text, activeServices) => {
-    Object.keys(activeServices).forEach(service => {
+ipcMain.on('send-prompt', async (event, text, activeServices) => {
+    const serviceKeys = Object.keys(activeServices);
+
+    // Process each service independently to prevent one failure from blocking others
+    serviceKeys.forEach(async (service) => {
         if (activeServices[service] && views[service]) {
-            const selectors = selectorsConfig[service];
-            if (selectors) {
-                views[service].view.webContents.send('inject-prompt', { text, selectors });
+            try {
+                const selectors = selectorsConfig[service];
+                if (selectors) {
+                    // Add a small delay for Perplexity if it's being problematic with high load
+                    if (service === 'perplexity') {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+
+                    if (views[service].view && !views[service].view.webContents.isDestroyed()) {
+                        views[service].view.webContents.send('inject-prompt', { text, selectors, autoSend: true });
+                        console.log(`Sent prompt to ${service}`);
+                    }
+                }
+            } catch (error) {
+                console.error(`Failed to send prompt to ${service}:`, error);
             }
         }
     });
@@ -188,13 +196,11 @@ ipcMain.on('toggle-service', (event, service, isEnabled) => {
             console.log(`Recreating view for ${service} (Toggle ON)`);
             createServiceView(service);
             // createServiceView adds it and sets enabled=true
-            updateLayout();
         } else {
             // Just enable existing
             if (!viewObj.enabled) {
                 viewObj.enabled = true;
                 mainWindow.addBrowserView(viewObj.view);
-                updateLayout();
             }
         }
     } else {
@@ -206,9 +212,9 @@ ipcMain.on('toggle-service', (event, service, isEnabled) => {
                     mainWindow.removeBrowserView(views[service].view);
                 } catch (e) { /* ignore */ }
             }
-            updateLayout();
         }
     }
+    // Layout update will be triggered by renderer via toggle change -> updateLayoutState -> renderLayout -> updateBounds
 });
 
 ipcMain.on('new-chat', () => {
@@ -341,6 +347,34 @@ ipcMain.on('copy-single-chat-thread', async (event, text) => {
     }
 });
 
+// Scroll Sync State
+let isScrollSyncEnabled = false;
+
+ipcMain.on('toggle-scroll-sync', (event, isEnabled) => {
+    isScrollSyncEnabled = isEnabled;
+    // Broadcast to all views
+    services.forEach(service => {
+        if (views[service] && views[service].view) {
+            views[service].view.webContents.send('scroll-sync-state', isScrollSyncEnabled);
+        }
+    });
+});
+
+ipcMain.on('sync-scroll', (event, { deltaX, deltaY }) => {
+    if (!isScrollSyncEnabled) return;
+
+    // Broadcast to all OTHER views
+    services.forEach(service => {
+        if (views[service] && views[service].view) {
+            // Don't send back to sender (optional optimization, but simple broadcast is fine if logic handles it)
+            // But here we are in Main, we don't know easily which view sent it unless we check event.sender
+            if (views[service].view.webContents !== event.sender) {
+                views[service].view.webContents.send('apply-scroll', { deltaX, deltaY });
+            }
+        }
+    });
+});
+
 ipcMain.on('zoom-sync', (event, direction) => {
     const zoomStep = 0.1;
     if (direction === 'in') {
@@ -349,240 +383,126 @@ ipcMain.on('zoom-sync', (event, direction) => {
         currentZoomLevel = Math.max(currentZoomLevel - zoomStep, 0.5); // Min 50%
     }
 
-    // Apply to all active views
+    // Apply to all views
     services.forEach(service => {
         if (views[service] && views[service].view) {
             views[service].view.webContents.setZoomFactor(currentZoomLevel);
         }
     });
-
-    console.log(`Zoom level updated to: ${currentZoomLevel.toFixed(1)}`);
-});
-
-let isScrollSyncEnabled = false;
-
-ipcMain.on('toggle-scroll-sync', (event, isEnabled) => {
-    isScrollSyncEnabled = isEnabled;
-    console.log(`Scroll Sync toggled: ${isEnabled}`);
-    // Notify all views about the state change
-    services.forEach(service => {
-        if (views[service] && views[service].view) {
-            views[service].view.webContents.send('scroll-sync-state', isEnabled);
-        }
-    });
-});
-
-ipcMain.on('sync-scroll', (event, { deltaX, deltaY }) => {
-    if (!isScrollSyncEnabled) return;
-
-    const senderWebContents = event.sender;
-    const senderService = Object.keys(views).find(key => views[key].view.webContents === senderWebContents);
-
-    if (senderService) {
-        services.forEach(service => {
-            if (service !== senderService && views[service] && views[service].view) {
-                views[service].view.webContents.send('apply-scroll', { deltaX, deltaY });
-            }
-        });
-    }
-});
-
-// Handle status updates from services
-ipcMain.on('status-update', (event, status) => {
-    // Find which service sent this
-    const senderWebContents = event.sender;
-    const serviceName = Object.keys(views).find(key => views[key].view.webContents === senderWebContents);
-
-    if (serviceName && mainWindow) {
-        mainWindow.webContents.send('service-status-update', { service: serviceName, status });
-    }
-});
-
-// Handle reload request from service view
-ipcMain.on('reload-active-view', (event) => {
-    const senderWebContents = event.sender;
-    const serviceName = Object.keys(views).find(key => views[key].view.webContents === senderWebContents);
-
-    if (serviceName && views[serviceName]) {
-        console.log(`Reloading service view: ${serviceName}`);
-        views[serviceName].view.webContents.reload();
-    }
 });
 
 // External Login Handler
-const puppeteer = require('puppeteer-core');
-const { exec } = require('child_process');
-
 ipcMain.on('external-login', async (event, service) => {
-    const url = serviceUrls[service];
-    if (!url) return;
+    const puppeteer = require('puppeteer-core');
+    const chromeLauncher = require('chrome-launcher');
+    const axios = require('axios');
 
-    // 1. Find Chrome Path (Windows)
-    const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+    console.log(`Launching Chrome for ${service} login...`);
 
-    // 2. Launch Chrome with Remote Debugging
-    const userDataDir = path.join(app.getPath('userData'), 'chrome-auth-profile');
-
-    const port = 9222;
-    const args = [
-        `--remote-debugging-port=${port}`,
-        `--user-data-dir=${userDataDir}`,
-        '--no-first-run',
-        '--no-default-browser-check',
-        url
-    ];
-
-    const chromeCmd = `"${chromePath}" ${args.join(' ')}`;
-    console.log('Launching Chrome:', chromeCmd);
-
-    const chromeProcess = exec(chromeCmd);
-
-    // 3. Connect Puppeteer
-    // Wait a bit for Chrome to start
-    setTimeout(async () => {
-        try {
-            const browser = await puppeteer.connect({
-                browserURL: `http://127.0.0.1:${port}`,
-                defaultViewport: null
-            });
-
-            const pages = await browser.pages();
-            const page = pages[0];
-
-            // Notify Renderer that Chrome is open
-            mainWindow.webContents.send('external-login-started', service);
-
-            let loginSuccess = false;
-
-            // Handle manual close of Chrome window
-            browser.on('disconnected', () => {
-                if (!loginSuccess) {
-                    console.log('Chrome disconnected without login success');
-                    if (views[service]) {
-                        views[service].view.webContents.send('external-login-closed');
-                    }
-                }
-            });
-
-            // 4. Monitor for Login Success
-            // We can check cookies periodically
-            const checkInterval = setInterval(async () => {
-                try {
-                    // Check if browser is still connected
-                    if (!browser.isConnected()) {
-                        clearInterval(checkInterval);
-                        return;
-                    }
-
-                    const cookies = await page.cookies();
-                    const currentUrl = await page.url();
-
-                    // Check for specific login cookies
-                    let hasLoginCookies = false;
-                    if (service === 'chatgpt') {
-                        hasLoginCookies = cookies.some(c => c.name.includes('__Secure-next-auth.session-token'));
-                    } else if (service === 'claude') {
-                        hasLoginCookies = cookies.some(c => c.name.includes('sessionKey'));
-                    } else if (service === 'gemini') {
-                        hasLoginCookies = cookies.some(c => c.name === 'SID');
-                    }
-
-                    // Strict URL check: Ensure we are back on the main app, not login page
-                    const isNotLoginPage = !currentUrl.includes('/auth') && !currentUrl.includes('/login') && !currentUrl.includes('accounts.google.com');
-
-                    // For ChatGPT specifically, we want to be on chatgpt.com
-                    const isCorrectDomain = service === 'chatgpt' ? currentUrl.includes('chatgpt.com') : true;
-
-                    if (hasLoginCookies && isNotLoginPage && isCorrectDomain) {
-                        clearInterval(checkInterval);
-                        loginSuccess = true;
-
-                        // 5. Sync Cookies to Electron
-                        const viewObj = views[service];
-                        if (viewObj) {
-                            const electronSession = viewObj.view.webContents.session;
-                            for (const cookie of cookies) {
-                                let scheme = cookie.secure ? 'https' : 'http';
-
-                                // Strict handling for Secure prefixes
-                                if (cookie.name.startsWith('__Secure-') || cookie.name.startsWith('__Host-')) {
-                                    scheme = 'https';
-                                    cookie.secure = true;
-                                }
-
-                                const domain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
-                                const cookieUrl = `${scheme}://${domain}${cookie.path}`;
-
-                                // Map SameSite values from Puppeteer (Capitalized) to Electron (lowercase/enum)
-                                let sameSite = 'unspecified';
-                                if (cookie.sameSite) {
-                                    switch (cookie.sameSite.toLowerCase()) {
-                                        case 'lax': sameSite = 'lax'; break;
-                                        case 'strict': sameSite = 'strict'; break;
-                                        case 'none': sameSite = 'no_restriction'; break;
-                                    }
-                                }
-
-                                await electronSession.cookies.set({
-                                    url: cookieUrl,
-                                    name: cookie.name,
-                                    value: cookie.value,
-                                    domain: cookie.domain,
-                                    path: cookie.path,
-                                    secure: cookie.secure,
-                                    httpOnly: cookie.httpOnly,
-                                    expirationDate: cookie.expires,
-                                    sameSite: sameSite
-                                }).catch(e => console.error(`Cookie set failed for ${cookie.name}:`, e));
-                            }
-
-                            // Reload view to main URL to ensure we are not on login page
-                            viewObj.view.webContents.loadURL(serviceUrls[service]);
-                        }
-
-                        // Close Chrome
-                        await browser.close();
-
-                        // Notify Renderer
-                        mainWindow.webContents.send('external-login-success', service);
-                    }
-                } catch (err) {
-                    // Ignore errors if browser closed
-                    if (err.message.includes('Protocol error') || err.message.includes('Target closed')) {
-                        clearInterval(checkInterval);
-                    } else {
-                        console.error('Error checking cookies:', err);
-                    }
-                }
-            }, 2000);
-
-            // Safety timeout (5 mins)
-            setTimeout(() => {
-                clearInterval(checkInterval);
-                if (browser.isConnected()) {
-                    browser.disconnect();
-                }
-            }, 300000);
-
-        } catch (err) {
-            console.error('Puppeteer connection failed:', err);
-            mainWindow.webContents.send('external-login-error', { service, error: err.message });
-            // Also reset button if connection failed
-            if (views[service]) {
-                views[service].view.webContents.send('external-login-closed');
-            }
+    try {
+        // 1. Find Chrome Path
+        const chromePath = chromeLauncher.Launcher.getInstallations()[0];
+        if (!chromePath) {
+            console.error('Chrome installation not found');
+            return;
         }
-    }, 3000);
+
+        // 2. Launch Chrome with Remote Debugging
+        const browser = await puppeteer.launch({
+            executablePath: chromePath,
+            headless: false,
+            defaultViewport: null,
+            userDataDir: path.join(app.getPath('userData'), 'chrome-auth-profile'),
+            args: [
+                '--no-first-run',
+                '--no-default-browser-check'
+            ]
+        });
+
+        const page = (await browser.pages())[0];
+        await page.goto(serviceUrls[service]);
+
+        // 3. Monitor for Login Success (Cookie Check)
+        const checkLogin = setInterval(async () => {
+            try {
+                if (browser.process().killed) {
+                    clearInterval(checkLogin);
+                    return;
+                }
+
+                const cookies = await page.cookies();
+                let isLoggedIn = false;
+
+                if (service === 'chatgpt') {
+                    isLoggedIn = cookies.some(c => c.name === '__Secure-next-auth.session-token');
+                } else if (service === 'claude') {
+                    isLoggedIn = cookies.some(c => c.name === 'sessionKey');
+                } else if (service === 'gemini') {
+                    isLoggedIn = cookies.some(c => c.name === 'SID' && c.domain.includes('.google.com'));
+                } else if (service === 'grok') {
+                    isLoggedIn = cookies.some(c => c.name.includes('sso') || c.name === 'auth_token' || c.name.includes('grok'));
+                } else if (service === 'perplexity') {
+                    isLoggedIn = cookies.some(c => c.name === '__Secure-next-auth.session-token');
+                }
+
+                // Also check URL to ensure we are not on login page
+                const url = page.url();
+                const isNotLoginPage = !url.includes('/auth/login') && !url.includes('accounts.google.com') && !url.includes('sso');
+
+                if (isLoggedIn && isNotLoginPage) {
+                    clearInterval(checkLogin);
+                    console.log(`${service} login detected! Closing Chrome...`);
+                    await browser.close();
+
+                    // Reload the Electron view
+                    if (views[service] && views[service].view) {
+                        console.log(`Reloading service view: ${service}`);
+                        views[service].view.webContents.reload();
+                    }
+
+                    // Notify renderer
+                    if (mainWindow) {
+                        mainWindow.webContents.send('external-login-closed');
+                    }
+                }
+            } catch (e) {
+                clearInterval(checkLogin);
+                console.error('Error checking login status:', e);
+            }
+        }, 1000);
+
+        // Handle manual close
+        browser.on('disconnected', () => {
+            clearInterval(checkLogin);
+            if (mainWindow) {
+                mainWindow.webContents.send('external-login-closed');
+            }
+        });
+
+    } catch (e) {
+        console.error('Error in external login:', e);
+    }
 });
 
-app.whenReady().then(() => {
-    createWindow();
-
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    });
+ipcMain.on('reload-active-view', (event) => {
+    // Reload only the view that requested it
+    event.sender.reload();
 });
+
+ipcMain.on('status-update', (event, { isLoggedIn }) => {
+    // Optional: Handle status updates from renderer if needed
+});
+
+app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
+});
+
+app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+    }
 });

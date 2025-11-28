@@ -1,0 +1,42 @@
+# Release Notes
+
+## v0.4.0 (2025-11-28)
+
+### 🚀 New Features
+*   **New AI Services**: Added support for **Grok** and **Perplexity**. You can now broadcast prompts to 5 major AI services (ChatGPT, Claude, Gemini, Grok, Perplexity) simultaneously.
+*   **Advanced Layout Options**:
+    *   **2x2 Grid Layout**: Perfect for viewing 4 services at once in a balanced grid.
+    *   **1x4 Horizontal Layout**: View 4 services side-by-side.
+    *   **Dynamic Layout Switching**: Automatically enables/disables layout options based on the number of active services.
+*   **Resizable Panels**:
+    *   Added draggable splitters between panels.
+    *   Supports both vertical resizing (width adjustment) and horizontal resizing (height adjustment in 2x2 mode).
+    *   Layout remains stable during resizing with minimum width constraints.
+
+### ✨ Improvements
+*   **Perplexity Stability**: Implemented robust input injection logic (Retry & Click-to-Activate) to ensure prompts are delivered reliably, even if the service loads slowly.
+*   **UI Enhancements**:
+    *   **Copy Chat Thread Button**: Updated with a distinct Teal color (#2b5c5c) for better visibility.
+    *   **Splitter Design**: Thinner (3px) and cleaner splitters for a modern look.
+*   **Isolated Reload**: Clicking the reload button (🔄) on a service panel now refreshes **only** that specific panel, preventing unnecessary reloads of other active services.
+*   **Grok Integration**: Improved content extraction logic to correctly copy chat history from Grok.
+
+### 🐛 Bug Fixes
+*   Fixed an issue where the first prompt sent to Perplexity (Ctrl+Enter) would be ignored.
+*   Fixed "Copy Chat Thread" returning empty content for Grok.
+*   Fixed layout breaking or panels disappearing when dragging splitters.
+*   Fixed layout selection buttons not updating correctly when 3 services were active.
+
+---
+
+## v0.3.0 (2025-11-27)
+*   Added "Copy Chat Thread" feature.
+*   Added "Cross Check" feature.
+*   Implemented Scroll Sync.
+
+## v0.2.0 (2025-11-26)
+*   Added "New Chat" button and shortcut (Ctrl+Shift+Enter).
+*   Added "Login in Chrome" fallback for authentication.
+
+## v0.1.0 (2025-11-25)
+*   Initial Release with ChatGPT, Claude, Gemini support.

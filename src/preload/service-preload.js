@@ -17,33 +17,73 @@ Object.defineProperty(navigator, 'languages', {
     get: () => ['ko-KR', 'ko', 'en-US', 'en'],
 });
 
+//===========================================
+// PROMPT INJECTION
+//===========================================
+
+let currentConfig = null;
+let currentService = '';
+
 ipcRenderer.on('inject-prompt', (event, { text, selectors, autoSend }) => {
-    console.log('Received prompt:', text, 'AutoSend:', autoSend);
+    console.log('[inject-prompt] Received:', { text, selectors, autoSend, service: currentService });
     injectPrompt(text, selectors);
 });
 
-function injectPrompt(text, selectors) {
-    // Try to find input element using provided selectors
+async function injectPrompt(text, selectors) {
+    console.log('[injectPrompt] Starting injection. Service:', currentService);
+    console.log('[injectPrompt] Text:', text);
+    console.log('[injectPrompt] Selectors:', selectors);
+
+    // Try to find input element using provided selectors with retry
     let inputEl = null;
-    for (const selector of selectors.inputSelector) {
-        inputEl = document.querySelector(selector);
+    for (let i = 0; i < 15; i++) { // Retry up to 3 seconds
+        for (const selector of selectors.inputSelector) {
+            inputEl = document.querySelector(selector);
+            if (inputEl) {
+                console.log('[injectPrompt] Input element found with selector:', selector);
+                console.log('[injectPrompt] Element type:', inputEl.tagName, 'contentEditable:', inputEl.contentEditable, 'classList:', Array.from(inputEl.classList || []));
+                break;
+            }
+        }
         if (inputEl) break;
+        await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     if (!inputEl) {
-        console.error('Input element not found with selectors:', selectors.inputSelector);
+        console.error('[injectPrompt] Input element not found with selectors:', selectors.inputSelector);
         return;
     }
 
     // 1. Focus
+    // Perplexity specific: Click to activate editor and wait
+    if (currentService === 'perplexity') {
+        console.log('[injectPrompt] Perplexity detected: Clicking and waiting for editor activation...');
+        inputEl.click();
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
     inputEl.focus();
+    console.log('[injectPrompt] Input focused');
 
     // 2. Set Value based on element type
-    if (inputEl.classList.contains('ProseMirror')) {
-        // Claude / ProseMirror specific handling
-        inputEl.innerHTML = `<p>${text}</p>`;
+    if (inputEl.classList.contains('ProseMirror') || inputEl.getAttribute('contenteditable') === 'true') {
+        // ContentEditable (Claude, Gemini, Grok, Perplexity)
+        console.log('[injectPrompt] Detected ContentEditable element');
 
-        // Dispatch specific input events for ProseMirror
+        // Clear existing content first to avoid appending
+        inputEl.innerHTML = '';
+
+        if (inputEl.classList.contains('ProseMirror')) {
+            // ProseMirror (Claude, Grok)
+            console.log('[injectPrompt] Using ProseMirror injection (for Claude/Grok)');
+            inputEl.innerHTML = `<p>${text}</p>`;
+        } else {
+            // Generic ContentEditable (Gemini, Perplexity)
+            console.log('[injectPrompt] Using generic ContentEditable injection (for Gemini/Perplexity)');
+            inputEl.innerText = text;
+        }
+
+        // Dispatch Input Events
         const inputEvent = new InputEvent('input', {
             bubbles: true,
             cancelable: true,
@@ -52,70 +92,83 @@ function injectPrompt(text, selectors) {
             view: window
         });
         inputEl.dispatchEvent(inputEvent);
-    } else if (inputEl.contentEditable === 'true') {
-        // Generic contenteditable (Gemini)
-        inputEl.innerText = text;
-        inputEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+        console.log('[injectPrompt] InputEvent dispatched');
     } else {
         // Textarea (ChatGPT)
+        console.log('[injectPrompt] Using Textarea injection (for ChatGPT)');
         // React/Vue compatible setter for textarea
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
             window.HTMLTextAreaElement.prototype, 'value'
         ).set;
         nativeInputValueSetter.call(inputEl, text);
 
-        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        // Dispatch comprehensive input events
+        inputEl.dispatchEvent(new InputEvent('input', {
+            bubbles: true,
+            inputType: 'insertText',
+            data: text
+        }));
         inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log('[injectPrompt] Textarea events dispatched');
     }
 
     // 3. Trigger Enter key if needed or Click Send
     // Some apps (like Claude) might need a small delay for the state to update before the button becomes enabled
     setTimeout(() => {
+        console.log('[injectPrompt] Looking for send button...');
         let btn = null;
         for (const selector of selectors.sendButtonSelector) {
             btn = document.querySelector(selector);
+            console.log(`[injectPrompt] Trying send button selector: "${selector}" -> Found:`, !!btn, 'Disabled:', btn?.disabled);
             if (btn) break;
         }
 
         if (btn && !btn.disabled) {
+            console.log('[injectPrompt] Send button found and enabled, clicking...');
             btn.click();
+            console.log('[injectPrompt] Send button clicked');
         } else {
-            console.log('Send button not found or disabled, trying Enter key...');
+            console.log('[injectPrompt] Send button not found or disabled, trying keyboard events...');
 
             // Fallback: Try sending Enter key event
-            // For Claude, sometimes Enter just adds a newline, so we try Ctrl+Enter as well
-            const enterEvent = {
+            const eventProps = {
                 key: 'Enter',
                 code: 'Enter',
                 keyCode: 13,
                 which: 13,
                 bubbles: true,
                 cancelable: true,
-                view: window
+                view: window,
+                composed: true
             };
 
             // Standard Enter
-            inputEl.dispatchEvent(new KeyboardEvent('keydown', enterEvent));
-            inputEl.dispatchEvent(new KeyboardEvent('keypress', enterEvent));
-            inputEl.dispatchEvent(new KeyboardEvent('keyup', enterEvent));
+            console.log('[injectPrompt] Dispatching Enter key events...');
+            inputEl.dispatchEvent(new KeyboardEvent('keydown', eventProps));
+            inputEl.dispatchEvent(new KeyboardEvent('keypress', eventProps));
+            inputEl.dispatchEvent(new KeyboardEvent('keyup', eventProps));
 
             // Ctrl+Enter (often forces send)
-            const ctrlEnterEvent = {
-                ...enterEvent,
+            const ctrlEnterProps = {
+                ...eventProps,
                 ctrlKey: true,
-                metaKey: true // For Mac support if needed, though we are on Windows
+                metaKey: true
             };
 
-            inputEl.dispatchEvent(new KeyboardEvent('keydown', ctrlEnterEvent));
-            inputEl.dispatchEvent(new KeyboardEvent('keypress', ctrlEnterEvent));
-            inputEl.dispatchEvent(new KeyboardEvent('keyup', ctrlEnterEvent));
+            console.log('[injectPrompt] Dispatching Ctrl+Enter key events...');
+            inputEl.dispatchEvent(new KeyboardEvent('keydown', ctrlEnterProps));
+            inputEl.dispatchEvent(new KeyboardEvent('keypress', ctrlEnterProps));
+            inputEl.dispatchEvent(new KeyboardEvent('keyup', ctrlEnterProps));
+            console.log('[injectPrompt] Keyboard events dispatched');
         }
     }, 1000); // Increased delay to 1000ms to ensure button state updates
+
+    console.log('[injectPrompt] Injection complete');
 }
 
-// Login Status Detection
-let currentConfig = null;
-let currentService = '';
+//===========================================
+// LOGIN STATUS DETECTION
+//===========================================
 
 ipcRenderer.on('set-config', (event, { config, service }) => {
     currentConfig = config;
@@ -217,6 +270,7 @@ function updateLoginStatusUI(isLoggedIn) {
         }
     }
 }
+
 ipcRenderer.on('external-login-closed', () => {
     const badge = document.getElementById('multi-ai-chat-login-badge');
     if (badge) {
@@ -227,6 +281,10 @@ ipcRenderer.on('external-login-closed', () => {
         }
     }
 });
+
+//===========================================
+// RELOAD & COPY BUTTONS
+//===========================================
 
 // Reload Button
 function createReloadButton() {
@@ -330,7 +388,10 @@ setInterval(() => {
     createCopyButton();
 }, 2000);
 
-// Zoom Sync Handler
+//===========================================
+// SCROLL SYNC
+//===========================================
+
 let scrollSyncEnabled = false;
 
 ipcRenderer.on('scroll-sync-state', (event, isEnabled) => {
@@ -345,9 +406,6 @@ ipcRenderer.on('apply-scroll', (event, { deltaX, deltaY }) => {
     // 2. Find the likely main scroll container
     // Chat apps usually have a main div with overflow-y: auto/scroll
     const scrollableElements = Array.from(document.querySelectorAll('*')).filter(el => {
-        // Optimization: Skip some obviously non-scrollable inline elements if needed, 
-        // but for compatibility with all frameworks (Angular/React/etc), let's check styles.
-
         const style = window.getComputedStyle(el);
         // Check for overflow-y explicitly
         const isScrollable = (style.overflowY === 'auto' || style.overflowY === 'scroll');

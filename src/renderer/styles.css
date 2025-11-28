@@ -1,12 +1,14 @@
-body,
-html {
+/* Global Styles */
+body {
     margin: 0;
     padding: 0;
-    height: 100%;
-    overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #2e2e2e;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #1e1e1e;
     color: #ffffff;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 #app-container {
@@ -15,175 +17,220 @@ html {
     height: 100%;
 }
 
+/* Views Placeholder (The Grid/Flex Container) */
 #views-placeholder {
-    flex-grow: 1;
+    flex: 1;
     display: flex;
-    flex-direction: row;
-    background-color: #1e1e1e;
+    background-color: #2d2d2d;
+    position: relative;
+    overflow: hidden;
 }
 
-.view-label {
-    flex: 1;
+/* View Slot (Where BrowserView goes) */
+.view-slot {
+    flex-grow: 1;
+    position: relative;
+    background-color: #1e1e1e;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-right: 1px solid #444;
-    color: #666;
+    min-width: 100px;
+    /* Minimum width for a panel */
+}
+
+.view-label {
+    color: #555;
     font-size: 1.5rem;
     font-weight: bold;
+    user-select: none;
 }
 
-.view-label:last-child {
-    border-right: none;
+/* Splitter Common */
+.splitter {
+    background-color: #333;
+    transition: background-color 0.2s;
+    z-index: 10;
+    flex-shrink: 0;
 }
 
+.splitter:hover,
+.splitter.dragging {
+    background-color: #007acc;
+}
+
+/* Vertical Splitter (Default for 1xN) */
+.splitter-vertical {
+    width: 3px;
+    cursor: col-resize;
+    height: 100%;
+}
+
+/* Horizontal Splitter (For 2x2) */
+.splitter-horizontal {
+    height: 3px;
+    width: 100%;
+    cursor: row-resize;
+}
+
+/* Row Container for 2x2 */
+.row-container {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Controls Container */
 #controls-container {
     height: 120px;
-    background-color: #333;
-    border-top: 1px solid #555;
+    background-color: #252526;
+    border-top: 1px solid #3e3e42;
     display: flex;
     flex-direction: column;
     padding: 10px;
     box-sizing: border-box;
+    gap: 10px;
+    z-index: 20;
 }
 
+/* Toggles Area */
 #toggles {
     display: flex;
+    align-items: center;
     gap: 15px;
-    margin-bottom: 10px;
+    flex-wrap: wrap;
 }
 
 #toggles label {
-    cursor: pointer;
-    user-select: none;
-}
-
-#input-area {
     display: flex;
-    flex-grow: 1;
-    gap: 10px;
-}
-
-#master-input {
-    flex-grow: 1;
-    resize: none;
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #555;
-    background-color: #222;
-    color: #fff;
-    font-family: inherit;
-    font-size: 1rem;
-}
-
-#master-input:focus {
-    outline: none;
-    border-color: #007bff;
-}
-
-#send-btn {
-    width: 80px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
+    align-items: center;
+    gap: 5px;
     cursor: pointer;
-    font-weight: bold;
+    font-size: 0.9rem;
 }
 
-#send-btn:hover {
-    background-color: #0056b3;
+#toggles input[type="checkbox"] {
+    accent-color: #007acc;
 }
 
-#send-btn:active {
-    background-color: #004085;
+/* Layout Buttons */
+.layout-group {
+    display: flex;
+    background: #333;
+    border-radius: 4px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.layout-btn {
+    background: transparent;
+    border: none;
+    color: #ccc;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 0.8rem;
+}
+
+.layout-btn:hover {
+    background: #444;
+}
+
+.layout-btn.active {
+    background: #007acc;
+    color: white;
+}
+
+.layout-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Action Buttons */
+button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.2s;
 }
 
 .new-chat-btn {
-    background-color: #28a745;
+    background-color: #0e639c;
     color: white;
-    border: none;
-    border-radius: 5px;
-    padding: 5px 15px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.9rem;
-    transition: background-color 0.2s;
-    margin-right: 15px;
 }
 
 .new-chat-btn:hover {
-    background-color: #218838;
-}
-
-.new-chat-btn:active {
-    background-color: #1e7e34;
+    background-color: #1177bb;
 }
 
 .copy-chat-btn {
-    background-color: #17a2b8;
+    background-color: #2b5c5c;
     color: white;
-    border: none;
-    border-radius: 5px;
-    padding: 5px 15px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.9rem;
-    transition: background-color 0.2s;
-    margin-right: 15px;
+    border: 1px solid #387878;
 }
 
 .copy-chat-btn:hover {
-    background-color: #138496;
-}
-
-.copy-chat-btn:active {
-    background-color: #117a8b;
+    background-color: #387878;
 }
 
 .cross-check-btn {
-    background-color: #6f42c1;
+    background-color: #871094;
     color: white;
-    border: none;
-    border-radius: 5px;
-    padding: 5px 15px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.9rem;
-    transition: background-color 0.2s;
-    margin-right: 15px;
 }
 
 .cross-check-btn:hover {
-    background-color: #5a32a3;
-}
-
-.cross-check-btn:active {
-    background-color: #4c2a8c;
+    background-color: #a013b0;
 }
 
 .scroll-sync-btn {
-    background-color: #6c757d;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    padding: 5px 15px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.9rem;
-    transition: background-color 0.2s;
-    margin-right: 15px;
-}
-
-.scroll-sync-btn:hover {
-    background-color: #5a6268;
+    background-color: #2d2d2d;
+    color: #ccc;
+    border: 1px solid #3e3e42;
 }
 
 .scroll-sync-btn.active {
-    background-color: #ffc107;
-    color: #212529;
+    background-color: #007acc;
+    color: white;
+    border-color: #007acc;
 }
 
-.scroll-sync-btn.active:hover {
-    background-color: #e0a800;
+/* Input Area */
+#input-area {
+    display: flex;
+    gap: 10px;
+    flex: 1;
+}
+
+#master-input {
+    flex: 1;
+    background-color: #3c3c3c;
+    border: 1px solid #3e3e42;
+    color: white;
+    padding: 10px;
+    border-radius: 4px;
+    resize: none;
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+
+#master-input:focus {
+    outline: 1px solid #007acc;
+}
+
+#send-btn {
+    background-color: #007acc;
+    color: white;
+    font-weight: bold;
+    width: 80px;
+}
+
+#send-btn:hover {
+    background-color: #0098ff;
+}
+
+/* Login Badge */
+#multi-ai-chat-login-badge {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }

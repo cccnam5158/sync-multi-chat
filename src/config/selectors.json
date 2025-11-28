@@ -64,5 +64,46 @@
             "div[role='main']",
             "div.scroll-container"
         ]
+    },
+    "grok": {
+        "inputSelector": [
+            "div.ProseMirror",
+            "div[contenteditable='true']"
+        ],
+        "sendButtonSelector": [
+            "button[aria-label='Submit']",
+            "button[aria-label='Send']"
+        ],
+        "loggedInSelector": [
+            "div.ProseMirror",
+            "div[contenteditable='true']"
+        ],
+        "contentSelector": [
+            "main",
+            "div[class*='message-container']",
+            "div[class*='chat-content']"
+        ]
+    },
+    "perplexity": {
+        "inputSelector": [
+            "#ask-input",
+            "div[data-lexical-editor='true']",
+            "div[contenteditable='true'][role='textbox']",
+            "div[contenteditable='true']"
+        ],
+        "sendButtonSelector": [
+            "button[aria-label='Submit']",
+            "button[type='submit'][aria-label]",
+            "div[role='button']"
+        ],
+        "loggedInSelector": [
+            "#ask-input",
+            "div[data-lexical-editor='true']",
+            "div[contenteditable='true']"
+        ],
+        "contentSelector": [
+            "main",
+            "div[role='main']"
+        ]
     }
 }

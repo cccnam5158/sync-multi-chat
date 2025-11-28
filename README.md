@@ -10,7 +10,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 ## 📋 Overview
 
 -   **Project Name**: Multi-AI Chat
--   **Version**: v0.3.0
+-   **Version**: v0.4.0
 -   **Platform**: Windows 10/11 (64-bit)
 -   **Tech Stack**: Electron, Node.js, HTML/CSS/JavaScript
 
@@ -18,6 +18,8 @@ This application allows you to enter a prompt once in a **Master Input** field a
 -   [ChatGPT](https://chat.openai.com)
 -   [Claude](https://claude.ai)
 -   [Gemini](https://gemini.google.com/app)
+-   [Grok](https://grok.com)
+-   [Perplexity](https://www.perplexity.ai)
 
 ---
 
@@ -28,6 +30,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 -   **Multi-Panel Layout**: View ChatGPT, Claude, and Gemini side-by-side (default 3-panel view).
 -   **Service Toggling**: Easily enable or disable specific AI services.
 -   **Session Persistence**: Automatically saves your login state (cookies/local storage) so you don't have to log in every time.
+-   **Advanced Layouts**: Support for **1x4** (Horizontal) and **2x2** (Grid) layouts with **resizable panels**.
 -   **Copy Chat Thread**: One-click copy of all chat threads to clipboard for easy sharing or saving.
 -   **Cross Check**: Automatically feed the chat history of other AIs into each AI to cross-reference answers.
 
@@ -99,8 +102,10 @@ This application allows you to enter a prompt once in a **Master Input** field a
 -   [ ] Response completion detection
 -   [ ] Error handling & recovery
 
-### Phase 2 (Planned)
--   Support for additional services (DeepSeek, Perplexity, Copilot)
+### Phase 2 (In Progress)
+-   [x] Support for additional services (Grok, Perplexity)
+-   [x] Advanced Layouts (2x2, Resizable)
+-   Support for DeepSeek, Copilot
 -   Response comparison tools (Diff view)
 -   Response copying/saving features (Enhanced)
 

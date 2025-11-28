@@ -15,6 +15,8 @@
             <div class="view-label">ChatGPT</div>
             <div class="view-label">Claude</div>
             <div class="view-label">Gemini</div>
+            <div class="view-label">Grok</div>
+            <div class="view-label">Perplexity</div>
         </div>
         <div id="controls-container">
             <div id="toggles">
@@ -22,9 +24,16 @@
                 <button id="copy-chat-btn" class="copy-chat-btn">Copy Chat Thread</button>
                 <button id="cross-check-btn" class="cross-check-btn">Cross Check</button>
                 <button id="scroll-sync-btn" class="scroll-sync-btn">📜 Scroll Sync: OFF</button>
+                <span class="layout-group">
+                    <button id="layout-1x3" class="layout-btn">1x3</button>
+                    <button id="layout-1x4" class="layout-btn active">1x4</button>
+                    <button id="layout-2x2" class="layout-btn">2x2</button>
+                </span>
                 <label><input type="checkbox" id="toggle-chatgpt" checked> ChatGPT</label>
                 <label><input type="checkbox" id="toggle-claude" checked> Claude</label>
                 <label><input type="checkbox" id="toggle-gemini" checked> Gemini</label>
+                <label><input type="checkbox" id="toggle-grok"> Grok</label>
+                <label><input type="checkbox" id="toggle-perplexity" checked> Perplexity</label>
             </div>
             <div id="input-area">
                 <textarea id="master-input"
