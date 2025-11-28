@@ -6,5 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onServiceStatusUpdate: (callback) => ipcRenderer.on('service-status-update', (event, data) => callback(data)),
     externalLogin: (service) => ipcRenderer.send('external-login', service),
     newChat: () => ipcRenderer.send('new-chat'),
-    copyChatThread: () => ipcRenderer.send('copy-chat-thread')
+    copyChatThread: () => ipcRenderer.send('copy-chat-thread'),
+    onChatThreadCopied: (callback) => ipcRenderer.on('chat-thread-copied', () => callback()),
+    crossCheck: () => ipcRenderer.send('cross-check')
 });

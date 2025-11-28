@@ -39,9 +39,9 @@
             "div.ProseMirror[contenteditable='true']"
         ],
         "contentSelector": [
+            ".flex-1.overflow-y-auto",
             "main",
-            "div[role='main']",
-            ".flex-1.overflow-y-auto"
+            "div[role='main']"
         ]
     },
     "gemini": {

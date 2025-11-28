@@ -12,6 +12,19 @@ copyChatBtn.addEventListener('click', () => {
     window.electronAPI.copyChatThread();
 });
 
+window.electronAPI.onChatThreadCopied(() => {
+    const originalText = copyChatBtn.innerText;
+    copyChatBtn.innerText = 'Copied!';
+    setTimeout(() => {
+        copyChatBtn.innerText = originalText;
+    }, 2000);
+});
+
+const crossCheckBtn = document.getElementById('cross-check-btn');
+crossCheckBtn.addEventListener('click', () => {
+    window.electronAPI.crossCheck();
+});
+
 const toggles = {
     chatgpt: document.getElementById('toggle-chatgpt'),
     claude: document.getElementById('toggle-claude'),

@@ -223,61 +223,65 @@ ipcMain.on('new-chat', () => {
     });
 });
 
-ipcMain.on('copy-chat-thread', async () => {
-    const promises = services.map(async (service) => {
-        if (views[service] && views[service].enabled) {
-            try {
-                const config = selectorsConfig[service];
-                const contentSelectors = config ? config.contentSelector : [];
+// Helper to extract text from a service
+async function extractTextFromService(service) {
+    if (views[service] && views[service].enabled) {
+        try {
+            const config = selectorsConfig[service];
+            const contentSelectors = config ? config.contentSelector : [];
 
-                // Script to execute in the renderer
-                const script = `
-                    (function() {
-                        const selectors = ${JSON.stringify(contentSelectors)};
-                        let content = '';
-                        
-                        // Try selectors first
-                        if (selectors && selectors.length > 0) {
-                            for (const selector of selectors) {
-                                const el = document.querySelector(selector);
-                                if (el) {
-                                    content = el.innerText;
-                                    break;
-                                }
+            const script = `
+                (function() {
+                    const selectors = ${JSON.stringify(contentSelectors)};
+                    let content = '';
+                    
+                    // Try selectors first
+                    if (selectors && selectors.length > 0) {
+                        for (const selector of selectors) {
+                            const el = document.querySelector(selector);
+                            if (el) {
+                                content = el.innerText;
+                                break;
                             }
                         }
-                        
-                        // Fallback to body if no content found
-                        if (!content) {
-                            content = document.body.innerText;
-                        }
-                        
-                        return content;
-                    })();
-                `;
+                    }
+                    
+                    // Fallback to body if no content found
+                    if (!content) {
+                        content = document.body.innerText;
+                    }
+                    
+                    return content;
+                })();
+            `;
 
-                // Execute with a timeout to prevent hanging
-                const text = await Promise.race([
-                    views[service].view.webContents.executeJavaScript(script),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
-                ]);
+            const text = await Promise.race([
+                views[service].view.webContents.executeJavaScript(script),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+            ]);
 
-                return { service, text };
-            } catch (e) {
-                console.error(`Error extracting text from ${service}:`, e);
-                return { service, text: `[Error extracting text: ${e.message}]` };
-            }
+            return text;
+        } catch (e) {
+            console.error(`Error extracting text from ${service}:`, e);
+            return `[Error extracting text: ${e.message}]`;
         }
-        return null;
+    }
+    return null;
+}
+
+ipcMain.on('copy-chat-thread', async (event) => {
+    const promises = services.map(async (service) => {
+        const text = await extractTextFromService(service);
+        return { service, text };
     });
 
     const results = await Promise.all(promises);
 
     let clipboardText = '';
     results.forEach(result => {
-        if (result) {
+        if (result.text) {
             clipboardText += `=== ${result.service.toUpperCase()} ===\n`;
-            clipboardText += result.text ? result.text.trim() : '[No content]';
+            clipboardText += result.text.trim();
             clipboardText += '\n\n' + '-'.repeat(40) + '\n\n';
         }
     });
@@ -285,6 +289,50 @@ ipcMain.on('copy-chat-thread', async () => {
     if (clipboardText) {
         clipboard.writeText(clipboardText);
         console.log('Chat threads copied to clipboard');
+        // Notify renderer for visual feedback
+        if (mainWindow) {
+            mainWindow.webContents.send('chat-thread-copied');
+        }
+    }
+});
+
+ipcMain.on('cross-check', async () => {
+    console.log('Starting Cross Check...');
+    // 1. Extract all texts
+    const results = {};
+    for (const service of services) {
+        const text = await extractTextFromService(service);
+        if (text) {
+            results[service] = text;
+        }
+    }
+
+    // 2. Construct prompts and send
+    for (const targetService of services) {
+        if (views[targetService] && views[targetService].enabled) {
+            let prompt = "";
+            for (const sourceService of services) {
+                if (sourceService !== targetService && results[sourceService]) {
+                    prompt += `=== ${sourceService.toUpperCase()} ===\n${results[sourceService].trim()}\n\n`;
+                }
+            }
+
+            if (prompt) {
+                const selectors = selectorsConfig[targetService];
+                if (selectors) {
+                    // Send with autoSend: true
+                    views[targetService].view.webContents.send('inject-prompt', { text: prompt, selectors, autoSend: true });
+                }
+            }
+        }
+    }
+});
+
+ipcMain.on('copy-single-chat-thread', async (event, text) => {
+    if (text) {
+        clipboard.writeText(text);
+        // Reply to the sender (the webview)
+        event.sender.send('single-chat-thread-copied');
     }
 });
 

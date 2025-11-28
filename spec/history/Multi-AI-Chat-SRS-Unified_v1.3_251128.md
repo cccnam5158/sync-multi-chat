@@ -678,49 +678,6 @@ The system shall format the copied text as follows:
 {Content}
 ```
 
-#### COPY-009: 복사 완료 피드백
-**[Event-Driven]**
-When the copy operation is successful, the system shall temporarily change the "Copy Chat Thread" button text to "Copied!" for 2 seconds before reverting to the original text.
-
-#### COPY-010: 개별 패널 복사 버튼
-**[Ubiquitous]**
-The system shall display a floating "Copy" button below the "Reload" button in each Service Panel. Clicking this button shall copy only that specific service's chat thread to the clipboard with visual feedback.
-
----
-
-### 4.12 교차 검증 (CROSS)
-
-#### CROSS-001: 교차 검증 버튼
-**[Ubiquitous]**
-The system shall display a "Cross Check" button in the control panel, adjacent to the "Copy Chat Thread" button.
-
-#### CROSS-002: 교차 검증 로직
-**[Event-Driven]**
-When the user clicks the "Cross Check" button, the system shall:
-1. Extract chat history from all currently enabled and active Service Panels.
-2. Construct a specific prompt for each enabled service that includes the chat history of *other* enabled services.
-3. Inject the constructed prompt into each service's input field.
-4. Automatically trigger the send action.
-
-#### CROSS-003: 프롬프트 구성
-**[Ubiquitous]**
-The system shall construct the prompt for a target service (e.g., Service A) as follows:
-```text
-[Service B Thread]
-...
-[Service C Thread]
-...
-```
-It shall exclude the target service's own thread from its input.
-
-#### CROSS-004: 비활성 패널 처리
-**[State-Driven]**
-While a service panel is disabled or closed, the system shall exclude its content from the cross-check context and shall not send a prompt to that service.
-
-#### CROSS-005: 빈 컨텐츠 처리
-**[Unwanted]**
-If a service's thread is empty, then the system shall exclude it from the context provided to other services.
-
 ---
 
 ## 5. 비기능 요구사항 (NFR)
