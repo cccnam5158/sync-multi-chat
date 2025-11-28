@@ -2,7 +2,7 @@
 ## Software Requirements Specification (SRS)
 ### EARS (Easy Approach to Requirements Syntax) 기반 통합 요구사항 명세서
 
-**문서 버전**: 1.2 (Copy Chat Thread 기능 추가)  
+**문서 버전**: 0.3 (Copy Chat Thread 기능 추가)  
 **작성일**: 2025-11-27  
 **프로젝트명**: Multi-AI Chat (코드명: MAPB - Multi AI Prompt Broadcaster / Clash of LLMs)
 

@@ -10,7 +10,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 ## 📋 Overview
 
 -   **Project Name**: Multi-AI Chat
--   **Version**: 1.0.0
+-   **Version**: v0.3.0
 -   **Platform**: Windows 10/11 (64-bit)
 -   **Tech Stack**: Electron, Node.js, HTML/CSS/JavaScript
 

@@ -1,7 +1,7 @@
 # Implementation Report: Copy Chat Thread Improvements & Cross Check
 
 **Date**: 2025-11-28
-**Version**: 1.3
+**Version**: 0.3
 **Feature**: Copy Chat Thread Improvements & Cross Check
 
 ## 1. Overview
