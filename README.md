@@ -28,6 +28,8 @@ This application allows you to enter a prompt once in a **Master Input** field a
 -   **Multi-Panel Layout**: View ChatGPT, Claude, and Gemini side-by-side (default 3-panel view).
 -   **Service Toggling**: Easily enable or disable specific AI services.
 -   **Session Persistence**: Automatically saves your login state (cookies/local storage) so you don't have to log in every time.
+-   **Copy Chat Thread**: One-click copy of all chat threads to clipboard for easy sharing or saving.
+-   **Cross Check**: Automatically feed the chat history of other AIs into each AI to cross-reference answers.
 
 ### Security & Privacy
 -   **Sandboxed Environment**: Each service runs in an isolated `BrowserView` with context isolation.
@@ -86,15 +88,21 @@ This application allows you to enter a prompt once in a **Master Input** field a
     -   Press **Enter** (or click Send) to broadcast the message to all enabled services.
     -   Use **Ctrl+Enter** to force send.
     -   Use **Ctrl+Shift+Enter** or click the **New Chat** button to start a new conversation in all active panels.
+3.  **Advanced Features**:
+    -   **Copy Chat Thread**: Click the **Copy Chat Thread** button to copy the entire conversation history from all active panels to your clipboard.
+    -   **Cross Check**: Click the **Cross Check** button to have each AI review the answers provided by the other AIs.
+    -   **Individual Copy**: Use the floating copy button (📋) in each panel to copy just that service's thread.
 -   [x] Basic multi-view architecture
 -   [x] Prompt broadcasting
+-   [x] Copy Chat Thread
+-   [x] Cross Check (Response Cross-referencing)
 -   [ ] Response completion detection
 -   [ ] Error handling & recovery
 
 ### Phase 2 (Planned)
 -   Support for additional services (DeepSeek, Perplexity, Copilot)
 -   Response comparison tools (Diff view)
--   Response copying/saving features
+-   Response copying/saving features (Enhanced)
 
 ### Phase 3 (Future)
 -   Prompt templates
