@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, ipcMain, session } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -221,6 +221,71 @@ ipcMain.on('new-chat', () => {
             views[service].view.webContents.loadURL(url);
         }
     });
+});
+
+ipcMain.on('copy-chat-thread', async () => {
+    const promises = services.map(async (service) => {
+        if (views[service] && views[service].enabled) {
+            try {
+                const config = selectorsConfig[service];
+                const contentSelectors = config ? config.contentSelector : [];
+
+                // Script to execute in the renderer
+                const script = `
+                    (function() {
+                        const selectors = ${JSON.stringify(contentSelectors)};
+                        let content = '';
+                        
+                        // Try selectors first
+                        if (selectors && selectors.length > 0) {
+                            for (const selector of selectors) {
+                                const el = document.querySelector(selector);
+                                if (el) {
+                                    content = el.innerText;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Fallback to body if no content found
+                        if (!content) {
+                            content = document.body.innerText;
+                        }
+                        
+                        return content;
+                    })();
+                `;
+
+                // Execute with a timeout to prevent hanging
+                const text = await Promise.race([
+                    views[service].view.webContents.executeJavaScript(script),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+                ]);
+
+                return { service, text };
+            } catch (e) {
+                console.error(`Error extracting text from ${service}:`, e);
+                return { service, text: `[Error extracting text: ${e.message}]` };
+            }
+        }
+        return null;
+    });
+
+    const results = await Promise.all(promises);
+
+    let clipboardText = '';
+    results.forEach(result => {
+        if (result) {
+            clipboardText += `=== ${result.service.toUpperCase()} ===\n`;
+            clipboardText += result.text ? result.text.trim() : '[No content]';
+            clipboardText += '\n\n' + '-'.repeat(40) + '\n\n';
+        }
+    });
+
+    if (clipboardText) {
+        clipboard.writeText(clipboardText);
+        console.log('Chat threads copied to clipboard');
+    }
 });
 
 // Handle status updates from services

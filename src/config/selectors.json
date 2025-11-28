@@ -17,6 +17,11 @@
             "button[data-testid='login-button']",
             "div[class*='btn']",
             "a[href*='/auth/login']"
+        ],
+        "contentSelector": [
+            "main",
+            "div[role='main']",
+            ".flex-1.overflow-hidden"
         ]
     },
     "claude": {
@@ -32,6 +37,11 @@
         ],
         "loggedInSelector": [
             "div.ProseMirror[contenteditable='true']"
+        ],
+        "contentSelector": [
+            "main",
+            "div[role='main']",
+            ".flex-1.overflow-y-auto"
         ]
     },
     "gemini": {
@@ -48,6 +58,11 @@
         "loggedInSelector": [
             "div[contenteditable='true']",
             "div[role='textbox']"
+        ],
+        "contentSelector": [
+            "main",
+            "div[role='main']",
+            "div.scroll-container"
         ]
     }
 }

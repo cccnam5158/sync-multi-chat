@@ -1,4 +1,5 @@
-body, html {
+body,
+html {
     margin: 0;
     padding: 0;
     height: 100%;
@@ -117,4 +118,25 @@ body, html {
 
 .new-chat-btn:active {
     background-color: #1e7e34;
+}
+
+.copy-chat-btn {
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 15px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9rem;
+    transition: background-color 0.2s;
+    margin-right: 15px;
+}
+
+.copy-chat-btn:hover {
+    background-color: #138496;
+}
+
+.copy-chat-btn:active {
+    background-color: #117a8b;
 }

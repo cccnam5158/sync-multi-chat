@@ -2,7 +2,7 @@
 ## Software Requirements Specification (SRS)
 ### EARS (Easy Approach to Requirements Syntax) 기반 통합 요구사항 명세서
 
-**문서 버전**: 1.1 (New Chat 기능 추가)  
+**문서 버전**: 1.2 (Copy Chat Thread 기능 추가)  
 **작성일**: 2025-11-27  
 **프로젝트명**: Multi-AI Chat (코드명: MAPB - Multi AI Prompt Broadcaster / Clash of LLMs)
 
@@ -309,9 +309,9 @@ When the user sends a prompt, the system shall determine the active target servi
 **[Event-Driven]**  
 When the user triggers send from the Master Input, the system shall use IPC (Inter-Process Communication) to broadcast the text data to all enabled BrowserViews.
 
-#### INPUT-008: 입력창 셀렉터 설정
+#### INPUT-008: DOM 셀렉터 설정
 **[Ubiquitous]**  
-The system shall maintain a Selector Config file containing DOM selectors for each service's input field, send button, and login indicators.
+The system shall maintain a Selector Config file containing DOM selectors for each service's input field, send button, login indicators, and content area.
 
 ```json
 {
@@ -330,6 +330,10 @@ The system shall maintain a Selector Config file containing DOM selectors for ea
     "loginButtonSelector": [
       "button[data-testid='login-button']",
       "div[class*='btn']"
+    ],
+    "contentSelector": [
+      "main",
+      ".flex-1.overflow-hidden"
     ]
   },
   "claude": {
@@ -343,6 +347,10 @@ The system shall maintain a Selector Config file containing DOM selectors for ea
     ],
     "loggedInSelector": [
       "div.ProseMirror[contenteditable='true']"
+    ],
+    "contentSelector": [
+      "div.flex-1.overflow-y-auto",
+      "main"
     ]
   },
   "gemini": {
@@ -356,6 +364,10 @@ The system shall maintain a Selector Config file containing DOM selectors for ea
     ],
     "loggedInSelector": [
       "div[contenteditable='true']"
+    ],
+    "contentSelector": [
+      "main",
+      "div[role='main']"
     ]
   }
 }
@@ -625,6 +637,49 @@ Where URL navigation fails to start a new chat (e.g., redirects to old chat), th
 
 ---
 
+### 4.11 대화 내용 복사 (COPY)
+
+#### COPY-001: 복사 버튼 표시
+**[Ubiquitous]**  
+The system shall display a "Copy Chat Thread" button in the control panel, adjacent to the "New Chat" button.
+
+#### COPY-002: 대화 내용 추출
+**[Event-Driven]**  
+When the user clicks the "Copy Chat Thread" button, the system shall extract the text content from all currently enabled Service Panels.
+
+#### COPY-003: 클립보드 저장
+**[Event-Driven]**  
+When the text content has been extracted from all enabled services, the system shall format the content with service headers and write it to the system clipboard.
+
+#### COPY-004: 추출 셀렉터 설정
+**[Ubiquitous]**  
+The system shall use the `contentSelector` defined in `selectors.json` to identify the chat container element for each service.
+
+#### COPY-005: 추출 폴백
+**[Unwanted]**  
+If the configured `contentSelector` fails to find an element, then the system shall fall back to extracting `document.body.innerText`.
+
+#### COPY-006: 비동기 병렬 처리
+**[Ubiquitous]**  
+The system shall execute content extraction for all enabled services in parallel to minimize waiting time.
+
+#### COPY-007: 타임아웃
+**[Unwanted]**  
+If a service fails to return content within a configurable timeout (default: 2 seconds), then the system shall exclude that service's content and proceed with the rest.
+
+#### COPY-008: 데이터 포맷팅
+**[Ubiquitous]**  
+The system shall format the copied text as follows:
+```text
+=== {ServiceName} ===
+{Content}
+
+=== {ServiceName} ===
+{Content}
+```
+
+---
+
 ## 5. 비기능 요구사항 (NFR)
 
 ### 5.1 성능 (PERF)
@@ -739,7 +794,6 @@ The system shall separate service-agnostic logic (broadcast, UI layout, IPC) fro
 ### Phase 2
 - DeepSeek, Perplexity, Copilot 등 추가 서비스 지원
 - 응답 내용 비교 (Diff View) 기능
-- 응답 내용 복사/저장 기능
 
 ### Phase 3
 - 프롬프트 템플릿 저장 및 불러오기

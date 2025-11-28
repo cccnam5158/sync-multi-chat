@@ -6,6 +6,12 @@ const newChatBtn = document.getElementById('new-chat-btn');
 newChatBtn.addEventListener('click', () => {
     window.electronAPI.newChat();
 });
+
+const copyChatBtn = document.getElementById('copy-chat-btn');
+copyChatBtn.addEventListener('click', () => {
+    window.electronAPI.copyChatThread();
+});
+
 const toggles = {
     chatgpt: document.getElementById('toggle-chatgpt'),
     claude: document.getElementById('toggle-claude'),
