@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     newChat: () => ipcRenderer.send('new-chat'),
     copyChatThread: () => ipcRenderer.send('copy-chat-thread'),
     onChatThreadCopied: (callback) => ipcRenderer.on('chat-thread-copied', () => callback()),
-    crossCheck: () => ipcRenderer.send('cross-check')
+    crossCheck: () => ipcRenderer.send('cross-check'),
+    toggleScrollSync: (isEnabled) => ipcRenderer.send('toggle-scroll-sync', isEnabled)
 });

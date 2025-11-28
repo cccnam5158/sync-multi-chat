@@ -319,7 +319,6 @@ ipcRenderer.on('single-chat-thread-copied', () => {
 });
 
 // Call it
-// Call it
 window.addEventListener('DOMContentLoaded', () => {
     createReloadButton();
     createCopyButton();
@@ -330,3 +329,64 @@ setInterval(() => {
     createReloadButton();
     createCopyButton();
 }, 2000);
+
+// Zoom Sync Handler
+let scrollSyncEnabled = false;
+
+ipcRenderer.on('scroll-sync-state', (event, isEnabled) => {
+    scrollSyncEnabled = isEnabled;
+    console.log('Scroll Sync State:', isEnabled);
+});
+
+ipcRenderer.on('apply-scroll', (event, { deltaX, deltaY }) => {
+    // 1. Try scrolling window first
+    window.scrollBy(deltaX, deltaY);
+
+    // 2. Find the likely main scroll container
+    // Chat apps usually have a main div with overflow-y: auto/scroll
+    const scrollableElements = Array.from(document.querySelectorAll('*')).filter(el => {
+        // Optimization: Skip some obviously non-scrollable inline elements if needed, 
+        // but for compatibility with all frameworks (Angular/React/etc), let's check styles.
+
+        const style = window.getComputedStyle(el);
+        // Check for overflow-y explicitly
+        const isScrollable = (style.overflowY === 'auto' || style.overflowY === 'scroll');
+
+        // Also check if it actually has content to scroll
+        const canScroll = el.scrollHeight > el.clientHeight;
+
+        return isScrollable && canScroll;
+    });
+
+    if (scrollableElements.length > 0) {
+        // Sort by scrollHeight (largest content usually means main chat)
+        scrollableElements.sort((a, b) => b.scrollHeight - a.scrollHeight);
+
+        // Scroll the largest scrollable element
+        const target = scrollableElements[0];
+        target.scrollBy(deltaX, deltaY);
+
+        // Fallback: If there are multiple large containers, try the second one too.
+        if (scrollableElements.length > 1) {
+            scrollableElements[1].scrollBy(deltaX, deltaY);
+        }
+    } else {
+        // Fallback for Gemini if it uses document body scrolling but reported as hidden/special
+        document.documentElement.scrollBy(deltaX, deltaY);
+        document.body.scrollBy(deltaX, deltaY);
+    }
+});
+
+window.addEventListener('wheel', (event) => {
+    if (event.ctrlKey) {
+        // Zoom
+        event.preventDefault();
+        const direction = event.deltaY < 0 ? 'in' : 'out';
+        ipcRenderer.send('zoom-sync', direction);
+    } else if (scrollSyncEnabled) {
+        // Scroll Sync
+        // We don't prevent default here because we want the user to scroll THIS view naturally.
+        // We just notify others.
+        ipcRenderer.send('sync-scroll', { deltaX: event.deltaX, deltaY: event.deltaY });
+    }
+}, { passive: false });

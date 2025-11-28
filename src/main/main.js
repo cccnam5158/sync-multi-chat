@@ -22,6 +22,7 @@ const serviceUrls = {
 };
 
 let selectorsConfig = {};
+let currentZoomLevel = 0.9; // Default zoom level
 
 // Load selectors
 try {
@@ -110,6 +111,10 @@ function createServiceView(service) {
 
     // Send config when page finishes loading
     view.webContents.on('did-finish-load', () => {
+
+        view.webContents.setZoomFactor(currentZoomLevel);
+        view.webContents.send('scroll-sync-state', isScrollSyncEnabled);
+
         if (selectorsConfig[service]) {
             view.webContents.send('set-config', { config: selectorsConfig[service], service });
         }
@@ -333,6 +338,52 @@ ipcMain.on('copy-single-chat-thread', async (event, text) => {
         clipboard.writeText(text);
         // Reply to the sender (the webview)
         event.sender.send('single-chat-thread-copied');
+    }
+});
+
+ipcMain.on('zoom-sync', (event, direction) => {
+    const zoomStep = 0.1;
+    if (direction === 'in') {
+        currentZoomLevel = Math.min(currentZoomLevel + zoomStep, 3.0); // Max 300%
+    } else {
+        currentZoomLevel = Math.max(currentZoomLevel - zoomStep, 0.5); // Min 50%
+    }
+
+    // Apply to all active views
+    services.forEach(service => {
+        if (views[service] && views[service].view) {
+            views[service].view.webContents.setZoomFactor(currentZoomLevel);
+        }
+    });
+
+    console.log(`Zoom level updated to: ${currentZoomLevel.toFixed(1)}`);
+});
+
+let isScrollSyncEnabled = false;
+
+ipcMain.on('toggle-scroll-sync', (event, isEnabled) => {
+    isScrollSyncEnabled = isEnabled;
+    console.log(`Scroll Sync toggled: ${isEnabled}`);
+    // Notify all views about the state change
+    services.forEach(service => {
+        if (views[service] && views[service].view) {
+            views[service].view.webContents.send('scroll-sync-state', isEnabled);
+        }
+    });
+});
+
+ipcMain.on('sync-scroll', (event, { deltaX, deltaY }) => {
+    if (!isScrollSyncEnabled) return;
+
+    const senderWebContents = event.sender;
+    const senderService = Object.keys(views).find(key => views[key].view.webContents === senderWebContents);
+
+    if (senderService) {
+        services.forEach(service => {
+            if (service !== senderService && views[service] && views[service].view) {
+                views[service].view.webContents.send('apply-scroll', { deltaX, deltaY });
+            }
+        });
     }
 });
 

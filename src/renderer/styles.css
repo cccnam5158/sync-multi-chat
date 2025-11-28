@@ -161,3 +161,29 @@ html {
 .cross-check-btn:active {
     background-color: #4c2a8c;
 }
+
+.scroll-sync-btn {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 15px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9rem;
+    transition: background-color 0.2s;
+    margin-right: 15px;
+}
+
+.scroll-sync-btn:hover {
+    background-color: #5a6268;
+}
+
+.scroll-sync-btn.active {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.scroll-sync-btn.active:hover {
+    background-color: #e0a800;
+}

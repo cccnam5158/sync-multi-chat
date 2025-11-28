@@ -25,6 +25,21 @@ crossCheckBtn.addEventListener('click', () => {
     window.electronAPI.crossCheck();
 });
 
+const scrollSyncBtn = document.getElementById('scroll-sync-btn');
+let isScrollSyncEnabled = false;
+scrollSyncBtn.addEventListener('click', () => {
+    isScrollSyncEnabled = !isScrollSyncEnabled;
+    window.electronAPI.toggleScrollSync(isScrollSyncEnabled);
+
+    if (isScrollSyncEnabled) {
+        scrollSyncBtn.classList.add('active');
+        scrollSyncBtn.innerText = '📜 Scroll Sync: ON';
+    } else {
+        scrollSyncBtn.classList.remove('active');
+        scrollSyncBtn.innerText = '📜 Scroll Sync: OFF';
+    }
+});
+
 const toggles = {
     chatgpt: document.getElementById('toggle-chatgpt'),
     claude: document.getElementById('toggle-claude'),
