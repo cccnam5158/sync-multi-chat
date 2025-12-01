@@ -402,6 +402,15 @@ ipcMain.on('external-login', async (event, service) => {
     console.log(`Launching Chrome for ${service} login...`);
 
     try {
+        // 0. Cleanup existing Chrome instances for this profile
+        try {
+            const { execSync } = require('child_process');
+            execSync('pkill -f "chrome-auth-profile"');
+            console.log('Cleaned up existing Chrome instances');
+        } catch (e) {
+            // Ignore error if no process found
+        }
+
         // 1. Find Chrome Path
         const chromeLauncher = await import('chrome-launcher');
         const chromePath = chromeLauncher.Launcher.getInstallations()[0];
@@ -414,9 +423,8 @@ ipcMain.on('external-login', async (event, service) => {
         const puppeteer = require('puppeteer-extra');
         const StealthPlugin = require('puppeteer-extra-plugin-stealth');
         const stealth = StealthPlugin();
-        // Remove navigator.webdriver evasion to avoid --disable-blink-features=AutomationControlled flag
-        // which causes "unsupported command-line flag" warning
-        stealth.enabledEvasions.delete('navigator.webdriver');
+        // Re-enable navigator.webdriver evasion for Google Sign-in to work
+        // stealth.enabledEvasions.delete('navigator.webdriver'); 
         puppeteer.use(stealth);
 
         // 2. Launch Chrome with Remote Debugging
@@ -428,18 +436,19 @@ ipcMain.on('external-login', async (event, service) => {
             ignoreDefaultArgs: ['--enable-automation'],
             args: [
                 '--no-first-run',
-                '--no-default-browser-check'
+                '--no-default-browser-check',
+                '--disable-blink-features=AutomationControlled'
             ]
         });
 
         const page = (await browser.pages())[0];
 
-        // Manually mock navigator.webdriver since we disabled the evasion
-        await page.evaluateOnNewDocument(() => {
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined,
-            });
-        });
+        // Manual mocking is no longer needed as stealth plugin handles it
+        // await page.evaluateOnNewDocument(() => {
+        //     Object.defineProperty(navigator, 'webdriver', {
+        //         get: () => undefined,
+        //     });
+        // });
 
         await page.goto(serviceUrls[service]);
 
