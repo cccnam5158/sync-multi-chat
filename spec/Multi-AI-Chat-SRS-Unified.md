@@ -2,8 +2,8 @@
 ## Software Requirements Specification (SRS)
 ### EARS (Easy Approach to Requirements Syntax) 기반 통합 요구사항 명세서
 
-**문서 버전**: 0.4 (Grok, Perplexity 추가 및 리사이징 레이아웃 구현)  
-**작성일**: 2025-11-28  
+**문서 버전**: 0.4.1 (로그인 프로세스 개선 및 쿠키 동기화 구현)  
+**작성일**: 2025-12-01  
 **프로젝트명**: Multi-AI Chat (코드명: MAPB - Multi AI Prompt Broadcaster / Clash of LLMs)
 
 ---

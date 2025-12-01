@@ -1,5 +1,19 @@
 # Release Notes
 
+## v0.4.1 (2025-12-01)
+
+### 🔧 Fixes & Improvements
+*   **Robust External Login**:
+    *   **Cloudflare Bypass**: Implemented `puppeteer-extra-plugin-stealth` to successfully bypass "Verify you are human" checks on ChatGPT.
+    *   **Cookie Synchronization**: Added logic to capture session cookies from the external Chrome login window and inject them into the Electron app, ensuring persistent login state.
+    *   **Manual Close Workflow**: The external Chrome window now stays open after login detection, allowing users to manually close it when ready, preventing premature closure.
+    *   **Gemini Login Detection**: Updated DOM selectors to correctly detect Gemini's logged-in state and remove the "Login Required" badge.
+*   **Stability**:
+    *   Fixed `blink.mojom.WidgetHost` startup error by optimizing `BrowserView` initialization sequence.
+    *   Fixed `__Host-` cookie prefix violation errors during sync.
+
+---
+
 ## v0.4.0 (2025-11-28)
 
 ### 🚀 New Features

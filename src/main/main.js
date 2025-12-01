@@ -46,14 +46,18 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false
-        }
+        },
+        show: false // Wait for ready-to-show
     });
 
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
-    // Create BrowserViews
-    services.forEach(service => {
-        createServiceView(service);
+    // Create BrowserViews only after main window is ready to avoid startup errors
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.show();
+        services.forEach(service => {
+            createServiceView(service);
+        });
     });
 
     // Initial Layout is now handled by renderer sending bounds
@@ -393,19 +397,27 @@ ipcMain.on('zoom-sync', (event, direction) => {
 
 // External Login Handler
 ipcMain.on('external-login', async (event, service) => {
-    const puppeteer = require('puppeteer-core');
-    const chromeLauncher = require('chrome-launcher');
     const axios = require('axios');
 
     console.log(`Launching Chrome for ${service} login...`);
 
     try {
         // 1. Find Chrome Path
+        const chromeLauncher = await import('chrome-launcher');
         const chromePath = chromeLauncher.Launcher.getInstallations()[0];
         if (!chromePath) {
             console.error('Chrome installation not found');
             return;
         }
+
+        // Use puppeteer-extra with stealth plugin
+        const puppeteer = require('puppeteer-extra');
+        const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+        const stealth = StealthPlugin();
+        // Remove navigator.webdriver evasion to avoid --disable-blink-features=AutomationControlled flag
+        // which causes "unsupported command-line flag" warning
+        stealth.enabledEvasions.delete('navigator.webdriver');
+        puppeteer.use(stealth);
 
         // 2. Launch Chrome with Remote Debugging
         const browser = await puppeteer.launch({
@@ -413,6 +425,7 @@ ipcMain.on('external-login', async (event, service) => {
             headless: false,
             defaultViewport: null,
             userDataDir: path.join(app.getPath('userData'), 'chrome-auth-profile'),
+            ignoreDefaultArgs: ['--enable-automation'],
             args: [
                 '--no-first-run',
                 '--no-default-browser-check'
@@ -420,6 +433,14 @@ ipcMain.on('external-login', async (event, service) => {
         });
 
         const page = (await browser.pages())[0];
+
+        // Manually mock navigator.webdriver since we disabled the evasion
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined,
+            });
+        });
+
         await page.goto(serviceUrls[service]);
 
         // 3. Monitor for Login Success (Cookie Check)
@@ -434,11 +455,13 @@ ipcMain.on('external-login', async (event, service) => {
                 let isLoggedIn = false;
 
                 if (service === 'chatgpt') {
-                    isLoggedIn = cookies.some(c => c.name === '__Secure-next-auth.session-token');
+                    // Based on user image: __Secure-next-auth.session-token, oai-did, _cf_bm
+                    isLoggedIn = cookies.some(c => c.name === '__Secure-next-auth.session-token' || c.name === 'oai-did');
                 } else if (service === 'claude') {
                     isLoggedIn = cookies.some(c => c.name === 'sessionKey');
                 } else if (service === 'gemini') {
-                    isLoggedIn = cookies.some(c => c.name === 'SID' && c.domain.includes('.google.com'));
+                    // Based on user image: SID, __Secure-1PSID, __Secure-3PSID
+                    isLoggedIn = cookies.some(c => c.name === 'SID' || c.name === '__Secure-1PSID' || c.name === '__Secure-3PSID');
                 } else if (service === 'grok') {
                     isLoggedIn = cookies.some(c => c.name.includes('sso') || c.name === 'auth_token' || c.name.includes('grok'));
                 } else if (service === 'perplexity') {
@@ -451,19 +474,46 @@ ipcMain.on('external-login', async (event, service) => {
 
                 if (isLoggedIn && isNotLoginPage) {
                     clearInterval(checkLogin);
-                    console.log(`${service} login detected! Closing Chrome...`);
-                    await browser.close();
+                    console.log(`${service} login detected! Syncing cookies...`);
 
-                    // Reload the Electron view
+                    // Sync cookies to Electron session
                     if (views[service] && views[service].view) {
-                        console.log(`Reloading service view: ${service}`);
+                        const electronCookies = views[service].view.webContents.session.cookies;
+                        for (const cookie of cookies) {
+                            try {
+                                const cookieDetails = {
+                                    url: serviceUrls[service],
+                                    name: cookie.name,
+                                    value: cookie.value,
+                                    domain: cookie.domain,
+                                    path: cookie.path,
+                                    secure: cookie.secure,
+                                    httpOnly: cookie.httpOnly,
+                                    expirationDate: cookie.expires
+                                };
+
+                                // Fix for __Host- prefix: Must NOT have a domain attribute
+                                if (cookie.name.startsWith('__Host-')) {
+                                    delete cookieDetails.domain;
+                                } else if (cookieDetails.domain && cookieDetails.domain.startsWith('.')) {
+                                    // Remove leading dot from domain if present for Electron compatibility
+                                    // Electron sometimes prefers url to match domain. 
+                                    // If domain is .google.com, url https://gemini.google.com works.
+                                }
+
+                                await electronCookies.set(cookieDetails);
+                            } catch (err) {
+                                console.error(`Failed to set cookie ${cookie.name}:`, err);
+                            }
+                        }
+                        console.log(`Cookies synced for ${service}`);
+
+                        // Force reload to apply cookies immediately
                         views[service].view.webContents.reload();
                     }
 
-                    // Notify renderer
-                    if (mainWindow) {
-                        mainWindow.webContents.send('external-login-closed');
-                    }
+                    console.log(`${service} login detected! Keeping Chrome open for manual close...`);
+                    // Do NOT close browser automatically. User will close it.
                 }
             } catch (e) {
                 clearInterval(checkLogin);
@@ -474,6 +524,14 @@ ipcMain.on('external-login', async (event, service) => {
         // Handle manual close
         browser.on('disconnected', () => {
             clearInterval(checkLogin);
+            console.log('Chrome disconnected (closed by user). Reloading view...');
+
+            // Reload the Electron view
+            if (views[service] && views[service].view) {
+                console.log(`Reloading service view: ${service}`);
+                views[service].view.webContents.reload();
+            }
+
             if (mainWindow) {
                 mainWindow.webContents.send('external-login-closed');
             }

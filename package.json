@@ -1,6 +1,6 @@
 {
   "name": "sync-multi-chat",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "",
   "main": "src/main/main.js",
   "scripts": {
@@ -19,9 +19,13 @@
     "electron-packager": "^17.1.2"
   },
   "dependencies": {
+    "axios": "^1.13.2",
+    "chrome-launcher": "^1.2.1",
     "electron-log": "^5.0.0",
     "electron-store": "^8.1.0",
-    "puppeteer-core": "^24.31.0"
+    "puppeteer-core": "^24.31.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "build": {
     "appId": "com.multiaichat.app",

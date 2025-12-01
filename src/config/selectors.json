@@ -57,7 +57,9 @@
         ],
         "loggedInSelector": [
             "div[contenteditable='true']",
-            "div[role='textbox']"
+            "div[role='textbox']",
+            "a[href*='gemini.google.com']",
+            "div[data-test-id='chat-history-button']"
         ],
         "contentSelector": [
             "main",
