@@ -1,6 +1,13 @@
 const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+let robot;
+try {
+    robot = require('robotjs');
+} catch (e) {
+    console.warn('robotjs not available:', e.message);
+}
 
 // Disable automation features to avoid detection
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
@@ -155,11 +162,12 @@ ipcMain.on('set-layout', (event, layout) => {
 });
 
 // IPC Handlers
-ipcMain.on('send-prompt', async (event, text, activeServices) => {
+ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) => {
     const serviceKeys = Object.keys(activeServices);
+    const hasFiles = filePaths && filePaths.length > 0;
 
     // Process each service independently to prevent one failure from blocking others
-    serviceKeys.forEach(async (service) => {
+    const promises = serviceKeys.map(async (service) => {
         if (activeServices[service] && views[service]) {
             try {
                 const selectors = selectorsConfig[service];
@@ -170,7 +178,301 @@ ipcMain.on('send-prompt', async (event, text, activeServices) => {
                     }
 
                     if (views[service].view && !views[service].view.webContents.isDestroyed()) {
-                        views[service].view.webContents.send('inject-prompt', { text, selectors, autoSend: true });
+                        const wc = views[service].view.webContents;
+
+                        // 1. Handle File Uploads if present
+                        if (filePaths && filePaths.length > 0 && selectors.fileInputSelector) {
+                            try {
+                                console.log(`Uploading files to ${service}...`);
+                                // Attach debugger
+                                try {
+                                    wc.debugger.attach('1.3');
+                                } catch (err) {
+                                    console.log('Debugger already attached');
+                                }
+
+                                await wc.debugger.sendCommand('DOM.enable');
+                                const { root } = await wc.debugger.sendCommand('DOM.getDocument');
+
+                                // Find file input
+                                let nodeId = null;
+
+                                // Special handling for Gemini: Use JavaScript to find/access file input
+                                // Avoid clicking menu button to prevent file dialog from opening
+                                if (service === 'gemini' && selectors.uploadIconSelector) {
+                                    console.log(`[Gemini] Searching for file input via JavaScript...`);
+                                    try {
+                                        // Try to find file input using JavaScript (can find hidden inputs too)
+                                        const fileInputFound = await wc.executeJavaScript(`
+                                            (function() {
+                                                // Search for all file inputs, including hidden ones
+                                                const inputs = document.querySelectorAll('input[type="file"]');
+                                                if (inputs.length > 0) {
+                                                    console.log('[Gemini JS] Found', inputs.length, 'file input(s)');
+                                                    return true;
+                                                }
+                                                
+                                                // Try to find within shadow DOM
+                                                const allElements = document.querySelectorAll('*');
+                                                for (const el of allElements) {
+                                                    if (el.shadowRoot) {
+                                                        const shadowInputs = el.shadowRoot.querySelectorAll('input[type="file"]');
+                                                        if (shadowInputs.length > 0) {
+                                                            console.log('[Gemini JS] Found', shadowInputs.length, 'file input(s) in shadow DOM');
+                                                            return true;
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                return false;
+                                            })()
+                                        `);
+
+                                        if (fileInputFound) {
+                                            console.log(`[Gemini] File input found via JavaScript, proceeding without button clicks`);
+                                        } else {
+                                            console.log(`[Gemini] No file input found, attempting button clicks to create it...`);
+                                            // Fallback: Click buttons to create file input
+                                            if (selectors.uploadMenuButtonSelector) {
+                                                try {
+                                                    // Step 1: Click upload icon
+                                                    let iconClicked = false;
+                                                    for (const iconSel of selectors.uploadIconSelector) {
+                                                        try {
+                                                            const iconRes = await wc.debugger.sendCommand('DOM.querySelector', { nodeId: root.nodeId, selector: iconSel });
+                                                            if (iconRes.nodeId) {
+                                                                const box = await wc.debugger.sendCommand('DOM.getBoxModel', { nodeId: iconRes.nodeId });
+                                                                if (box.model) {
+                                                                    const x = (box.model.content[0] + box.model.content[2]) / 2;
+                                                                    const y = (box.model.content[1] + box.model.content[5]) / 2;
+                                                                    await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+                                                                    await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+                                                                    iconClicked = true;
+                                                                    console.log(`[Gemini] Upload icon clicked`);
+                                                                    await new Promise(resolve => setTimeout(resolve, 300));
+                                                                    break;
+                                                                }
+                                                            }
+                                                        } catch (e) { /* ignore */ }
+                                                    }
+
+                                                    // Step 2: Click menu button
+                                                    if (iconClicked) {
+                                                        for (const menuSel of selectors.uploadMenuButtonSelector) {
+                                                            try {
+                                                                const newRoot = await wc.debugger.sendCommand('DOM.getDocument');
+                                                                const menuRes = await wc.debugger.sendCommand('DOM.querySelector', { nodeId: newRoot.root.nodeId, selector: menuSel });
+                                                                if (menuRes.nodeId) {
+                                                                    const box = await wc.debugger.sendCommand('DOM.getBoxModel', { nodeId: menuRes.nodeId });
+                                                                    if (box.model) {
+                                                                        const x = (box.model.content[0] + box.model.content[2]) / 2;
+                                                                        const y = (box.model.content[1] + box.model.content[5]) / 2;
+                                                                        await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+                                                                        await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+                                                                        console.log(`[Gemini] Menu button clicked, waiting for file input...`);
+                                                                        await new Promise(resolve => setTimeout(resolve, 200));
+                                                                        break;
+                                                                    }
+                                                                }
+                                                            } catch (e) { /* ignore */ }
+                                                        }
+                                                    }
+                                                } catch (e) {
+                                                    console.error(`[Gemini] Button click fallback failed:`, e);
+                                                }
+                                            }
+                                        }
+                                    } catch (e) {
+                                        console.error(`[Gemini] JavaScript search failed:`, e);
+                                    }
+                                }
+
+                                // Now search for file input (for all services, including Gemini after button clicks)
+                                for (const selector of selectors.fileInputSelector) {
+                                    try {
+                                        // Get fresh DOM for Gemini
+                                        const currentRoot = service === 'gemini' ?
+                                            (await wc.debugger.sendCommand('DOM.getDocument')).root :
+                                            root;
+
+                                        const result = await wc.debugger.sendCommand('DOM.querySelector', {
+                                            nodeId: currentRoot.nodeId,
+                                            selector: selector
+                                        });
+                                        if (result.nodeId) {
+                                            nodeId = result.nodeId;
+                                            console.log(`Found file input for ${service} with selector: ${selector}`);
+                                            break;
+                                        }
+                                    } catch (e) { /* ignore */ }
+                                }
+
+                                // Fallback 1: Search for all file inputs in the document
+                                if (!nodeId) {
+                                    try {
+                                        // Get fresh DOM for Gemini
+                                        const currentRoot = service === 'gemini' ?
+                                            (await wc.debugger.sendCommand('DOM.getDocument')).root :
+                                            root;
+
+                                        const allInputs = await wc.debugger.sendCommand('DOM.querySelectorAll', {
+                                            nodeId: currentRoot.nodeId,
+                                            selector: 'input[type="file"]'
+                                        });
+                                        if (allInputs.nodeIds && allInputs.nodeIds.length > 0) {
+                                            // Use the first file input found
+                                            nodeId = allInputs.nodeIds[0];
+                                            console.log(`Found file input for ${service} using fallback search (found ${allInputs.nodeIds.length} inputs)`);
+                                        }
+                                    } catch (e) {
+                                        console.error(`Fallback file input search failed for ${service}:`, e);
+                                    }
+                                }
+
+                                // Fallback 2: For Gemini specifically, try searching in shadow DOMs
+                                if (!nodeId && service === 'gemini') {
+                                    try {
+                                        console.log(`[Gemini] Attempting shadow DOM search...`);
+                                        const currentRoot = (await wc.debugger.sendCommand('DOM.getDocument')).root;
+                                        // Get all elements
+                                        const allElements = await wc.debugger.sendCommand('DOM.querySelectorAll', {
+                                            nodeId: currentRoot.nodeId,
+                                            selector: '*'
+                                        });
+
+                                        // Check each element for shadow root
+                                        for (const elementNodeId of allElements.nodeIds.slice(0, 100)) { // Limit to first 100 elements
+                                            try {
+                                                // Request shadow root
+                                                await wc.debugger.sendCommand('DOM.requestNode', { objectId: elementNodeId.toString() });
+                                                const shadowRoot = await wc.debugger.sendCommand('DOM.describeNode', {
+                                                    nodeId: elementNodeId
+                                                });
+
+                                                if (shadowRoot.node && shadowRoot.node.shadowRoots && shadowRoot.node.shadowRoots.length > 0) {
+                                                    const shadowRootNodeId = shadowRoot.node.shadowRoots[0].nodeId;
+                                                    // Try to find file input in this shadow root
+                                                    const shadowInputs = await wc.debugger.sendCommand('DOM.querySelectorAll', {
+                                                        nodeId: shadowRootNodeId,
+                                                        selector: 'input[type="file"]'
+                                                    });
+
+                                                    if (shadowInputs.nodeIds && shadowInputs.nodeIds.length > 0) {
+                                                        nodeId = shadowInputs.nodeIds[0];
+                                                        console.log(`[Gemini] Found file input in shadow DOM!`);
+                                                        break;
+                                                    }
+                                                }
+                                            } catch (e) { /* ignore */ }
+                                        }
+                                    } catch (e) {
+                                        console.error(`[Gemini] Shadow DOM search failed:`, e);
+                                    }
+                                }
+
+                                // Special delay for Grok to avoid Cloudflare
+                                if (service === 'grok' && nodeId) {
+                                    console.log(`[Grok] File input found, adding Cloudflare avoidance delay...`);
+                                    await new Promise(resolve => setTimeout(resolve, 5000));
+                                    console.log(`[Grok] Delay completed, proceeding with file upload`);
+                                }
+
+                                if (nodeId) {
+                                    await wc.debugger.sendCommand('DOM.setFileInputFiles', {
+                                        files: filePaths,
+                                        nodeId: nodeId
+                                    });
+                                    console.log(`Files uploaded to ${service}`);
+
+                                    // Close file dialog for Gemini using system-level ESC key
+                                    if (service === 'gemini' && robot) {
+                                        console.log(`[Gemini] Sending ESC key to close file dialog...`);
+                                        await new Promise(resolve => setTimeout(resolve, 200));
+
+                                        try {
+                                            robot.keyTap('escape');
+                                            console.log(`[Gemini] ESC key sent`);
+                                        } catch (e) {
+                                            console.error(`[Gemini] Failed to send ESC key:`, e);
+                                        }
+                                    }
+
+                                    // Verify file upload by checking for UI indicators
+                                    if (selectors.uploadedFileSelector) {
+                                        console.log(`[${service}] Verifying upload via UI indicators...`);
+                                        let uploadConfirmed = false;
+                                        const startTime = Date.now();
+                                        const timeout = 5000; // 5 seconds timeout
+
+                                        while (Date.now() - startTime < timeout) {
+                                            try {
+                                                // Check if any of the uploaded file selectors exist
+                                                const checkScript = `
+                                                    (function() {
+                                                        const selectors = ${JSON.stringify(selectors.uploadedFileSelector)};
+                                                        for (const sel of selectors) {
+                                                            if (document.querySelector(sel)) return true;
+                                                        }
+                                                        return false;
+                                                    })()
+                                                `;
+                                                const found = await wc.executeJavaScript(checkScript);
+                                                if (found) {
+                                                    uploadConfirmed = true;
+                                                    console.log(`[${service}] File upload confirmed via UI indicator`);
+                                                    break;
+                                                }
+                                            } catch (e) { /* ignore */ }
+                                            await new Promise(resolve => setTimeout(resolve, 500));
+                                        }
+
+                                        if (!uploadConfirmed) {
+                                            console.warn(`[${service}] Upload UI indicator not found within timeout, proceeding anyway...`);
+                                        }
+                                    }
+
+                                    // Wait longer for upload to process
+                                    const uploadDelay = service === 'grok' ? 4000 : 2000; // Extra time for Grok
+                                    await new Promise(resolve => setTimeout(resolve, uploadDelay));
+
+                                    // Wait for send button to be enabled (check up to 5 times)
+                                    for (let i = 0; i < 5; i++) {
+                                        try {
+                                            let sendBtnEnabled = false;
+                                            for (const btnSelector of selectors.sendButtonSelector) {
+                                                const btnResult = await wc.debugger.sendCommand('DOM.querySelector', {
+                                                    nodeId: root.nodeId,
+                                                    selector: btnSelector
+                                                });
+                                                if (btnResult.nodeId) {
+                                                    const attrs = await wc.debugger.sendCommand('DOM.getAttributes', {
+                                                        nodeId: btnResult.nodeId
+                                                    });
+                                                    // Check if button is not disabled
+                                                    if (!attrs.attributes.includes('disabled')) {
+                                                        sendBtnEnabled = true;
+                                                        console.log(`Send button enabled for ${service}`);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            if (sendBtnEnabled) break;
+                                        } catch (e) { /* ignore */ }
+                                        await new Promise(resolve => setTimeout(resolve, 500));
+                                    }
+                                } else {
+                                    console.warn(`File input not found for ${service}`);
+                                }
+
+                                wc.debugger.detach();
+                            } catch (uploadErr) {
+                                console.error(`Error uploading files to ${service}:`, uploadErr);
+                                try { wc.debugger.detach(); } catch (e) { }
+                            }
+                        }
+
+                        // 2. Inject Prompt
+                        wc.send('inject-prompt', { text, selectors, autoSend: !hasFiles });
                         console.log(`Sent prompt to ${service}`);
                     }
                 }
@@ -179,6 +481,38 @@ ipcMain.on('send-prompt', async (event, text, activeServices) => {
             }
         }
     });
+
+    await Promise.all(promises);
+
+    if (hasFiles) {
+        event.sender.send('file-upload-complete');
+    }
+});
+
+ipcMain.on('confirm-send', (event) => {
+    console.log('Received confirm-send event');
+    // Iterate over all active views and trigger send button click
+    Object.keys(views).forEach(service => {
+        if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
+            const selectors = selectorsConfig[service];
+            if (selectors) {
+                views[service].view.webContents.send('click-send-button', { selectors });
+                console.log(`Sent click-send-button to ${service}`);
+            }
+        }
+    });
+});
+
+ipcMain.handle('save-temp-file', async (event, { buffer, name }) => {
+    try {
+        const tempDir = os.tmpdir();
+        const filePath = path.join(tempDir, name);
+        await fs.promises.writeFile(filePath, Buffer.from(buffer));
+        return filePath;
+    } catch (error) {
+        console.error('Error saving temp file:', error);
+        throw error;
+    }
 });
 
 ipcMain.on('toggle-service', (event, service, isEnabled) => {
@@ -450,9 +784,13 @@ ipcMain.on('external-login', async (event, service) => {
 
         const page = (await browser.pages())[0];
 
-
-
         await page.goto(serviceUrls[service]);
+
+        // Special handling for Grok: Wait longer to bypass Cloudflare
+        if (service === 'grok') {
+            console.log('Waiting 5 seconds for Grok Cloudflare check...');
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
 
         // 3. Monitor for Login Success (Cookie Check)
         const checkLogin = setInterval(async () => {

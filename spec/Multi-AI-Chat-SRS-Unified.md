@@ -2,8 +2,8 @@
 ## Software Requirements Specification (SRS)
 ### EARS (Easy Approach to Requirements Syntax) 기반 통합 요구사항 명세서
 
-**문서 버전**: 0.4.1 (로그인 프로세스 개선 및 쿠키 동기화 구현)  
-**작성일**: 2025-12-01  
+**문서 버전**: 0.5.0 (파일 업로드 및 2단계 전송 프로세스 구현)  
+**작성일**: 2025-12-02  
 **프로젝트명**: Multi-AI Chat (코드명: MAPB - Multi AI Prompt Broadcaster / Clash of LLMs)
 
 ---
@@ -297,7 +297,7 @@ When the user presses Enter (without Shift) in the Master Input, the system shal
 
 #### INPUT-003: 키보드 전송 (Ctrl+Enter)
 **[Event-driven]**  
-When the user presses `Ctrl+Enter` inside the Master Input, the system shall behave as if the "Send" button were clicked.
+When the user presses `Ctrl+Enter` inside the Master Input, the system shall behave as if the "Send" button were clicked, triggering the delivery of both the prompt text and any attached files.
 
 #### INPUT-004: 멀티라인 입력
 **[Event-Driven]**  
@@ -746,6 +746,63 @@ While a service panel is disabled or closed, the system shall exclude its conten
 #### CROSS-005: 빈 컨텐츠 처리
 **[Unwanted]**
 If a service's thread is empty, then the system shall exclude it from the context provided to other services.
+
+---
+
+### 4.13 파일 업로드 (FILE)
+
+#### FILE-001: 파일 첨부 UI
+**[Ubiquitous]**
+The system shall display a "Clip" icon button within or adjacent to the Master Input area.
+
+#### FILE-002: 파일 선택 다이얼로그
+**[Event-Driven]**
+When the user clicks the "Clip" icon, the system shall open a native file selection dialog allowing multiple file selection.
+
+#### FILE-003: 파일 미리보기 및 관리
+**[State-Driven]**
+While files are attached, the system shall display a list of attached files (chips or list view) showing the filename and a "Remove" (X) button for each.
+
+#### FILE-004: 드래그 앤 드롭
+**[Event-Driven]**
+When the user drags and drops files into the Master Input area, the system shall add them to the attached file list.
+
+#### FILE-005: 클립보드 이미지 붙여넣기
+**[Event-Driven]**
+When the user pastes an image from the clipboard into the Master Input area, the system shall automatically convert it to an image file (e.g., `paste-{timestamp}.png`) and add it to the attached file list.
+
+#### FILE-006: 클립보드 텍스트 파일 변환
+**[Event-Driven]**
+When the user pastes text into the **File Preview Area** (or uses a specific "Paste as File" action), the system shall automatically convert the text content into a text file (e.g., `paste-{timestamp}.txt`) and add it to the attached file list.
+*Note: Standard pasting into the text input field shall remain as text insertion.*
+
+#### FILE-007: 2단계 전송 프로세스 (Two-Step Send)
+**[Event-Driven]**
+When the user triggers the "Send" action with attached files, the system shall:
+1. Upload files to all enabled Service Panels.
+2. Display a confirmation modal ("파일 업로드 완료 확인 후, Ctrl + Enter를 입력하여 진행해주세요.").
+3. Wait for the user to press `Ctrl+Enter` again to confirm and trigger the final send action.
+
+#### FILE-008: 파일 업로드 메커니즘
+**[Ubiquitous]**
+The system shall use the Chrome DevTools Protocol (CDP) `DOM.setFileInputFiles` method to programmatically attach files. For services like Gemini where the file input is dynamic, the system shall simulate necessary UI interactions (e.g., clicking upload buttons) to reveal the input field.
+
+#### FILE-009: 파일 입력 셀렉터
+**[Ubiquitous]**
+The system shall maintain `fileInputSelector`, `uploadIconSelector`, and `uploadMenuButtonSelector` in `selectors.json` to handle various service-specific upload UI patterns.
+
+#### FILE-010: 업로드 대기 및 검증
+**[State-Driven]**
+While files are being uploaded, the system shall wait for UI indicators (defined in `uploadedFileSelector`) to confirm successful attachment before allowing the final send action.
+
+#### FILE-011: 클립보드 붙여넣기 (이미지/텍스트)
+**[Event-Driven]**
+- **Image**: When an image is pasted, it is converted to a PNG file.
+- **Text**: When long text (>5 lines) is pasted into the file preview area or when explicitly requested, it is converted to a TXT file.
+
+#### FILE-012: 드래그 앤 드롭
+**[Event-Driven]**
+The system shall support dragging and dropping files directly into the Master Input area to attach them.
 
 ---
 

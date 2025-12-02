@@ -2,9 +2,36 @@ const masterInput = document.getElementById('master-input');
 const sendBtn = document.getElementById('send-btn');
 const newChatBtn = document.getElementById('new-chat-btn');
 
+// File Upload Elements
+const clipBtn = document.getElementById('clip-btn');
+const fileInput = document.getElementById('file-input');
+const filePreviewArea = document.getElementById('file-preview-area');
+const clearFilesBtn = document.getElementById('clear-files-btn');
+const inputArea = document.getElementById('input-area');
+const controlsContainer = document.getElementById('controls-container');
+const promptToggleBtn = document.getElementById('prompt-toggle-btn');
+let isPromptCollapsed = false;
+let attachedFiles = [];
+
 // Handle New Chat Button Click
 newChatBtn.addEventListener('click', () => {
     window.electronAPI.newChat();
+});
+
+if (promptToggleBtn) {
+    promptToggleBtn.addEventListener('click', () => {
+        isPromptCollapsed = !isPromptCollapsed;
+        if (inputArea) inputArea.classList.toggle('collapsed', isPromptCollapsed);
+        if (controlsContainer) controlsContainer.classList.toggle('collapsed', isPromptCollapsed);
+        promptToggleBtn.textContent = isPromptCollapsed ? '△' : '▽';
+        promptToggleBtn.setAttribute('aria-expanded', (!isPromptCollapsed).toString());
+        promptToggleBtn.title = isPromptCollapsed ? 'Expand controls' : 'Collapse controls';
+    });
+}
+
+clearFilesBtn?.addEventListener('click', () => {
+    attachedFiles = [];
+    renderFilePreview();
 });
 
 const copyChatBtn = document.getElementById('copy-chat-btn');
@@ -68,9 +95,90 @@ masterInput.addEventListener('keydown', (e) => {
     }
 });
 
-function sendPrompt() {
+let pendingConfirmation = false;
+
+// Modal Logic
+function showModal(message, duration = 3000) {
+    let modal = document.getElementById('confirmation-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'confirmation-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-text"></div>
+                <div class="modal-timer"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    const textEl = modal.querySelector('.modal-text');
+    const timerEl = modal.querySelector('.modal-timer');
+
+    textEl.textContent = message;
+    modal.classList.add('visible');
+
+    let timeLeft = duration / 1000;
+    timerEl.textContent = timeLeft;
+
+    const interval = setInterval(() => {
+        timeLeft--;
+        if (timeLeft > 0) {
+            timerEl.textContent = timeLeft;
+        } else {
+            clearInterval(interval);
+            modal.classList.remove('visible');
+            // Enable inputs and set placeholder for confirmation
+            setInputsEnabled(true);
+            masterInput.placeholder = "Press Ctrl+Enter to confirm send...";
+            masterInput.focus();
+        }
+    }, 1000);
+}
+
+function setInputsEnabled(enabled) {
+    masterInput.disabled = !enabled;
+    sendBtn.disabled = !enabled;
+    clipBtn.disabled = !enabled;
+    fileInput.disabled = !enabled;
+}
+
+// Listen for file upload completion
+if (window.electronAPI.onFileUploadComplete) {
+    window.electronAPI.onFileUploadComplete(() => {
+        pendingConfirmation = true;
+        showModal("파일 업로드 완료 확인 후, Ctrl + Enter를 입력하여 진행해주세요.", 3000);
+    });
+}
+
+async function sendPrompt() {
+    console.log('sendPrompt called. pendingConfirmation:', pendingConfirmation);
+
+    // If pending confirmation, send confirm signal
+    if (pendingConfirmation) {
+        console.log('Sending confirm-send signal');
+        window.electronAPI.confirmSend();
+        pendingConfirmation = false;
+
+        // Reset UI
+        masterInput.value = '';
+        attachedFiles = [];
+        renderFilePreview();
+
+        // Ensure inputs are enabled and reset placeholder
+        setInputsEnabled(true);
+        masterInput.placeholder = "Type your prompt here... (Ctrl+Enter to Send, Ctrl+Shift+Enter for New Chat)";
+        masterInput.focus();
+        return;
+    }
+
     const text = masterInput.value.trim();
-    if (!text) return;
+    console.log('Sending prompt. Text length:', text.length, 'Files:', attachedFiles.length);
+
+    if (!text && attachedFiles.length === 0) {
+        console.log('No text and no files, ignoring.');
+        return;
+    }
 
     const activeServices = {
         chatgpt: toggles.chatgpt.checked,
@@ -80,8 +188,176 @@ function sendPrompt() {
         perplexity: toggles.perplexity.checked
     };
 
-    window.electronAPI.sendPrompt(text, activeServices);
-    masterInput.value = '';
+    // Get file paths
+    const filePaths = attachedFiles.map(f => f.path);
+
+    // If files are attached, we enter "upload only" mode first
+    window.electronAPI.sendPrompt(text, activeServices, filePaths);
+
+    // If files are present, disable inputs and wait for upload complete
+    if (filePaths.length > 0) {
+        console.log('Files present, waiting for upload confirmation...');
+        masterInput.value = '';
+        attachedFiles = [];
+        renderFilePreview();
+        setInputsEnabled(false);
+        masterInput.placeholder = "Uploading files. Once the prompt box is active again, press Ctrl + Enter to send.";
+    } else {
+        console.log('No files, clearing input.');
+        masterInput.value = '';
+        attachedFiles = [];
+        renderFilePreview();
+        setInputsEnabled(true);
+        masterInput.placeholder = "Type your prompt here... (Ctrl+Enter to Send, Ctrl+Shift+Enter for New Chat)";
+        masterInput.focus();
+    }
+}
+
+//===========================================
+// File Upload Logic
+//===========================================
+
+// Clip Button Click
+clipBtn.addEventListener('click', () => {
+    fileInput.click();
+});
+
+// File Input Change
+fileInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => addFile(file));
+    fileInput.value = ''; // Reset input
+});
+
+// Drag & Drop
+inputArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    inputArea.classList.add('drag-over');
+});
+
+inputArea.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    inputArea.classList.remove('drag-over');
+});
+
+inputArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    inputArea.classList.remove('drag-over');
+
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach(file => addFile(file));
+});
+
+// Paste Handler
+document.addEventListener('paste', async (e) => {
+    const activeElement = document.activeElement;
+    const isTextareaFocused = activeElement === masterInput;
+
+    const items = e.clipboardData.items;
+    let hasImage = false;
+    let textContent = '';
+
+    // First pass: check for images
+    for (const item of items) {
+        if (item.type.startsWith('image/')) {
+            hasImage = true;
+            e.preventDefault();
+            const blob = item.getAsFile();
+            if (blob) {
+                const timestamp = Date.now();
+                const ext = blob.type.split('/')[1] || 'png';
+                const fileName = `paste-${timestamp}.${ext}`;
+
+                // Save to temp file
+                const buffer = await blob.arrayBuffer();
+                try {
+                    const filePath = await window.electronAPI.saveTempFile(Array.from(new Uint8Array(buffer)), fileName);
+                    attachedFiles.push({ name: fileName, path: filePath });
+                    renderFilePreview();
+                    console.log('Image pasted and added to attachments');
+                } catch (err) {
+                    console.error('Failed to save pasted image:', err);
+                }
+            }
+            break; // Stop processing other items after finding an image
+        }
+    }
+
+    // Second pass: handle text if no image was found
+    if (!hasImage && isTextareaFocused) {
+        // Get text from clipboard
+        textContent = e.clipboardData.getData('text/plain');
+
+        if (textContent) {
+            const lineCount = textContent.split('\n').length;
+            const MULTI_LINE_THRESHOLD = 5; // Convert to file if 5+ lines
+
+            // If text has many lines, convert to file
+            if (lineCount >= MULTI_LINE_THRESHOLD) {
+                e.preventDefault(); // Prevent default paste
+
+                const timestamp = Date.now();
+                const fileName = `paste-${timestamp}.txt`;
+
+                // Convert text to buffer
+                const encoder = new TextEncoder();
+                const buffer = encoder.encode(textContent);
+
+                try {
+                    const filePath = await window.electronAPI.saveTempFile(Array.from(buffer), fileName);
+                    attachedFiles.push({ name: fileName, path: filePath });
+                    renderFilePreview();
+                    console.log(`Multi-line text (${lineCount} lines) converted to file: ${fileName}`);
+                } catch (err) {
+                    console.error('Failed to save pasted text as file:', err);
+                    // Fallback: insert text into textarea anyway
+                    masterInput.value += textContent;
+                }
+            }
+            // If text is short (< 5 lines), let browser handle normal paste
+        }
+    }
+});
+
+function addFile(file) {
+    // file is a File object, it has a 'path' property in Electron
+    attachedFiles.push({ name: file.name, path: file.path });
+    renderFilePreview();
+}
+
+function removeFile(index) {
+    attachedFiles.splice(index, 1);
+    renderFilePreview();
+}
+
+function renderFilePreview() {
+    filePreviewArea.innerHTML = '';
+
+    if (attachedFiles.length === 0) {
+        filePreviewArea.style.display = 'none';
+        if (clearFilesBtn) clearFilesBtn.style.display = 'none';
+        return;
+    }
+
+    filePreviewArea.style.display = 'flex';
+    if (clearFilesBtn) {
+        clearFilesBtn.style.display = 'inline-flex';
+    }
+
+    attachedFiles.forEach((file, index) => {
+        const chip = document.createElement('div');
+        chip.className = 'file-chip';
+        chip.innerHTML = `
+            <span>${file.name}</span>
+            <span class="remove-file" data-index="${index}">&times;</span>
+        `;
+
+        chip.querySelector('.remove-file').addEventListener('click', () => {
+            removeFile(index);
+        });
+
+        filePreviewArea.appendChild(chip);
+    });
 }
 
 //===========================================

@@ -1,5 +1,24 @@
 # Release Notes
 
+## v0.5.0 (2025-12-02)
+
+### 🚀 New Features
+*   **File Upload Support**:
+    *   **Multi-Service Broadcasting**: Upload files (images, text) to ChatGPT, Claude, Gemini, Grok, and Perplexity simultaneously.
+    *   **Two-Step Verification**: Implemented a safe "Upload -> Confirm -> Send" workflow to ensure files are fully attached before sending the prompt.
+    *   **Drag & Drop**: Simply drag files into the input area to attach them.
+    *   **Clipboard Paste**: Paste images directly from clipboard. Long text pastes (>5 lines) are automatically converted to text files.
+*   **UI Improvements**:
+    *   Added file preview chips with remove capability.
+    *   Added a confirmation modal to guide users during the file upload process.
+
+### 🔧 Fixes & Improvements
+*   **Gemini File Upload**: Implemented advanced logic to handle Gemini's dynamic UI, including simulating clicks to reveal the file input and searching within Shadow DOMs.
+*   **Grok Cloudflare Avoidance**: Added smart delays during file upload for Grok to prevent triggering Cloudflare verification.
+*   **Prompt Reliability**: Fixed an issue where prompts might not send if the file upload took too long, by separating the upload and send actions.
+
+---
+
 ## v0.4.2 (2025-12-02)
 
 ### 🔧 Fixes

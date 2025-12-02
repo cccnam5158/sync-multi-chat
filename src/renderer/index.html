@@ -20,25 +20,52 @@
         </div>
         <div id="controls-container">
             <div id="toggles">
-                <button id="new-chat-btn" class="new-chat-btn">New Chat</button>
-                <button id="copy-chat-btn" class="copy-chat-btn">Copy Chat Thread</button>
-                <button id="cross-check-btn" class="cross-check-btn">Cross Check</button>
-                <button id="scroll-sync-btn" class="scroll-sync-btn">📜 Scroll Sync: OFF</button>
-                <span class="layout-group">
-                    <button id="layout-1x3" class="layout-btn">1x3</button>
-                    <button id="layout-1x4" class="layout-btn active">1x4</button>
-                    <button id="layout-2x2" class="layout-btn">2x2</button>
-                </span>
-                <label><input type="checkbox" id="toggle-chatgpt" checked> ChatGPT</label>
-                <label><input type="checkbox" id="toggle-claude" checked> Claude</label>
-                <label><input type="checkbox" id="toggle-gemini" checked> Gemini</label>
-                <label><input type="checkbox" id="toggle-grok"> Grok</label>
-                <label><input type="checkbox" id="toggle-perplexity" checked> Perplexity</label>
+                <div class="toggles-content">
+                    <button id="new-chat-btn" class="new-chat-btn">New Chat</button>
+                    <button id="copy-chat-btn" class="copy-chat-btn">Copy Chat Thread</button>
+                    <button id="cross-check-btn" class="cross-check-btn">Cross Check</button>
+                    <button id="scroll-sync-btn" class="scroll-sync-btn">📜 Scroll Sync: OFF</button>
+                    <span class="layout-group">
+                        <button id="layout-1x3" class="layout-btn">1x3</button>
+                        <button id="layout-1x4" class="layout-btn active">1x4</button>
+                        <button id="layout-2x2" class="layout-btn">2x2</button>
+                    </span>
+                    <label><input type="checkbox" id="toggle-chatgpt" checked> ChatGPT</label>
+                    <label><input type="checkbox" id="toggle-claude" checked> Claude</label>
+                    <label><input type="checkbox" id="toggle-gemini" checked> Gemini</label>
+                    <label><input type="checkbox" id="toggle-grok"> Grok</label>
+                    <label><input type="checkbox" id="toggle-perplexity" checked> Perplexity</label>
+                </div>
+                <button id="prompt-toggle-btn" class="prompt-toggle-btn" aria-expanded="true" title="Collapse prompt panel">
+                    <svg class="toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
             </div>
             <div id="input-area">
-                <textarea id="master-input"
-                    placeholder="Type your prompt here... (Ctrl+Enter to Send, Ctrl+Shift+Enter for New Chat)"></textarea>
-                <button id="send-btn">Send</button>
+                <div class="input-controls">
+                    <div class="prompt-card">
+                        <textarea id="master-input"
+                            placeholder="Type your prompt here... (Ctrl+Enter to Send, Ctrl+Shift+Enter for New Chat)"></textarea>
+                        <div class="prompt-toolbar">
+                            <div class="toolbar-left">
+                                <button id="clip-btn" title="Attach files" aria-label="Attach files">
+                                    <svg class="clip-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M7.5 12.5l5.15-5.15a3 3 0 114.24 4.24l-6.36 6.36a4 4 0 11-5.66-5.66l6.01-6.01"
+                                            fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                            stroke-linejoin="round" />
+                                    </svg>
+                                </button>
+                                <div id="file-preview-area"></div>
+                                <button id="clear-files-btn" class="clear-files-btn" title="Clear selected files">Clear All</button>
+                            </div>
+                            <div class="toolbar-right">
+                                <button id="send-btn" title="Send prompt">Send ➤</button>
+                            </div>
+                        </div>
+                        <input type="file" id="file-input" multiple style="display: none;">
+                    </div>
+                </div>
             </div>
         </div>
     </div>

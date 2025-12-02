@@ -10,7 +10,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 ## 📋 Overview
 
 -   **Project Name**: Multi-AI Chat
--   **Version**: v0.4.2
+-   **Version**: v0.5.0
 -   **Platform**: Windows 10/11 (64-bit)
 -   **Tech Stack**: Electron, Node.js, HTML/CSS/JavaScript
 
@@ -33,6 +33,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 -   **Advanced Layouts**: Support for **1x4** (Horizontal) and **2x2** (Grid) layouts with **resizable panels**.
 -   **Copy Chat Thread**: One-click copy of all chat threads to clipboard for easy sharing or saving.
 -   **Cross Check**: Automatically feed the chat history of other AIs into each AI to cross-reference answers.
+-   **File Upload**: Attach images or text files to your prompt and broadcast them to all supported services. Supports **Drag & Drop** and **Clipboard Paste**.
 
 ### Security & Privacy
 -   **Sandboxed Environment**: Each service runs in an isolated `BrowserView` with context isolation.
@@ -95,6 +96,10 @@ This application allows you to enter a prompt once in a **Master Input** field a
     -   **Copy Chat Thread**: Click the **Copy Chat Thread** button to copy the entire conversation history from all active panels to your clipboard.
     -   **Cross Check**: Click the **Cross Check** button to have each AI review the answers provided by the other AIs.
     -   **Individual Copy**: Use the floating copy button (📋) in each panel to copy just that service's thread.
+4.  **File Upload**:
+    -   **Attach Files**: Click the **Clip** icon or **Drag & Drop** files into the input area.
+    -   **Paste Images**: Paste images directly from your clipboard.
+    -   **Two-Step Send**: When files are attached, pressing Enter initiates the upload. Wait for the confirmation modal, then press **Ctrl+Enter** again to send the prompt with files.
 -   [x] Basic multi-view architecture
 -   [x] Prompt broadcasting
 -   [x] Copy Chat Thread
@@ -105,6 +110,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 ### Phase 2 (In Progress)
 -   [x] Support for additional services (Grok, Perplexity)
 -   [x] Advanced Layouts (2x2, Resizable)
+-   [x] File Upload (Drag & Drop, Paste, Multi-service)
 -   Support for DeepSeek, Copilot
 -   Response comparison tools (Diff view)
 -   Response copying/saving features (Enhanced)

@@ -26,10 +26,10 @@ let currentService = '';
 
 ipcRenderer.on('inject-prompt', (event, { text, selectors, autoSend }) => {
     console.log('[inject-prompt] Received:', { text, selectors, autoSend, service: currentService });
-    injectPrompt(text, selectors);
+    injectPrompt(text, selectors, autoSend);
 });
 
-async function injectPrompt(text, selectors) {
+async function injectPrompt(text, selectors, autoSend = false) {
     console.log('[injectPrompt] Starting injection. Service:', currentService);
     console.log('[injectPrompt] Text:', text);
     console.log('[injectPrompt] Selectors:', selectors);
@@ -113,57 +113,99 @@ async function injectPrompt(text, selectors) {
     }
 
     // 3. Trigger Enter key if needed or Click Send
+    if (autoSend) {
+        clickSendButton(selectors, inputEl);
+    } else {
+        console.log('[injectPrompt] autoSend is false, skipping send button click');
+    }
+
+    console.log('[injectPrompt] Injection complete');
+}
+
+ipcRenderer.on('click-send-button', (event, { selectors }) => {
+    console.log('[click-send-button] Received request to click send button');
+    // Find input element again for context
+    let inputEl = null;
+    for (const selector of selectors.inputSelector) {
+        inputEl = document.querySelector(selector);
+        if (inputEl) break;
+    }
+    clickSendButton(selectors, inputEl);
+});
+
+function clickSendButton(selectors, providedInputEl = null) {
     // Some apps (like Claude) might need a small delay for the state to update before the button becomes enabled
     setTimeout(() => {
-        console.log('[injectPrompt] Looking for send button...');
+        console.log('[clickSendButton] Looking for send button...');
         let btn = null;
         for (const selector of selectors.sendButtonSelector) {
             btn = document.querySelector(selector);
-            console.log(`[injectPrompt] Trying send button selector: "${selector}" -> Found:`, !!btn, 'Disabled:', btn?.disabled);
+            console.log(`[clickSendButton] Trying send button selector: "${selector}" -> Found:`, !!btn, 'Disabled:', btn?.disabled);
             if (btn) break;
         }
 
         if (btn && !btn.disabled) {
-            console.log('[injectPrompt] Send button found and enabled, clicking...');
+            console.log('[clickSendButton] Send button found and enabled, clicking...');
             btn.click();
-            console.log('[injectPrompt] Send button clicked');
+            console.log('[clickSendButton] Send button clicked');
         } else {
-            console.log('[injectPrompt] Send button not found or disabled, trying keyboard events...');
+            console.log('[clickSendButton] Send button not found or disabled, trying keyboard events...');
 
             // Fallback: Try sending Enter key event
-            const eventProps = {
-                key: 'Enter',
-                code: 'Enter',
-                keyCode: 13,
-                which: 13,
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                composed: true
-            };
+            let inputEl = providedInputEl;
 
-            // Standard Enter
-            console.log('[injectPrompt] Dispatching Enter key events...');
-            inputEl.dispatchEvent(new KeyboardEvent('keydown', eventProps));
-            inputEl.dispatchEvent(new KeyboardEvent('keypress', eventProps));
-            inputEl.dispatchEvent(new KeyboardEvent('keyup', eventProps));
+            // If not provided or lost, try to find it again
+            if (!inputEl || !document.contains(inputEl)) {
+                for (const selector of selectors.inputSelector) {
+                    inputEl = document.querySelector(selector);
+                    if (inputEl) break;
+                }
+            }
 
-            // Ctrl+Enter (often forces send)
-            const ctrlEnterProps = {
-                ...eventProps,
-                ctrlKey: true,
-                metaKey: true
-            };
+            if (inputEl) {
+                // Only focus if not already focused to avoid disrupting cursor/selection
+                if (document.activeElement !== inputEl) {
+                    try {
+                        inputEl.focus();
+                    } catch (e) {
+                        console.error('[clickSendButton] Failed to focus input:', e);
+                    }
+                }
 
-            console.log('[injectPrompt] Dispatching Ctrl+Enter key events...');
-            inputEl.dispatchEvent(new KeyboardEvent('keydown', ctrlEnterProps));
-            inputEl.dispatchEvent(new KeyboardEvent('keypress', ctrlEnterProps));
-            inputEl.dispatchEvent(new KeyboardEvent('keyup', ctrlEnterProps));
-            console.log('[injectPrompt] Keyboard events dispatched');
+                const eventProps = {
+                    key: 'Enter',
+                    code: 'Enter',
+                    keyCode: 13,
+                    which: 13,
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    composed: true
+                };
+
+                // Standard Enter
+                console.log('[clickSendButton] Dispatching Enter key events...');
+                inputEl.dispatchEvent(new KeyboardEvent('keydown', eventProps));
+                inputEl.dispatchEvent(new KeyboardEvent('keypress', eventProps));
+                inputEl.dispatchEvent(new KeyboardEvent('keyup', eventProps));
+
+                // Ctrl+Enter (often forces send)
+                const ctrlEnterProps = {
+                    ...eventProps,
+                    ctrlKey: true,
+                    metaKey: true
+                };
+
+                console.log('[clickSendButton] Dispatching Ctrl+Enter key events...');
+                inputEl.dispatchEvent(new KeyboardEvent('keydown', ctrlEnterProps));
+                inputEl.dispatchEvent(new KeyboardEvent('keypress', ctrlEnterProps));
+                inputEl.dispatchEvent(new KeyboardEvent('keyup', ctrlEnterProps));
+                console.log('[clickSendButton] Keyboard events dispatched');
+            } else {
+                console.error('[clickSendButton] Could not find input element for keyboard fallback');
+            }
         }
     }, 1000); // Increased delay to 1000ms to ensure button state updates
-
-    console.log('[injectPrompt] Injection complete');
 }
 
 //===========================================
