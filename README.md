@@ -33,7 +33,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 -   **Advanced Layouts**: Support for **1x4** (Horizontal) and **2x2** (Grid) layouts with **resizable panels**.
 -   **Copy Chat Thread**: One-click copy of all chat threads to clipboard for easy sharing or saving.
 -   **Cross Check**: Automatically feed the chat history of other AIs into each AI to cross-reference answers.
--   **File Upload**: Attach images or text files to your prompt and broadcast them to all supported services. Supports **Drag & Drop** and **Clipboard Paste**.
+-   **File Upload**: Attach images or text files to your prompt and broadcast them to all supported services (except Grok). Supports **Drag & Drop** and **Clipboard Paste**.
 
 ### Security & Privacy
 -   **Sandboxed Environment**: Each service runs in an isolated `BrowserView` with context isolation.
@@ -110,7 +110,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 ### Phase 2 (In Progress)
 -   [x] Support for additional services (Grok, Perplexity)
 -   [x] Advanced Layouts (2x2, Resizable)
--   [x] File Upload (Drag & Drop, Paste, Multi-service)
+-   [x] File Upload (Drag & Drop, Paste, Multi-service) *Grok temporarily disabled*
 -   Support for DeepSeek, Copilot
 -   Response comparison tools (Diff view)
 -   Response copying/saving features (Enhanced)
