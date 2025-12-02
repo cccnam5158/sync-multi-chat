@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.4.2 (2025-12-02)
+
+### 🔧 Fixes
+*   **Gemini Login on Windows**: Resolved the "Couldn't sign you in" error by standardizing stealth mode configuration.
+    *   Reverted Windows-specific evasion overrides that were triggering Google's automation detection.
+    *   Applied consistent `puppeteer-extra-plugin-stealth` settings and `--disable-blink-features=AutomationControlled` flag across all platforms (Windows/Mac).
+
+---
+
 ## v0.4.1 (2025-12-01)
 
 ### 🔧 Fixes & Improvements

@@ -400,8 +400,21 @@ ipcMain.on('external-login', async (event, service) => {
     const axios = require('axios');
 
     console.log(`Launching Chrome for ${service} login...`);
+    const isMac = process.platform === 'darwin'; // OS 확인 변수
+    const isWin = process.platform === 'win32';
 
     try {
+        // 0. Cleanup existing Chrome instances (Mac specific)
+        if (isMac) {
+            try {
+                const { execSync } = require('child_process');
+                execSync('pkill -f "chrome-auth-profile"');
+                console.log('Cleaned up existing Chrome instances');
+            } catch (e) {
+                // Ignore error if no process found
+            }
+        }
+
         // 1. Find Chrome Path
         const chromeLauncher = await import('chrome-launcher');
         const chromePath = chromeLauncher.Launcher.getInstallations()[0];
@@ -410,36 +423,34 @@ ipcMain.on('external-login', async (event, service) => {
             return;
         }
 
-        // Use puppeteer-extra with stealth plugin
         const puppeteer = require('puppeteer-extra');
         const StealthPlugin = require('puppeteer-extra-plugin-stealth');
         const stealth = StealthPlugin();
-        // Remove navigator.webdriver evasion to avoid --disable-blink-features=AutomationControlled flag
-        // which causes "unsupported command-line flag" warning
-        stealth.enabledEvasions.delete('navigator.webdriver');
+
         puppeteer.use(stealth);
 
         // 2. Launch Chrome with Remote Debugging
+        const launchArgs = [
+            '--no-first-run',
+            '--no-default-browser-check',
+        ];
+
+        // [Logic Merge] Apply automation flag to all platforms to avoid detection
+        launchArgs.push('--disable-blink-features=AutomationControlled');
+
+        // Launch Browser
         const browser = await puppeteer.launch({
             executablePath: chromePath,
             headless: false,
             defaultViewport: null,
             userDataDir: path.join(app.getPath('userData'), 'chrome-auth-profile'),
             ignoreDefaultArgs: ['--enable-automation'],
-            args: [
-                '--no-first-run',
-                '--no-default-browser-check'
-            ]
+            args: launchArgs
         });
 
         const page = (await browser.pages())[0];
 
-        // Manually mock navigator.webdriver since we disabled the evasion
-        await page.evaluateOnNewDocument(() => {
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined,
-            });
-        });
+
 
         await page.goto(serviceUrls[service]);
 
