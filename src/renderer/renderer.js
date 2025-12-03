@@ -23,7 +23,7 @@ if (promptToggleBtn) {
         isPromptCollapsed = !isPromptCollapsed;
         if (inputArea) inputArea.classList.toggle('collapsed', isPromptCollapsed);
         if (controlsContainer) controlsContainer.classList.toggle('collapsed', isPromptCollapsed);
-        promptToggleBtn.textContent = isPromptCollapsed ? '△' : '▽';
+        // promptToggleBtn.textContent = isPromptCollapsed ? '△' : '▽'; // Removed to preserve SVG
         promptToggleBtn.setAttribute('aria-expanded', (!isPromptCollapsed).toString());
         promptToggleBtn.title = isPromptCollapsed ? 'Expand controls' : 'Collapse controls';
     });
@@ -49,23 +49,69 @@ window.electronAPI.onChatThreadCopied(() => {
 
 const crossCheckBtn = document.getElementById('cross-check-btn');
 crossCheckBtn.addEventListener('click', () => {
-    window.electronAPI.crossCheck();
+    window.electronAPI.crossCheck(isAnonymousMode);
 });
 
-const scrollSyncBtn = document.getElementById('scroll-sync-btn');
-let isScrollSyncEnabled = false;
-scrollSyncBtn.addEventListener('click', () => {
-    isScrollSyncEnabled = !isScrollSyncEnabled;
-    window.electronAPI.toggleScrollSync(isScrollSyncEnabled);
+const anonymousBtn = document.getElementById('anonymous-btn');
+let isAnonymousMode = false;
+const SERVICE_ALIASES = {
+    'chatgpt': '(A)',
+    'claude': '(B)',
+    'gemini': '(C)',
+    'grok': '(D)',
+    'perplexity': '(E)'
+};
 
-    if (isScrollSyncEnabled) {
-        scrollSyncBtn.classList.add('active');
-        scrollSyncBtn.innerText = '📜 Scroll Sync: ON';
+if (anonymousBtn) {
+    anonymousBtn.addEventListener('click', toggleAnonymousMode);
+}
+
+function toggleAnonymousMode() {
+    isAnonymousMode = !isAnonymousMode;
+
+    if (isAnonymousMode) {
+        anonymousBtn.classList.add('active');
     } else {
-        scrollSyncBtn.classList.remove('active');
-        scrollSyncBtn.innerText = '📜 Scroll Sync: OFF';
+        anonymousBtn.classList.remove('active');
     }
-});
+
+    updateServiceToggles();
+}
+
+function updateServiceToggles() {
+    const names = {
+        'chatgpt': 'ChatGPT',
+        'claude': 'Claude',
+        'gemini': 'Gemini',
+        'grok': 'Grok',
+        'perplexity': 'Perplexity'
+    };
+
+    for (const [service, toggle] of Object.entries(toggles)) {
+        // The label text is now in a span with class 'label-text'
+        const labelText = toggle.parentElement.querySelector('.label-text');
+        if (labelText) {
+            const name = names[service] || service;
+            if (isAnonymousMode) {
+                // Format: Name (Alias)
+                labelText.innerText = `${name} ${SERVICE_ALIASES[service] || ''}`;
+            } else {
+                // Format: Name
+                labelText.innerText = name;
+            }
+        }
+    }
+}
+
+const scrollSyncToggle = document.getElementById('scroll-sync-toggle');
+let isScrollSyncEnabled = false;
+
+if (scrollSyncToggle) {
+    scrollSyncToggle.addEventListener('change', (e) => {
+        isScrollSyncEnabled = e.target.checked;
+        window.electronAPI.toggleScrollSync(isScrollSyncEnabled);
+    });
+}
 
 const toggles = {
     chatgpt: document.getElementById('toggle-chatgpt'),

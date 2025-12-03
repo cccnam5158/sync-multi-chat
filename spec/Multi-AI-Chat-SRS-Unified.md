@@ -2,8 +2,8 @@
 ## Software Requirements Specification (SRS)
 ### EARS (Easy Approach to Requirements Syntax) 기반 통합 요구사항 명세서
 
-**문서 버전**: 0.5.0 (파일 업로드 및 2단계 전송 프로세스 구현)  
-**작성일**: 2025-12-02  
+**문서 버전**: 0.6.0 (익명 교차 검증 및 Modern UI 구현)  
+**작성일**: 2025-12-03  
 **프로젝트명**: Multi-AI Chat (코드명: MAPB - Multi AI Prompt Broadcaster / Clash of LLMs)
 
 ---
@@ -545,6 +545,10 @@ The system shall enforce a minimum window size of 1200x700 pixels.
 **[Optional]**  
 Where a service is disabled in the configuration, the system shall hide or grey out the corresponding panel and toggle.
 
+#### LAYOUT-010: Modern UI (shadcn/ui Style)
+**[Ubiquitous]**
+The system shall implement a modern user interface for the Master Input and control area, replicating the design aesthetics of the **shadcn/ui** design system (clean typography, subtle borders, specific color palette, and component styling) using vanilla CSS.
+
 ---
 
 ### 4.7 설정 관리 (CONFIG)
@@ -803,6 +807,31 @@ While files are being uploaded, the system shall wait for UI indicators (defined
 #### FILE-012: 드래그 앤 드롭
 **[Event-Driven]**
 The system shall support dragging and dropping files directly into the Master Input area to attach them.
+
+---
+
+### 4.14 익명 모드 (ANON)
+
+#### ANON-001: 익명 모드 토글
+**[Ubiquitous]**
+The system shall display an "Anonymous" (익명) toggle button adjacent to the "Cross Check" button in the control panel.
+
+#### ANON-002: 서비스 별칭 표시
+**[State-Driven]**
+While Anonymous mode is ON, the system shall display service toggle buttons with aliases instead of their full names:
+- ChatGPT -> **(A)**
+- Claude -> **(B)**
+- Gemini -> **(C)**
+- Grok -> **(D)**
+- Perplexity -> **(E)**
+
+#### ANON-003: 익명 프롬프트 구성
+**[State-Driven]**
+While Anonymous mode is ON and a Cross Check is initiated, the system shall replace all occurrences of service names in the generated prompt with their corresponding aliases (e.g., replace "Claude" with "(B)").
+
+#### ANON-004: 익명 교차 검증 실행
+**[Event-Driven]**
+When the user executes a Cross Check with Anonymous mode ON, the system shall send the anonymized prompts to each service, ensuring that no service receives explicit names of other services in the context.
 
 ---
 

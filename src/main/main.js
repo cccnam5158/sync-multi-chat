@@ -645,8 +645,17 @@ ipcMain.on('copy-chat-thread', async (event) => {
     }
 });
 
-ipcMain.on('cross-check', async () => {
-    console.log('Starting Cross Check...');
+ipcMain.on('cross-check', async (event, isAnonymousMode) => {
+    console.log('Starting Cross Check... Anonymous:', isAnonymousMode);
+
+    const aliases = {
+        'chatgpt': '(A)',
+        'claude': '(B)',
+        'gemini': '(C)',
+        'grok': '(D)',
+        'perplexity': '(E)'
+    };
+
     // 1. Extract all texts
     const results = {};
     for (const service of services) {
@@ -662,7 +671,20 @@ ipcMain.on('cross-check', async () => {
             let prompt = "";
             for (const sourceService of services) {
                 if (sourceService !== targetService && results[sourceService]) {
-                    prompt += `=== ${sourceService.toUpperCase()} ===\n${results[sourceService].trim()}\n\n`;
+                    let header = sourceService.toUpperCase();
+                    let content = results[sourceService].trim();
+
+                    if (isAnonymousMode) {
+                        header = aliases[sourceService] || header;
+                        // Replace all occurrences of service names in content
+                        Object.entries(aliases).forEach(([svc, alias]) => {
+                            // Create regex for case-insensitive match
+                            const regex = new RegExp(svc, 'gi');
+                            content = content.replace(regex, alias);
+                        });
+                    }
+
+                    prompt += `=== ${header} ===\n${content}\n\n`;
                 }
             }
 
