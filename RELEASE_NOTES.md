@@ -7,7 +7,7 @@
     *   **Multi-Service Broadcasting**: Upload files (images, text) to ChatGPT, Claude, Gemini, and Perplexity simultaneously. (Grok is temporarily excluded due to Cloudflare issues).
     *   **Two-Step Verification**: Implemented a safe "Upload -> Confirm -> Send" workflow to ensure files are fully attached before sending the prompt.
     *   **Drag & Drop**: Simply drag files into the input area to attach them.
-    *   **Clipboard Paste**: Paste images directly from clipboard. Long text pastes (>5 lines) are automatically converted to text files.
+    *   **Clipboard Paste**: Paste images directly from clipboard. Long text pastes (>100 lines) are automatically converted to text files.
 *   **UI Improvements**:
     *   Added file preview chips with remove capability.
     *   Added a confirmation modal to guide users during the file upload process.
