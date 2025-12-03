@@ -1,14 +1,42 @@
+/* shadcn/ui inspired variables (Tailwind v3 based) */
+:root {
+    /* Using the .dark theme values provided by the user as the default since the app is dark mode */
+    --background: 224 71.4% 4.1%;
+    --foreground: 210 20% 98%;
+    --card: 224 71.4% 4.1%;
+    --card-foreground: 210 20% 98%;
+    --popover: 224 71.4% 4.1%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 263.4 70% 50.4%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 215 27.9% 16.9%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 215 27.9% 16.9%;
+    --muted-foreground: 217.9 10.6% 64.9%;
+    --accent: 215 27.9% 16.9%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 215 27.9% 16.9%;
+    --input: 215 27.9% 16.9%;
+    --ring: 263.4 70% 50.4%;
+    --radius: 0.5rem;
+
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 /* Base Styles */
 body {
     margin: 0;
     padding: 0;
-    background-color: #1e1e1e;
-    color: #cccccc;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
     height: 100vh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    -webkit-font-smoothing: antialiased;
 }
 
 #app-container {
@@ -21,7 +49,7 @@ body {
 #views-placeholder {
     flex: 1;
     display: flex;
-    background-color: #1e1e1e;
+    background-color: hsl(var(--background));
     position: relative;
     overflow: hidden;
 }
@@ -30,8 +58,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #2d2d2d;
-    border: 1px solid #3e3e42;
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
     position: relative;
     min-width: 100px;
     min-height: 100px;
@@ -39,15 +67,15 @@ body {
 
 .view-label {
     font-size: 1.5rem;
-    color: #555;
-    font-weight: bold;
+    color: hsl(var(--muted-foreground));
+    font-weight: 600;
     pointer-events: none;
     user-select: none;
 }
 
 /* Splitters */
 .splitter {
-    background-color: #3e3e42;
+    background-color: hsl(var(--border));
     transition: background-color 0.2s;
     z-index: 10;
     flex-shrink: 0;
@@ -55,24 +83,21 @@ body {
 
 .splitter:hover,
 .splitter.dragging {
-    background-color: #007acc;
+    background-color: hsl(var(--primary));
 }
 
-/* Vertical Splitter (Default for 1xN) */
 .splitter-vertical {
-    width: 3px;
+    width: 1px;
     cursor: col-resize;
     height: 100%;
 }
 
-/* Horizontal Splitter (For 2x2) */
 .splitter-horizontal {
-    height: 3px;
+    height: 1px;
     width: 100%;
     cursor: row-resize;
 }
 
-/* Row Container for 2x2 */
 .row-container {
     display: flex;
     flex-direction: row;
@@ -84,13 +109,13 @@ body {
 #controls-container {
     min-height: 200px;
     max-height: none;
-    background-color: #252526;
-    border-top: 1px solid #3e3e42;
+    background-color: hsl(var(--background));
+    border-top: 1px solid hsl(var(--border));
     display: flex;
     flex-direction: column;
-    padding: 14px 20px 20px;
+    padding: 16px 24px 24px;
     box-sizing: border-box;
-    gap: 14px;
+    gap: 16px;
     z-index: 20;
     transition: padding 0.2s ease;
 }
@@ -107,45 +132,300 @@ body {
 .toggles-content {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     flex-wrap: wrap;
     flex: 1;
     min-width: 0;
 }
 
-#toggles label {
+/* Modern Checkbox/Toggle Styles */
+.service-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    /* Reduced font size */
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+    padding: 4px 10px;
+    /* Reduced padding */
+    border-radius: var(--radius);
+    transition: all 0.2s;
+    user-select: none;
+    border: 1px solid transparent;
+}
+
+.service-toggle-label:hover {
+    background-color: hsl(var(--muted));
+    color: hsl(var(--foreground));
+}
+
+.service-toggle-label:has(input:checked) {
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--border));
+}
+
+.service-toggle-label input[type="checkbox"] {
+    appearance: none;
+    width: 14px;
+    /* Reduced size */
+    height: 14px;
+    border: 1px solid hsl(var(--muted-foreground));
+    border-radius: 4px;
+    background-color: transparent;
+    display: grid;
+    place-content: center;
+    margin: 0;
+    cursor: pointer;
+}
+
+.service-toggle-label input[type="checkbox"]::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em hsl(var(--primary));
+    transform-origin: center;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+.service-toggle-label input[type="checkbox"]:checked {
+    border-color: hsl(var(--primary));
+}
+
+.service-toggle-label input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
+/* Buttons */
+button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    font-size: 0.8rem;
+    /* Reduced font size */
+    font-weight: 500;
+    height: 32px;
+    /* Reduced height to 32px (h-8) */
+    padding: 0 12px;
+    /* Reduced padding */
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+    border: 1px solid transparent;
+}
+
+/* Button Variants */
+.btn-primary {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+}
+
+.btn-primary:hover {
+    opacity: 0.9;
+}
+
+.btn-secondary {
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+}
+
+.btn-secondary:hover {
+    background-color: hsl(var(--secondary) / 0.8);
+}
+
+.btn-outline {
+    border: 1px solid hsl(var(--input));
+    background-color: transparent;
+    color: hsl(var(--foreground));
+}
+
+.btn-outline:hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+}
+
+.btn-ghost {
+    background-color: transparent;
+    color: hsl(var(--foreground));
+}
+
+.btn-ghost:hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+}
+
+/* Specific Buttons */
+.new-chat-btn {
+    background-color: hsl(173 58% 39%);
+    /* Teal/Greenish from Chart-2 */
+    color: hsl(var(--primary-foreground));
+}
+
+.new-chat-btn:hover {
+    opacity: 0.9;
+}
+
+.copy-chat-btn {
+    background-color: hsl(12 76% 61%);
+    /* Orange/Red from Chart-1 */
+    color: hsl(var(--primary-foreground));
+    border: none;
+}
+
+.copy-chat-btn:hover {
+    opacity: 0.9;
+}
+
+.cross-check-btn {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+}
+
+.cross-check-btn:hover {
+    opacity: 0.9;
+}
+
+/* Anonymous Toggle Button (Power Style) */
+.anonymous-btn {
+    background-color: transparent;
+    color: hsl(var(--muted-foreground));
+    border: 1px solid hsl(var(--input));
+    margin-left: 4px;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.anonymous-btn:hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--foreground));
+}
+
+.anonymous-btn.active {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
+}
+
+.power-icon {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2.5;
+}
+
+/* Switch Button for Scroll Sync */
+.switch-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    margin-left: 8px;
+    user-select: none;
+}
+
+.switch-container input {
+    display: none;
+}
+
+.switch-slider {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background-color: hsl(var(--input));
+    border-radius: 20px;
+    transition: 0.3s;
+}
+
+.switch-slider:before {
+    content: "";
+    position: absolute;
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+input:checked+.switch-slider {
+    background-color: hsl(var(--primary));
+}
+
+input:checked+.switch-slider:before {
+    transform: translateX(16px);
+}
+
+.switch-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+}
+
+input:checked~.switch-label {
+    color: hsl(var(--foreground));
+}
+
+/* Layout Group */
+.layout-group {
+    display: flex;
+    background: hsl(var(--secondary));
+    border-radius: var(--radius);
+    padding: 2px;
+    gap: 2px;
+    margin-left: 8px;
+    margin-right: 8px;
+}
+
+.layout-btn {
+    background: transparent;
+    border: none;
+    color: hsl(var(--muted-foreground));
+    padding: 4px;
+    width: 28px;
+    height: 28px;
+    border-radius: calc(var(--radius) - 2px);
     display: flex;
     align-items: center;
-    gap: 5px;
-    cursor: pointer;
-    font-size: 0.9rem;
+    justify-content: center;
 }
 
-#toggles input[type="checkbox"] {
-    accent-color: #007acc;
+.layout-btn:hover {
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background) / 0.5);
 }
 
+.layout-btn.active {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Prompt Toggle (Collapse) */
 .prompt-toggle-btn {
-    background: rgba(255, 255, 255, 0.06);
-    color: #dfe9ff;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 16px;
-    padding: 6px 14px;
-    cursor: pointer;
-    box-shadow: none;
-    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
-    margin-left: auto;
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    border: 1px solid transparent;
+    width: 32px;
+    /* Reduced size */
+    height: 32px;
+    padding: 0;
+    border-radius: var(--radius);
 }
 
 .prompt-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.35);
-    transform: translateY(-1px);
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
 }
 
 .toggle-icon {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     transition: transform 0.2s ease;
 }
 
@@ -154,7 +434,7 @@ body {
 }
 
 #controls-container.collapsed {
-    padding: 6px 20px;
+    padding: 8px 24px;
     gap: 4px;
     min-height: 0;
 }
@@ -165,89 +445,6 @@ body {
     max-height: 0;
     overflow: hidden;
     pointer-events: none;
-}
-
-/* Layout Buttons */
-.layout-group {
-    display: flex;
-    background: #333;
-    border-radius: 4px;
-    padding: 2px;
-    gap: 2px;
-}
-
-.layout-btn {
-    background: transparent;
-    border: none;
-    color: #ccc;
-    padding: 4px 8px;
-    cursor: pointer;
-    border-radius: 3px;
-    font-size: 0.8rem;
-}
-
-.layout-btn:hover {
-    background: #444;
-}
-
-.layout-btn.active {
-    background: #007acc;
-    color: white;
-}
-
-.layout-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* Action Buttons */
-button {
-    padding: 6px 12px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: background-color 0.2s;
-}
-
-.new-chat-btn {
-    background-color: #0e639c;
-    color: white;
-}
-
-.new-chat-btn:hover {
-    background-color: #1177bb;
-}
-
-.copy-chat-btn {
-    background-color: #2b5c5c;
-    color: white;
-    border: 1px solid #387878;
-}
-
-.copy-chat-btn:hover {
-    background-color: #387878;
-}
-
-.cross-check-btn {
-    background-color: #871094;
-    color: white;
-}
-
-.cross-check-btn:hover {
-    background-color: #a013b0;
-}
-
-.scroll-sync-btn {
-    background-color: #2d2d2d;
-    color: #ccc;
-    border: 1px solid #3e3e42;
-}
-
-.scroll-sync-btn.active {
-    background-color: #007acc;
-    color: white;
-    border-color: #007acc;
 }
 
 /* Input Area */
@@ -273,31 +470,62 @@ button {
 
 .prompt-card {
     width: 100%;
-    background-color: #2a2a2b;
-    border: 1px solid #3f3f44;
-    border-radius: 28px;
-    padding: 20px 22px 16px;
+    background-color: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    padding: 12px;
+    /* Reduced padding */
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
+    gap: 10px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     max-height: 520px;
-    transition: padding 0.25s ease, opacity 0.25s ease, max-height 0.3s ease;
+    transition: all 0.2s ease;
+}
+
+.prompt-card:focus-within {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
+#master-input {
+    flex: 1;
+    background-color: transparent;
+    border: none;
+    color: hsl(var(--foreground));
+    padding: 0;
+    border-radius: 0;
+    resize: none;
+    font-family: inherit;
+    font-size: 0.9rem;
+    /* Reduced font size */
+    line-height: 1.5;
+    min-height: 80px;
+    /* Reduced min-height */
+}
+
+#master-input:focus {
+    outline: none;
+}
+
+#master-input::placeholder {
+    color: hsl(var(--muted-foreground));
 }
 
 .prompt-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-top: 12px;
-    border-top: 1px solid #3f3f44;
+    padding-top: 8px;
+    /* Reduced padding */
+    border-top: 1px solid hsl(var(--border));
 }
 
 .toolbar-left,
 .toolbar-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .toolbar-left {
@@ -308,9 +536,56 @@ button {
     margin-left: auto;
 }
 
+/* Clip Button */
+#clip-btn {
+    width: 28px;
+    /* Reduced size */
+    height: 28px;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    padding: 0;
+}
+
+#clip-btn:hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--foreground));
+}
+
+.clip-icon {
+    width: 16px;
+    height: 16px;
+}
+
+/* Send Button */
+#send-btn {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-weight: 600;
+    height: 32px;
+    /* Reduced height */
+    padding: 0 16px;
+    border-radius: var(--radius);
+    box-shadow: none;
+    font-size: 0.8rem;
+}
+
+#send-btn:hover {
+    opacity: 0.9;
+    transform: none;
+    box-shadow: none;
+}
+
+#send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* File Preview */
 #file-preview-area {
     display: none;
-    gap: 8px;
+    gap: 6px;
     overflow-x: auto;
     padding: 2px 0;
     min-height: 0;
@@ -319,202 +594,69 @@ button {
     align-items: center;
 }
 
-.clear-files-btn {
-    display: none;
-    padding: 6px 12px;
-    background-color: #3a3a3a;
-    border: 1px solid #585858;
-    color: #dcdcdc;
-    border-radius: 999px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
-}
-
-.clear-files-btn:hover {
-    background-color: #4a4a4a;
-    color: #ffffff;
-}
-
 .file-chip {
-    background-color: #3c3c3c;
-    border: 1px solid #555;
+    background-color: hsl(var(--secondary));
+    border: 1px solid hsl(var(--border));
     border-radius: 12px;
     padding: 2px 8px;
-    font-size: 0.8rem;
+    /* Reduced padding */
+    font-size: 0.7rem;
+    /* Reduced font size */
     display: flex;
     align-items: center;
-    gap: 5px;
-    white-space: nowrap;
+    gap: 6px;
+    color: hsl(var(--foreground));
 }
 
 .file-chip .remove-file {
     cursor: pointer;
-    color: #aaa;
+    color: hsl(var(--muted-foreground));
     font-weight: bold;
 }
 
 .file-chip .remove-file:hover {
-    color: #fff;
+    color: hsl(var(--destructive));
 }
 
-#clip-btn {
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.03);
-    color: #e9f3ff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(6px);
-    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, color 0.15s ease;
-    padding: 0;
-}
-
-#clip-btn:hover {
-    background: rgba(111, 144, 255, 0.15);
-    border-color: rgba(111, 144, 255, 0.6);
-    color: #f4f8ff;
-    transform: translateY(-1px);
-}
-
-#clip-btn:disabled {
-    opacity: 0.35;
-    border-color: rgba(255, 255, 255, 0.08);
-    cursor: not-allowed;
-}
-
-.clip-icon {
-    width: 20px;
-    height: 20px;
-    stroke: currentColor;
-}
-
-#send-btn {
-    padding: 0 22px;
-    height: 42px;
-    border-radius: 999px;
-    border: none;
-    background: linear-gradient(120deg, #00d27a, #00a86b);
-    color: #eafff4;
-    font-weight: 600;
-    font-size: 0.95rem;
-    letter-spacing: 0.02em;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    box-shadow: 0 10px 26px rgba(0, 168, 107, 0.45);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
-}
-
-#send-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 14px 34px rgba(0, 168, 107, 0.55);
-    filter: brightness(1.05);
-}
-
-#send-btn:disabled {
-    background: #264b3a;
-    color: #7eb29a;
-    box-shadow: none;
-    cursor: not-allowed;
-}
-
-/* Drag & Drop Overlay */
-#input-area.drag-over {
-    outline: 2px dashed #007acc;
-    background-color: rgba(0, 122, 204, 0.1);
-}
-
-#master-input {
-    flex: 1;
+.clear-files-btn {
+    display: none;
+    padding: 2px 8px;
     background-color: transparent;
-    border: none;
-    color: white;
-    padding: 0;
-    border-radius: 0;
-    resize: none;
-    font-family: inherit;
-    font-size: 1rem;
-    line-height: 1.55;
-    min-height: 120px;
-}
-
-#master-input:focus {
-    outline: none;
-}
-
-#master-input:disabled {
-    background-color: transparent;
-    color: #777;
-    cursor: not-allowed;
-}
-
-#master-input::placeholder {
-    color: #9ca0ad;
-}
-
-.prompt-toggle-btn {
-    background: #2d2d2d;
-    color: #d0d0d0;
-    border: 1px solid #444;
-    border-radius: 999px;
-    padding: 4px 12px;
-    font-size: 0.9rem;
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    border-radius: 12px;
+    font-size: 0.7rem;
     cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
+    height: 20px;
 }
 
-.prompt-toggle-btn:hover {
-    background: #3a3a3a;
-    color: #fff;
+.clear-files-btn:hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--foreground));
 }
 
-#input-area.collapsed .prompt-card {
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    opacity: 0;
-    overflow: hidden;
-    pointer-events: none;
+/* Drag & Drop */
+#input-area.drag-over .prompt-card {
+    border-color: hsl(var(--primary));
+    background-color: hsl(var(--accent));
 }
 
-#input-area.collapsed {
-    gap: 0;
-}
-
-#file-preview-area::-webkit-scrollbar {
-    height: 4px;
-}
-
-#file-preview-area::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 999px;
-}
-
-/* Login Badge */
-#multi-ai-chat-login-badge {
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-}
-
-/* Modal Popup */
+/* Modal */
 #confirmation-modal {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
+    background-color: rgba(0, 0, 0, 0.8);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 10000;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.2s ease;
+    backdrop-filter: blur(4px);
 }
 
 #confirmation-modal.visible {
@@ -523,24 +665,25 @@ button {
 }
 
 .modal-content {
-    background-color: #252526;
-    border: 1px solid #007acc;
-    border-radius: 8px;
-    padding: 30px 50px;
+    background-color: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    padding: 32px;
     text-align: center;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    max-width: 80%;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    max-width: 400px;
+    width: 90%;
 }
 
 .modal-text {
-    color: #fff;
-    font-size: 1.2rem;
-    margin-bottom: 20px;
-    line-height: 1.5;
+    color: hsl(var(--foreground));
+    font-size: 1.1rem;
+    margin-bottom: 24px;
+    line-height: 1.6;
 }
 
 .modal-timer {
-    color: #007acc;
-    font-size: 2rem;
+    color: hsl(var(--primary));
+    font-size: 1.5rem;
     font-weight: bold;
 }

@@ -1,5 +1,20 @@
 # Release Notes
 
+## v0.5.1 (2025-12-03)
+
+### 🚀 New Features
+*   **Anonymous Cross Check**:
+    *   Added an "Anonymous" toggle button to the Cross Check controls.
+    *   When enabled, service names are replaced with aliases (e.g., ChatGPT -> (A), Claude -> (B)) in the prompts sent to other AIs.
+    *   Helps reduce bias and potential context leakage between models during cross-referencing.
+*   **Modern UI Enhancements**:
+    *   **Scroll Sync Toggle**: Replaced the button with a sleek toggle switch for better usability.
+    *   **Layout Icons**: Replaced text buttons (1x3, 1x4, 2x2) with intuitive SVG icons.
+    *   **Refined Styling**: Reduced button heights and font sizes for a more compact and modern look.
+    *   **Distinct Actions**: Applied unique colors to "New Chat" and "Copy Chat Thread" buttons for quick identification.
+
+---
+
 ## v0.5.0 (2025-12-02)
 
 ### 🚀 New Features

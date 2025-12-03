@@ -24,21 +24,63 @@
                     <button id="new-chat-btn" class="new-chat-btn">New Chat</button>
                     <button id="copy-chat-btn" class="copy-chat-btn">Copy Chat Thread</button>
                     <button id="cross-check-btn" class="cross-check-btn">Cross Check</button>
-                    <button id="scroll-sync-btn" class="scroll-sync-btn">📜 Scroll Sync: OFF</button>
+                    <button id="anonymous-btn" class="anonymous-btn" title="Toggle Anonymous Mode">
+                        <svg class="power-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                            <line x1="12" y1="2" x2="12" y2="12"></line>
+                        </svg>
+                        <span>Anonymous</span>
+                    </button>
+
+                    <label class="switch-container" title="Toggle Scroll Sync">
+                        <input type="checkbox" id="scroll-sync-toggle">
+                        <span class="switch-slider"></span>
+                        <span class="switch-label">Scroll Sync</span>
+                    </label>
+
                     <span class="layout-group">
-                        <button id="layout-1x3" class="layout-btn">1x3</button>
-                        <button id="layout-1x4" class="layout-btn active">1x4</button>
-                        <button id="layout-2x2" class="layout-btn">2x2</button>
+                        <button id="layout-1x3" class="layout-btn" title="1x3 Layout">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                                <rect x="3" y="2" width="4" height="20" rx="1" />
+                                <rect x="10" y="2" width="4" height="20" rx="1" />
+                                <rect x="17" y="2" width="4" height="20" rx="1" />
+                            </svg>
+                        </button>
+                        <button id="layout-1x4" class="layout-btn active" title="1x4 Layout">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                                <rect x="2" y="2" width="3" height="20" rx="0.5" />
+                                <rect x="7.5" y="2" width="3" height="20" rx="0.5" />
+                                <rect x="13" y="2" width="3" height="20" rx="0.5" />
+                                <rect x="18.5" y="2" width="3" height="20" rx="0.5" />
+                            </svg>
+                        </button>
+                        <button id="layout-2x2" class="layout-btn" title="2x2 Layout">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                                <rect x="3" y="3" width="8" height="8" rx="1" />
+                                <rect x="13" y="3" width="8" height="8" rx="1" />
+                                <rect x="3" y="13" width="8" height="8" rx="1" />
+                                <rect x="13" y="13" width="8" height="8" rx="1" />
+                            </svg>
+                        </button>
                     </span>
-                    <label><input type="checkbox" id="toggle-chatgpt" checked> ChatGPT</label>
-                    <label><input type="checkbox" id="toggle-claude" checked> Claude</label>
-                    <label><input type="checkbox" id="toggle-gemini" checked> Gemini</label>
-                    <label><input type="checkbox" id="toggle-grok"> Grok</label>
-                    <label><input type="checkbox" id="toggle-perplexity" checked> Perplexity</label>
+
+                    <label class="service-toggle-label"><input type="checkbox" id="toggle-chatgpt" checked> <span
+                            class="label-text">ChatGPT</span></label>
+                    <label class="service-toggle-label"><input type="checkbox" id="toggle-claude" checked> <span
+                            class="label-text">Claude</span></label>
+                    <label class="service-toggle-label"><input type="checkbox" id="toggle-gemini" checked> <span
+                            class="label-text">Gemini</span></label>
+                    <label class="service-toggle-label"><input type="checkbox" id="toggle-grok"> <span
+                            class="label-text">Grok</span></label>
+                    <label class="service-toggle-label"><input type="checkbox" id="toggle-perplexity" checked> <span
+                            class="label-text">Perplexity</span></label>
                 </div>
-                <button id="prompt-toggle-btn" class="prompt-toggle-btn" aria-expanded="true" title="Collapse prompt panel">
+                <button id="prompt-toggle-btn" class="prompt-toggle-btn" aria-expanded="true"
+                    title="Collapse prompt panel">
                     <svg class="toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
                     </svg>
                 </button>
             </div>
@@ -51,22 +93,30 @@
                             <div class="toolbar-left">
                                 <button id="clip-btn" title="Attach files" aria-label="Attach files">
                                     <svg class="clip-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path d="M7.5 12.5l5.15-5.15a3 3 0 114.24 4.24l-6.36 6.36a4 4 0 11-5.66-5.66l6.01-6.01"
+                                        <path
+                                            d="M7.5 12.5l5.15-5.15a3 3 0 114.24 4.24l-6.36 6.36a4 4 0 11-5.66-5.66l6.01-6.01"
                                             fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
                                             stroke-linejoin="round" />
                                     </svg>
                                 </button>
                                 <div id="file-preview-area"></div>
-                                <button id="clear-files-btn" class="clear-files-btn" title="Clear selected files">Clear All</button>
+                                <button id="clear-files-btn" class="clear-files-btn" title="Clear selected files">Clear
+                                    All</button>
                             </div>
                             <div class="toolbar-right">
-                                <button id="send-btn" title="Send prompt">Send ➤</button>
+                                <button id="send-btn" title="Send prompt">Send</button>
                             </div>
                         </div>
                         <input type="file" id="file-input" multiple style="display: none;">
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+    <div id="confirmation-modal">
+        <div class="modal-content">
+            <div class="modal-text">파일 업로드 완료 확인 후,<br>Ctrl + Enter를 입력하여 진행해주세요.</div>
+            <div class="modal-timer"></div>
         </div>
     </div>
     <script src="renderer.js"></script>
