@@ -119,6 +119,116 @@
             <div class="modal-timer"></div>
         </div>
     </div>
+
+    <!-- Cross Check Modal -->
+    <div id="cross-check-modal" class="modal">
+        <div class="modal-content cross-check-content">
+            <div class="modal-header">
+                <h2>Cross Check Options</h2>
+                <button id="close-cross-check-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="cross-check-options" class="options-view">
+                    <button id="btn-compare-responses" class="option-card relative-parent">
+                        <div class="icon">🔍</div>
+                        <h3>Compare AI Responses</h3>
+                        <p>Use a predefined prompt to analyze and compare responses.</p>
+                        <div class="hover-preview">
+                            <strong>Preview:</strong><br>
+                            <span id="predefined-prompt-preview-text">"Below are responses from different AI models.
+                                Please compare and analyze them for accuracy, completeness, and logic. Identify any
+                                discrepancies and suggest the best answer."</span>
+                        </div>
+                        <div class="edit-icon-container" id="edit-predefined-btn" title="Edit Predefined Prompt">
+                            ✏️
+                        </div>
+                    </button>
+                    <button id="btn-custom-prompt" class="option-card">
+                        <div class="icon">✏️</div>
+                        <h3>Add Custom Prompt</h3>
+                        <p>Write your own prompt to guide the cross-check.</p>
+                    </button>
+                </div>
+
+                <div id="predefined-prompt-edit-view" class="custom-view hidden">
+                    <div class="custom-header">
+                        <button id="back-to-options-predefined-btn" class="btn-ghost">← Back</button>
+                        <h3>Edit Predefined Prompt</h3>
+                        <button id="close-predefined-edit-btn" class="close-btn"
+                            style="margin-left: auto;">&times;</button>
+                    </div>
+                    <div class="input-group">
+                        <textarea id="predefined-prompt-input" class="textarea-field"
+                            style="min-height: 150px;"></textarea>
+                    </div>
+                    <div class="controls-row" style="justify-content: flex-end; gap: 8px;">
+                        <button id="btn-cancel-predefined" class="btn-ghost">Cancel</button>
+                        <button id="btn-save-predefined" class="btn-primary" disabled>Modify</button>
+                    </div>
+                </div>
+
+                <div id="custom-prompt-view" class="custom-view hidden">
+                    <div class="custom-header">
+                        <button id="back-to-options-btn" class="btn-ghost">← Back</button>
+                        <h3>Custom Prompt</h3>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" id="custom-prompt-title" placeholder="Prompt Title"
+                            class="input-field">
+                    </div>
+                    <div class="input-group">
+                        <textarea id="custom-prompt-input" placeholder="Enter your custom prompt here..."
+                            class="textarea-field"></textarea>
+                    </div>
+                    <div class="controls-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="save-prompt-checkbox"> Save this prompt
+                        </label>
+                        <div class="button-group">
+                            <button id="btn-add-custom" class="btn-secondary" disabled>Add Custom Prompt</button>
+                            <button id="btn-send-custom" class="btn-primary" disabled>Send Cross Check</button>
+                        </div>
+                    </div>
+
+                    <div class="saved-prompts-section">
+                        <h4>Saved Prompts</h4>
+                        <div class="prompts-table-container">
+                            <table id="saved-prompts-table">
+                                <thead>
+                                    <tr>
+                                        <th data-sort="title">Title <span class="sort-icon"></span></th>
+                                        <th data-sort="content">Preview <span class="sort-icon"></span></th>
+                                        <th data-sort="lastUsedAt">Last Used <span class="sort-icon">▼</span></th>
+                                        <th data-sort="createdAt">Created <span class="sort-icon"></span></th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="saved-prompts-body">
+                                    <!-- Rows will be injected here -->
+                                </tbody>
+                            </table>
+                            <div id="saved-prompts-empty" class="empty-state hidden">No saved prompts yet.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="prompt-delete-modal" class="modal">
+        <div class="modal-content prompt-delete-content">
+            <div class="modal-header">
+                <h3>Delete Saved Prompt</h3>
+                <button id="close-prompt-delete-btn" class="close-btn" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="prompt-delete-name">this prompt</strong>?</p>
+            </div>
+            <div class="prompt-delete-actions">
+                <button id="btn-cancel-delete-prompt" class="btn-ghost">Cancel</button>
+                <button id="btn-confirm-delete-prompt" class="btn-primary">Delete</button>
+            </div>
+        </div>
+    </div>
     <script src="renderer.js"></script>
 </body>
 

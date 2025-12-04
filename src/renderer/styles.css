@@ -238,6 +238,11 @@ button {
     background-color: hsl(var(--secondary) / 0.8);
 }
 
+.btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .btn-outline {
     border: 1px solid hsl(var(--input));
     background-color: transparent;
@@ -686,4 +691,362 @@ input:checked~.switch-label {
     color: hsl(var(--primary));
     font-size: 1.5rem;
     font-weight: bold;
+}
+
+/* Cross Check Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    backdrop-filter: blur(4px);
+}
+
+.modal.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.cross-check-content {
+    max-width: 600px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid hsl(var(--border));
+    padding-bottom: 16px;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: hsl(var(--foreground));
+}
+
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.prompt-delete-content {
+    max-width: 420px;
+    width: 90%;
+    padding: 24px;
+}
+
+.prompt-delete-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+/* Options View */
+.options-view {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.options-view.hidden {
+    display: none;
+}
+
+.option-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 24px;
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    height: 100%;
+    color: hsl(var(--foreground));
+    /* Ensure text is light */
+}
+
+.option-card:hover {
+    border-color: hsl(var(--primary));
+    background-color: hsl(var(--accent));
+    color: hsl(var(--foreground));
+}
+
+.option-card .icon {
+    font-size: 2rem;
+    margin-bottom: 12px;
+}
+
+.option-card h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    /* Ensure title is light */
+}
+
+.option-card p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: hsl(var(--muted-foreground));
+}
+
+/* Custom Prompt View */
+.custom-view {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.custom-view.hidden {
+    display: none;
+}
+
+.custom-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.custom-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.input-field,
+.textarea-field {
+    background-color: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    color: hsl(var(--foreground));
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+
+.input-field:focus,
+.textarea-field:focus {
+    outline: none;
+    border-color: hsl(var(--ring));
+}
+
+.textarea-field {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.controls-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.button-group {
+    display: flex;
+    gap: 8px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Saved Prompts Table */
+.saved-prompts-section {
+    margin-top: 16px;
+    border-top: 1px solid hsl(var(--border));
+    padding-top: 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.saved-prompts-section h4 {
+    margin: 0 0 12px 0;
+    font-size: 0.9rem;
+    color: hsl(var(--muted-foreground));
+}
+
+.prompts-table-container {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+}
+
+#saved-prompts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+#saved-prompts-table th {
+    background-color: hsl(var(--secondary));
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: hsl(var(--muted-foreground));
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    cursor: pointer;
+    user-select: none;
+}
+
+#saved-prompts-table th:hover {
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--accent));
+}
+
+#saved-prompts-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+}
+
+#saved-prompts-table tr:last-child td {
+    border-bottom: none;
+}
+
+#saved-prompts-table tr:hover {
+    background-color: hsl(var(--accent));
+    cursor: pointer;
+}
+
+.sort-icon {
+    font-size: 0.7rem;
+    margin-left: 4px;
+}
+
+/* Hover Preview */
+.relative-parent {
+    position: relative;
+}
+
+.edit-icon-container {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: hsl(var(--secondary));
+    border: 1px solid hsl(var(--border));
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, background-color 0.2s;
+    font-size: 0.9rem;
+    z-index: 25;
+}
+
+.relative-parent:hover .edit-icon-container {
+    opacity: 1;
+}
+
+.edit-icon-container:hover {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+}
+
+.hover-preview {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+    border: 1px solid hsl(var(--border));
+    padding: 12px;
+    border-radius: var(--radius);
+    width: 280px;
+    font-size: 0.85rem;
+    text-align: left;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    pointer-events: none;
+    z-index: 20;
+    margin-bottom: 10px;
+}
+
+.relative-parent:hover .hover-preview {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(-5px);
+}
+
+.hover-preview::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -6px;
+    border-width: 6px;
+    border-style: solid;
+    border-color: hsl(var(--popover)) transparent transparent transparent;
+}
+
+.empty-state {
+    text-align: center;
+    color: hsl(var(--muted-foreground));
+    font-size: 0.9rem;
+    padding: 24px;
+}
+
+.empty-state.hidden {
+    display: none;
 }

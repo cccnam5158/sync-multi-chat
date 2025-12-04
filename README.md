@@ -10,7 +10,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 ## 📋 Overview
 
 -   **Project Name**: Multi-AI Chat
--   **Version**: v0.5.1
+-   **Version**: v0.5.2
 -   **Platform**: Windows 10/11 (64-bit)
 -   **Tech Stack**: Electron, Node.js, HTML/CSS/JavaScript
 
@@ -32,7 +32,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 -   **Session Persistence**: Automatically saves your login state (cookies/local storage) so you don't have to log in every time.
 -   **Advanced Layouts**: Support for **1x4** (Horizontal) and **2x2** (Grid) layouts with **resizable panels**.
 -   **Copy Chat Thread**: One-click copy of all chat threads to clipboard for easy sharing or saving.
--   **Cross Check**: Automatically feed the chat history of other AIs into each AI to cross-reference answers.
+-   **Cross Check**: Click the "Cross Check" button to open a modal with options: use an editable predefined comparison prompt or create custom prompts for cross-referencing AI answers. Save up to 10 custom prompts for reuse.
 -   **Anonymous Cross Check**: Option to hide AI service names (replaced with aliases A, B, C...) during cross-checking to reduce bias.
 -   **File Upload**: Attach images or text files to your prompt and broadcast them to all supported services (except Grok). Supports **Drag & Drop** and **Clipboard Paste**.
 

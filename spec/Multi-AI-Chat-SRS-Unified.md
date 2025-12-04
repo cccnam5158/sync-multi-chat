@@ -2,8 +2,8 @@
 ## Software Requirements Specification (SRS)
 ### EARS (Easy Approach to Requirements Syntax) 기반 통합 요구사항 명세서
 
-**문서 버전**: 0.6.0 (익명 교차 검증 및 Modern UI 구현)  
-**작성일**: 2025-12-03  
+**문서 버전**: 0.8.0 (Cross Check 사용자 프롬프트 추가 및 개선)  
+**작성일**: 2025-12-04  
 **프로젝트명**: Multi-AI Chat (코드명: MAPB - Multi AI Prompt Broadcaster / Clash of LLMs)
 
 ---
@@ -750,6 +750,49 @@ While a service panel is disabled or closed, the system shall exclude its conten
 #### CROSS-005: 빈 컨텐츠 처리
 **[Unwanted]**
 If a service's thread is empty, then the system shall exclude it from the context provided to other services.
+
+#### CROSS-006: 교차 검증 팝업
+**[Event-Driven]**
+When the user clicks the "Cross Check" button, the system shall display a modal popup offering two options: "각 AI 응답 비교" (Compare AI Responses) and "사용자 정의 프롬프트 추가" (Add Custom Prompt).
+
+#### CROSS-007: 응답 비교 모드 (기본)
+**[Event-Driven]**
+When the user selects "각 AI 응답 비교", the system shall prepend the current predefined comparison prompt to the collected AI responses and broadcast it to all enabled services.
+*Default Predefined Prompt*: "Below are responses from different AI models. Please compare and analyze them for accuracy, completeness, and logic. Identify any discrepancies and suggest the best answer."
+
+#### CROSS-008: 사용자 정의 프롬프트 모드
+**[Event-Driven]**
+When the user selects "사용자 정의 프롬프트 추가", the system shall display an input form with required Title and Content fields. Upon confirmation, the system shall prepend this custom prompt to the collected AI responses and broadcast it.
+
+#### CROSS-009: 사용자 프롬프트 저장
+**[Ubiquitous]**
+The system shall allow saving up to 10 custom prompts with a required "Title" and "Content". Saved prompts shall be stored in local storage with creation and last-used timestamps and persist across sessions.
+
+#### CROSS-010: 사용자 프롬프트 관리
+**[State-Driven]**
+While in the "Add Custom Prompt" view, the system shall display a sortable table of saved prompts showing Title, Preview, Last Used, Created dates, and Delete actions. Users can click table headers to sort, select a prompt to populate the input fields, or delete prompts with confirmation.
+
+#### CROSS-011: 사전 정의 프롬프트 편집
+**[Event-Driven]**
+When the user hovers over "Compare AI Responses" button, the system shall display a preview tooltip and an edit icon. When the edit icon is clicked, the system shall open an edit modal allowing modification of the predefined prompt with validation (Modify button enabled only when changes are made).
+
+#### CROSS-012: 입력 필드 유효성 검사
+**[State-Driven]**
+While in the "Add Custom Prompt" view, the system shall disable "Add Custom Prompt" and "Send Cross Check" buttons when either Title or Content fields are empty, and shall ensure Title uniqueness among saved prompts.
+
+#### CROSS-013: 프롬프트 삭제 확인
+**[Event-Driven]**
+When the user clicks the delete button on a saved prompt, the system shall display a confirmation modal showing the prompt title. The prompt shall only be deleted upon user confirmation.
+
+#### CROSS-014: 입력 상태 관리
+**[Ubiquitous]**
+The system shall ensure Title and Content input fields remain enabled at all times, using MutationObserver and multiple re-enablement strategies to prevent unwanted disabled states.
+
+#### CROSS-015: BrowserView 가시성 관리
+**[State-Driven]**
+While the Cross Check modal is visible, the system shall temporarily hide all AI service BrowserViews. When the modal is closed, the system shall restore BrowserView visibility.
+
+
 
 ---
 

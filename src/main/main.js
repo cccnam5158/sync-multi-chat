@@ -645,8 +645,8 @@ ipcMain.on('copy-chat-thread', async (event) => {
     }
 });
 
-ipcMain.on('cross-check', async (event, isAnonymousMode) => {
-    console.log('Starting Cross Check... Anonymous:', isAnonymousMode);
+ipcMain.on('cross-check', async (event, isAnonymousMode, promptPrefix) => {
+    console.log('Starting Cross Check... Anonymous:', isAnonymousMode, 'Prefix:', promptPrefix ? 'Yes' : 'No');
 
     const aliases = {
         'chatgpt': '(A)',
@@ -669,6 +669,12 @@ ipcMain.on('cross-check', async (event, isAnonymousMode) => {
     for (const targetService of services) {
         if (views[targetService] && views[targetService].enabled) {
             let prompt = "";
+
+            // Add Prefix if exists
+            if (promptPrefix) {
+                prompt += `${promptPrefix}\n\n`;
+            }
+
             for (const sourceService of services) {
                 if (sourceService !== targetService && results[sourceService]) {
                     let header = sourceService.toUpperCase();
@@ -920,6 +926,33 @@ ipcMain.on('reload-active-view', (event) => {
 
 ipcMain.on('status-update', (event, { isLoggedIn }) => {
     // Optional: Handle status updates from renderer if needed
+});
+
+ipcMain.on('set-service-visibility', (event, isVisible) => {
+    console.log(`Setting service visibility to: ${isVisible}`);
+    Object.keys(views).forEach(service => {
+        if (views[service] && views[service].enabled && views[service].view) {
+            if (isVisible) {
+                // Add back if it was removed (or ensure it's there)
+                try {
+                    // Check if already attached to avoid error
+                    // mainWindow.addBrowserView(views[service].view); 
+                    // Electron addBrowserView moves it to top.
+                    // We just add it.
+                    mainWindow.addBrowserView(views[service].view);
+                } catch (e) {
+                    console.error(`Failed to show view for ${service}:`, e);
+                }
+            } else {
+                // Remove to hide
+                try {
+                    mainWindow.removeBrowserView(views[service].view);
+                } catch (e) {
+                    console.error(`Failed to hide view for ${service}:`, e);
+                }
+            }
+        }
+    });
 });
 
 app.whenReady().then(createWindow);

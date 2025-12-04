@@ -1,5 +1,31 @@
 # Release Notes
 
+## v0.5.2 (2025-12-04)
+
+### 🚀 New Features
+*   **Enhanced Cross Check - User Prompt Management**:
+    *   **Editable Predefined Prompt**: Hover over "Compare AI Responses" to see a preview tooltip. Click the edit icon to customize the default comparison prompt. Changes are persisted across sessions.
+    *   **Custom Prompt Management**: Create, save, and manage up to 10 custom prompts with required Title and Content fields.
+    *   **Sortable Saved Prompts Table**: View saved prompts in a sortable table showing Title, Preview, Last Used, and Created dates. Click headers to sort by any column.
+    *   **Delete Confirmation Modal**: Safe prompt deletion with a confirmation dialog showing the prompt title.
+    *   **Smart Validation**: "Add Custom Prompt" and "Send Cross Check" buttons automatically enable/disable based on field completion. Title uniqueness is enforced.
+    *   **Two Save Options**: 
+        - "Add Custom Prompt" button: Save without sending
+        - "Send Cross Check" with "Save this prompt" checkbox: Optionally save while sending
+
+### 🔧 Fixes & Improvements
+*   **Robust Input State Management**: 
+    *   Implemented MutationObserver to prevent input fields from becoming disabled unexpectedly.
+    *   Multiple re-enablement strategies ensure Title and Content fields remain editable after all operations (deletion, clearing, modal interactions).
+*   **BrowserView Visibility Control**: AI service views are now temporarily hidden while the Cross Check modal is open for better focus and performance.
+*   **Improved User Experience**:
+    *   Initial button states correctly reflect validation requirements
+    *   Removed duplicate event listeners for better performance
+    *   Date formatting for creation and last-used timestamps
+    *   Visual feedback for button states (disabled/enabled styling)
+
+---
+
 ## v0.5.1 (2025-12-03)
 
 ### 🚀 New Features

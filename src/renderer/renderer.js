@@ -49,7 +49,7 @@ window.electronAPI.onChatThreadCopied(() => {
 
 const crossCheckBtn = document.getElementById('cross-check-btn');
 crossCheckBtn.addEventListener('click', () => {
-    window.electronAPI.crossCheck(isAnonymousMode);
+    openCrossCheckModal();
 });
 
 const anonymousBtn = document.getElementById('anonymous-btn');
@@ -688,6 +688,520 @@ for (const [service, toggle] of Object.entries(toggles)) {
         window.electronAPI.toggleService(service, e.target.checked);
         updateLayoutState();
     });
+}
+
+//===========================================
+// Cross Check Modal Logic
+//===========================================
+
+const crossCheckModal = document.getElementById('cross-check-modal');
+const closeCrossCheckBtn = document.getElementById('close-cross-check-btn');
+const crossCheckOptions = document.getElementById('cross-check-options');
+const customPromptView = document.getElementById('custom-prompt-view');
+const btnCompareResponses = document.getElementById('btn-compare-responses');
+const btnCustomPrompt = document.getElementById('btn-custom-prompt');
+const backToOptionsBtn = document.getElementById('back-to-options-btn');
+const customPromptInput = document.getElementById('custom-prompt-input');
+const customPromptTitle = document.getElementById('custom-prompt-title');
+const savePromptCheckbox = document.getElementById('save-prompt-checkbox');
+const btnSendCustom = document.getElementById('btn-send-custom');
+const btnAddCustom = document.getElementById('btn-add-custom');
+if (btnAddCustom) btnAddCustom.disabled = true;
+if (btnSendCustom) btnSendCustom.disabled = true;
+
+const savedPromptsBody = document.getElementById('saved-prompts-body');
+const savedPromptsEmpty = document.getElementById('saved-prompts-empty');
+const savedPromptsTable = document.getElementById('saved-prompts-table');
+const promptDeleteModal = document.getElementById('prompt-delete-modal');
+const promptDeleteName = document.getElementById('prompt-delete-name');
+const btnConfirmDeletePrompt = document.getElementById('btn-confirm-delete-prompt');
+const btnCancelDeletePrompt = document.getElementById('btn-cancel-delete-prompt');
+const btnClosePromptDelete = document.getElementById('close-prompt-delete-btn');
+
+// Predefined Prompt Edit Elements
+const predefinedPromptEditView = document.getElementById('predefined-prompt-edit-view');
+const btnEditPredefined = document.getElementById('edit-predefined-btn');
+const predefinedPromptInput = document.getElementById('predefined-prompt-input');
+const btnCancelPredefined = document.getElementById('btn-cancel-predefined');
+const btnSavePredefined = document.getElementById('btn-save-predefined');
+const predefinedPromptPreviewText = document.getElementById('predefined-prompt-preview-text');
+const btnBackToOptionsPredefined = document.getElementById('back-to-options-predefined-btn');
+const btnClosePredefinedEdit = document.getElementById('close-predefined-edit-btn');
+
+let customPrompts = [];
+let currentSort = {
+    column: 'lastUsedAt',
+    direction: 'desc' // 'asc' or 'desc'
+};
+let pendingDeletePromptIndex = null;
+
+// Default Predefined Prompt
+const DEFAULT_PREDEFINED_PROMPT = "Below are responses from different AI models. Please compare and analyze them for accuracy, completeness, and logic. Identify any discrepancies and suggest the best answer.";
+let currentPredefinedPrompt = DEFAULT_PREDEFINED_PROMPT;
+
+function loadCustomPrompts() {
+    const stored = localStorage.getItem('customPrompts');
+    if (stored) {
+        try {
+            customPrompts = JSON.parse(stored);
+            // Migration: Ensure fields exist
+            customPrompts = customPrompts.map(p => ({
+                ...p,
+                createdAt: p.createdAt || new Date().toISOString(),
+                lastUsedAt: p.lastUsedAt || new Date().toISOString()
+            }));
+        } catch (e) {
+            console.error('Failed to parse custom prompts', e);
+            customPrompts = [];
+        }
+    }
+}
+
+function loadPredefinedPrompt() {
+    const stored = localStorage.getItem('predefinedPrompt');
+    if (stored) {
+        currentPredefinedPrompt = stored;
+    } else {
+        currentPredefinedPrompt = DEFAULT_PREDEFINED_PROMPT;
+    }
+    updatePredefinedPromptPreview();
+}
+
+function savePredefinedPrompt(content) {
+    currentPredefinedPrompt = content;
+    localStorage.setItem('predefinedPrompt', content);
+    updatePredefinedPromptPreview();
+}
+
+function updatePredefinedPromptPreview() {
+    if (predefinedPromptPreviewText) {
+        predefinedPromptPreviewText.textContent = `"${currentPredefinedPrompt}"`;
+    }
+}
+
+function saveCustomPromptsToStorage() {
+    localStorage.setItem('customPrompts', JSON.stringify(customPrompts));
+}
+
+function openCrossCheckModal() {
+    crossCheckModal.classList.add('visible');
+    showOptionsView();
+    loadCustomPrompts();
+    loadPredefinedPrompt();
+    // Hide services to show modal
+    window.electronAPI.setServiceVisibility(false);
+}
+
+function closeCrossCheckModal() {
+    crossCheckModal.classList.remove('visible');
+    // Show services again
+    window.electronAPI.setServiceVisibility(true);
+}
+
+function showOptionsView() {
+    crossCheckOptions.classList.remove('hidden');
+    customPromptView.classList.add('hidden');
+    if (predefinedPromptEditView) predefinedPromptEditView.classList.add('hidden');
+
+    // Reset inputs
+    resetCustomPromptForm();
+}
+
+function showCustomPromptView() {
+    crossCheckOptions.classList.add('hidden');
+    customPromptView.classList.remove('hidden');
+    renderSavedPrompts();
+    customPromptInput.focus();
+    updateSendButtonState();
+}
+
+function showPredefinedEditView() {
+    crossCheckOptions.classList.add('hidden');
+    if (predefinedPromptEditView) {
+        predefinedPromptEditView.classList.remove('hidden');
+        predefinedPromptInput.value = currentPredefinedPrompt;
+        btnSavePredefined.disabled = true; // Disable initially
+        predefinedPromptInput.focus();
+    }
+}
+
+function ensureCustomPromptInputsEnabled() {
+    [customPromptInput, customPromptTitle].forEach(field => {
+        if (field) {
+            field.disabled = false;
+            field.removeAttribute('disabled');
+        }
+    });
+}
+
+function isCustomPromptFormValid() {
+    const title = customPromptTitle.value.trim();
+    const content = customPromptInput.value.trim();
+    return title.length > 0 && content.length > 0;
+}
+
+function updateSendButtonState() {
+    ensureCustomPromptInputsEnabled();
+    const isValid = isCustomPromptFormValid();
+
+    btnSendCustom.disabled = !isValid;
+    btnAddCustom.disabled = !isValid; // Add Custom Prompt button validation
+}
+
+function forceEnableCustomPromptInputs() {
+    ensureCustomPromptInputsEnabled();
+    requestAnimationFrame(ensureCustomPromptInputsEnabled);
+    setTimeout(ensureCustomPromptInputsEnabled, 0);
+}
+
+const customPromptFieldObserver = new MutationObserver(() => {
+    forceEnableCustomPromptInputs();
+});
+
+[customPromptTitle, customPromptInput].forEach(field => {
+    if (field) {
+        customPromptFieldObserver.observe(field, {
+            attributes: true,
+            attributeFilter: ['disabled']
+        });
+    }
+});
+
+window.addEventListener('focus', forceEnableCustomPromptInputs);
+
+function openPromptDeleteModal(index) {
+    if (!promptDeleteModal) {
+        performPromptDeletion(index);
+        return;
+    }
+
+    pendingDeletePromptIndex = index;
+    const prompt = customPrompts[index];
+    if (promptDeleteName) {
+        promptDeleteName.textContent = prompt?.title || 'this prompt';
+    }
+    promptDeleteModal.classList.add('visible');
+    forceEnableCustomPromptInputs();
+}
+
+function closePromptDeleteModal() {
+    pendingDeletePromptIndex = null;
+    if (promptDeleteModal) {
+        promptDeleteModal.classList.remove('visible');
+    }
+    forceEnableCustomPromptInputs();
+}
+
+function applyCustomPromptValues(title = '', content = '') {
+    customPromptTitle.value = title;
+    customPromptInput.value = content;
+    updateSendButtonState();
+}
+
+function resetCustomPromptForm(options = {}) {
+    const {
+        title = '',
+        content = '',
+        preserveSaveCheckbox = false
+    } = options;
+
+    if (!preserveSaveCheckbox) {
+        savePromptCheckbox.checked = false;
+    }
+
+    applyCustomPromptValues(title, content);
+}
+
+// Input Listeners for Validation
+customPromptTitle.addEventListener('input', updateSendButtonState);
+customPromptInput.addEventListener('input', updateSendButtonState);
+
+// Predefined Prompt Input Listener
+if (predefinedPromptInput) {
+    predefinedPromptInput.addEventListener('input', () => {
+        const content = predefinedPromptInput.value.trim();
+        // Enable if content is different from current and not empty
+        btnSavePredefined.disabled = (content === currentPredefinedPrompt) || (content === '');
+    });
+}
+
+// Event Listeners
+closeCrossCheckBtn.addEventListener('click', closeCrossCheckModal);
+crossCheckModal.addEventListener('click', (e) => {
+    if (e.target === crossCheckModal) closeCrossCheckModal();
+});
+
+btnCompareResponses.addEventListener('click', (e) => {
+    // If clicked on edit button, don't trigger compare
+    if (e.target.closest('.edit-icon-container')) return;
+
+    window.electronAPI.crossCheck(isAnonymousMode, currentPredefinedPrompt);
+    closeCrossCheckModal();
+});
+
+if (btnEditPredefined) {
+    btnEditPredefined.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showPredefinedEditView();
+    });
+}
+
+if (btnCancelPredefined) {
+    btnCancelPredefined.addEventListener('click', showOptionsView);
+}
+
+if (btnBackToOptionsPredefined) {
+    btnBackToOptionsPredefined.addEventListener('click', showOptionsView);
+}
+
+if (btnClosePredefinedEdit) {
+    btnClosePredefinedEdit.addEventListener('click', showOptionsView);
+}
+
+if (btnSavePredefined) {
+    btnSavePredefined.addEventListener('click', () => {
+        const newContent = predefinedPromptInput.value.trim();
+        if (newContent) {
+            savePredefinedPrompt(newContent);
+        }
+        showOptionsView();
+    });
+}
+
+btnCustomPrompt.addEventListener('click', showCustomPromptView);
+backToOptionsBtn.addEventListener('click', showOptionsView);
+
+// Add Custom Prompt Button
+btnAddCustom.addEventListener('click', () => {
+    ensureCustomPromptInputsEnabled();
+    const title = customPromptTitle.value.trim();
+    const content = customPromptInput.value.trim();
+    const isValid = isCustomPromptFormValid();
+
+    if (!isValid) {
+        alert('Please enter both Title and Content.');
+        updateSendButtonState();
+        customPromptTitle.focus();
+        return;
+    }
+
+    // Check uniqueness
+    const exists = customPrompts.some(p => p.title === title);
+    if (exists) {
+        alert('A prompt with this title already exists. Please use a different title.');
+        return;
+    }
+
+    saveCustomPrompt(title, content);
+
+    // Clear inputs
+    resetCustomPromptForm({ preserveSaveCheckbox: true });
+});
+
+btnSendCustom.addEventListener('click', () => {
+    const prompt = customPromptInput.value.trim();
+    const title = customPromptTitle.value.trim();
+
+    if (!prompt || !title) {
+        // Should be disabled, but just in case
+        return;
+    }
+
+    if (savePromptCheckbox.checked) {
+        // Check if exists, if so, maybe update? Or just warn?
+        // User didn't specify behavior for "Send" with "Save" checked regarding uniqueness.
+        // I'll assume if checked, we try to save. If duplicate, maybe we just proceed or warn.
+        // Given the strict validation on "Add", I'll try to save if unique, otherwise just send.
+        const exists = customPrompts.some(p => p.title === title);
+        if (!exists) {
+            saveCustomPrompt(title, prompt);
+        }
+    }
+
+    window.electronAPI.crossCheck(isAnonymousMode, prompt);
+    closeCrossCheckModal();
+});
+
+function saveCustomPrompt(title, content) {
+    const now = new Date().toISOString();
+    const newPrompt = {
+        id: Date.now().toString(),
+        title,
+        content,
+        createdAt: now,
+        lastUsedAt: now
+    };
+
+    // Add to beginning
+    customPrompts.unshift(newPrompt);
+
+    // Limit to 10
+    if (customPrompts.length > 10) {
+        customPrompts = customPrompts.slice(0, 10);
+    }
+
+    // Sort by Last Updated (Last Used/Created) - User requested "Sort by Last Updated"
+    // Actually, unshift adds to top, which is "Latest".
+    // But if we want to enforce sort order in the list:
+    // The user said: "automatically Last Updated가 최신 순으로 정렬해서 추가되었음을 인지할 수 있도록 해줘"
+    // So we should set currentSort to lastUsedAt desc
+    currentSort.column = 'createdAt';
+    currentSort.direction = 'desc';
+
+    saveCustomPromptsToStorage();
+    renderSavedPrompts();
+}
+
+function performPromptDeletion(index) {
+    const deletedPrompt = customPrompts[index];
+    customPrompts.splice(index, 1);
+    saveCustomPromptsToStorage();
+    renderSavedPrompts();
+
+    forceEnableCustomPromptInputs();
+
+    const isDeletedPromptActive = deletedPrompt &&
+        customPromptTitle.value.trim() === deletedPrompt.title &&
+        customPromptInput.value.trim() === deletedPrompt.content;
+
+    if (isDeletedPromptActive) {
+        resetCustomPromptForm({ preserveSaveCheckbox: true });
+    } else {
+        updateSendButtonState();
+    }
+}
+
+function deleteCustomPrompt(index, e) {
+    e.stopPropagation(); // Prevent row click
+    openPromptDeleteModal(index);
+}
+
+function formatDate(isoString) {
+    if (!isoString) return '-';
+    const date = new Date(isoString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderSavedPrompts() {
+    savedPromptsBody.innerHTML = '';
+
+    if (customPrompts.length === 0) {
+        savedPromptsTable.style.display = 'none';
+        savedPromptsEmpty.classList.remove('hidden');
+        savedPromptsEmpty.style.display = 'block';
+        return;
+    }
+
+    savedPromptsTable.style.display = 'table';
+    savedPromptsEmpty.classList.add('hidden');
+    savedPromptsEmpty.style.display = 'none';
+
+    // Sort
+    const sortedPrompts = [...customPrompts].sort((a, b) => {
+        const valA = a[currentSort.column] || '';
+        const valB = b[currentSort.column] || '';
+
+        if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    sortedPrompts.forEach((prompt, index) => {
+        // Find original index for deletion
+        const originalIndex = customPrompts.findIndex(p => p.id === prompt.id);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${escapeHtml(prompt.title)}</td>
+            <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(prompt.content)}">${escapeHtml(prompt.content)}</td>
+            <td>${formatDate(prompt.lastUsedAt)}</td>
+            <td>${formatDate(prompt.createdAt)}</td>
+            <td style="text-align: center;">
+                <button class="delete-prompt-btn" title="Delete">✕</button>
+            </td>
+        `;
+
+        // Row Click -> Load Prompt
+        tr.addEventListener('click', () => {
+            applyCustomPromptValues(prompt.title, prompt.content);
+            // Update last used
+            prompt.lastUsedAt = new Date().toISOString();
+            saveCustomPromptsToStorage();
+        });
+
+        // Delete Button
+        const deleteBtn = tr.querySelector('.delete-prompt-btn');
+        deleteBtn.addEventListener('click', (e) => deleteCustomPrompt(originalIndex, e));
+
+        savedPromptsBody.appendChild(tr);
+    });
+
+    updateSortIcons();
+}
+
+function updateSortIcons() {
+    const headers = savedPromptsTable.querySelectorAll('th[data-sort]');
+    headers.forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+        if (th.dataset.sort === currentSort.column) {
+            icon.textContent = currentSort.direction === 'asc' ? '▲' : '▼';
+            th.style.color = 'hsl(var(--foreground))';
+        } else {
+            icon.textContent = '';
+            th.style.color = '';
+        }
+    });
+}
+
+// Sorting Event Listeners
+savedPromptsTable.querySelectorAll('th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+        const column = th.dataset.sort;
+        if (currentSort.column === column) {
+            currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSort.column = column;
+            currentSort.direction = 'desc'; // Default desc for new column
+        }
+        renderSavedPrompts();
+    });
+});
+
+if (btnCancelDeletePrompt) {
+    btnCancelDeletePrompt.addEventListener('click', () => {
+        closePromptDeleteModal();
+        updateSendButtonState();
+    });
+}
+
+if (btnClosePromptDelete) {
+    btnClosePromptDelete.addEventListener('click', () => {
+        closePromptDeleteModal();
+        updateSendButtonState();
+    });
+}
+
+if (btnConfirmDeletePrompt) {
+    btnConfirmDeletePrompt.addEventListener('click', () => {
+        if (pendingDeletePromptIndex === null) return;
+        performPromptDeletion(pendingDeletePromptIndex);
+        closePromptDeleteModal();
+    });
+}
+
+if (promptDeleteModal) {
+    promptDeleteModal.addEventListener('click', (e) => {
+        if (e.target === promptDeleteModal) {
+            closePromptDeleteModal();
+            updateSendButtonState();
+        }
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // Initial state setup on load

@@ -1,13 +1,14 @@
 {
   "name": "sync-multi-chat",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
     "build:portable": "electron-packager . \"Multi-AI Chat\" --platform=win32 --arch=x64 --out=dist-packager --overwrite",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "electron-rebuild"
   },
   "keywords": [],
   "author": "Joseph Nam",
