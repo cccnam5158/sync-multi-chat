@@ -12,6 +12,17 @@
         - **Gemini**: Uses `user-query` and `model-response` custom elements
         - **Grok**: Uses `div[id^="response-"]` with `items-end`/`items-start` class for role distinction
         - **Perplexity**: Uses `[class*="query"]` and `.prose` patterns with alternating message detection
+*   **Copy Last Response Button**:
+    *   Added a new "Copy Last Response" button in the control panel.
+    *   Copies the **last AI response only** from all currently active services simultaneously.
+    *   Useful for quick comparisons without including full conversation history.
+    *   Respects format selection (Markdown/JSON/Text) and Anonymous mode.
+*   **Per-Service Header Bar with Buttons**:
+    *   Each AI service panel now has a **dedicated header bar** (28px) above the BrowserView.
+    *   The header displays the **service name** on the left side.
+    *   **Reload (🔄)** and **Copy (📋)** buttons are positioned on the right side of the header.
+    *   The Copy button extracts the full chat thread using the same enhanced Markdown formatting as the main "Copy Chat Thread" button.
+    *   Removed old overlay-style floating buttons that were injected into the BrowserView.
 
 ### 🔧 Fixes & Improvements
 *   **Grok Cross Check Fix**: Updated `lastResponseSelector` to correctly extract the last AI response from Grok using `div[id^='response-'].items-start:last-of-type .response-content-markdown`.

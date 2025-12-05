@@ -31,7 +31,9 @@ This application allows you to enter a prompt once in a **Master Input** field a
 -   **Service Toggling**: Easily enable or disable specific AI services.
 -   **Session Persistence**: Automatically saves your login state (cookies/local storage) so you don't have to log in every time.
 -   **Advanced Layouts**: Support for **1x4** (Horizontal) and **2x2** (Grid) layouts with **resizable panels**.
--   **Copy Chat Thread**: One-click copy of all chat threads to clipboard for easy sharing or saving.
+-   **Copy Chat Thread**: One-click copy of all chat threads to clipboard with proper Markdown formatting (role distinction with `## 👤 User` and `## 🤖 [Service Name]`).
+-   **Copy Last Response**: Copy only the last AI response from all active services for quick comparisons.
+-   **Per-Service Header Bar**: Each service panel has a header bar with the service name and quick-access **Reload (🔄)** and **Copy (📋)** buttons.
 -   **Cross Check**: Click the "Cross Check" button to open a modal with options: use an editable predefined comparison prompt or create custom prompts for cross-referencing AI answers. Save up to 10 custom prompts for reuse.
 -   **Anonymous Cross Check**: Option to hide AI service names (replaced with aliases A, B, C...) during cross-checking to reduce bias.
 -   **File Upload**: Attach images or text files to your prompt and broadcast them to all supported services (except Grok). Supports **Drag & Drop** and **Clipboard Paste**.
@@ -94,9 +96,12 @@ This application allows you to enter a prompt once in a **Master Input** field a
     -   Use **Ctrl+Enter** to force send.
     -   Use **Ctrl+Shift+Enter** or click the **New Chat** button to start a new conversation in all active panels.
 3.  **Advanced Features**:
-    -   **Copy Chat Thread**: Click the **Copy Chat Thread** button to copy the entire conversation history from all active panels to your clipboard.
+    -   **Copy Chat Thread**: Click the **Copy Chat Thread** button to copy the entire conversation history from all active panels to your clipboard with proper Markdown formatting.
+    -   **Copy Last Response**: Click the **Copy Last Response** button to copy only the last AI response from each active service.
     -   **Cross Check**: Click the **Cross Check** button to have each AI review the answers provided by the other AIs.
-    -   **Individual Copy**: Use the floating copy button (📋) in each panel to copy just that service's thread.
+    -   **Per-Service Header**: Each panel has a header bar with the service name and quick-access buttons:
+        -   🔄 **Reload**: Refresh only that specific service panel.
+        -   📋 **Copy**: Copy that service's full chat thread with Markdown formatting.
 4.  **File Upload**:
     -   **Attach Files**: Click the **Clip** icon or **Drag & Drop** files into the input area.
     -   **Paste Images**: Paste images directly from your clipboard.

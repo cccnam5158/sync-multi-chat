@@ -2,8 +2,8 @@
 ## Software Requirements Specification (SRS)
 ### EARS (Easy Approach to Requirements Syntax) 기반 통합 요구사항 명세서
 
-**문서 버전**: 0.8.0 (Cross Check 사용자 프롬프트 추가 및 개선)  
-**작성일**: 2025-12-04  
+**문서 버전**: 0.9.0 (Copy Last Response 및 서비스별 헤더 바 추가)  
+**작성일**: 2025-12-05  
 **프로젝트명**: Multi-AI Chat (코드명: MAPB - Multi AI Prompt Broadcaster / Clash of LLMs)
 
 ---
@@ -718,9 +718,12 @@ The system shall support multiple output formats selectable by the user:
 **[Event-Driven]**
 When the copy operation completes, the system shall display a granular status message (e.g., "ChatGPT: Success, Claude: Failed") via a toast or status bar, instead of a generic "Copied!" message.
 
-#### COPY-010: 개별 패널 복사 버튼
+#### COPY-010: 서비스별 헤더 바 (Per-Service Header Bar)
 **[Ubiquitous]**
-The system shall display a floating "Copy" button below the "Reload" button in each Service Panel. Clicking this button shall copy only that specific service's chat thread using the Hybrid Extraction Strategy.
+The system shall display a fixed header bar (28px height) at the top of each Service Panel, above the BrowserView. The header bar shall contain:
+- The **service name** on the left side.
+- **Reload (🔄)** and **Copy (📋)** buttons on the right side.
+Clicking the Copy button shall extract that specific service's full chat thread using the same Markdown formatting as the main "Copy Chat Thread" feature (with `## 👤 User` and `## 🤖 [Service Name]` headings).
 
 #### COPY-011: 익명 모드 (Anonymous Mode)
 **[Optional]**
@@ -729,6 +732,19 @@ Where "Anonymous Mode" is enabled, the system shall replace service names with a
 #### COPY-012: 포맷 선택 UI
 **[Ubiquitous]**
 The system shall provide a UI mechanism (e.g., dropdown or settings) to allow the user to select the desired copy format (Markdown, JSON, Text).
+
+#### COPY-013: Copy Last Response 버튼
+**[Ubiquitous]**
+The system shall display a "Copy Last Response" button in the control panel, adjacent to the "Copy Chat Thread" button.
+
+#### COPY-014: Copy Last Response 기능
+**[Event-Driven]**
+When the user clicks the "Copy Last Response" button, the system shall:
+1. Extract only the **last AI response** from each currently active Service Panel.
+2. Format the combined responses according to the selected format (Markdown/JSON/Text).
+3. Apply Anonymous mode aliases if enabled.
+4. Write the formatted content to the system clipboard.
+5. Display a granular status message indicating success/failure for each service.
 
 ---
 
