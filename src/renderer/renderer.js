@@ -36,6 +36,7 @@ clearFilesBtn?.addEventListener('click', () => {
 
 const copyChatBtn = document.getElementById('copy-chat-btn');
 const copyFormatSelect = document.getElementById('copy-format-select');
+const copyLastResponseBtn = document.getElementById('copy-last-response-btn');
 
 copyChatBtn.addEventListener('click', () => {
     const format = copyFormatSelect ? copyFormatSelect.value : 'markdown';
@@ -57,6 +58,40 @@ window.electronAPI.onChatThreadCopied((data) => {
     setTimeout(() => {
         copyChatBtn.innerText = originalText;
     }, 2000);
+});
+
+// Copy Last Response Button (copies last response from ALL active services)
+if (copyLastResponseBtn) {
+    copyLastResponseBtn.addEventListener('click', () => {
+        const format = copyFormatSelect ? copyFormatSelect.value : 'markdown';
+        window.electronAPI.copyLastResponse({ format, anonymousMode: isAnonymousMode });
+    });
+
+    window.electronAPI.onLastResponseCopied((data) => {
+        const originalText = copyLastResponseBtn.innerText;
+
+        if (data && data.failed && data.failed.length > 0) {
+            copyLastResponseBtn.innerText = `Partial (${data.success.length}/${data.success.length + data.failed.length})`;
+        } else {
+            copyLastResponseBtn.innerText = 'Copied!';
+        }
+
+        setTimeout(() => {
+            copyLastResponseBtn.innerText = originalText;
+        }, 2000);
+    });
+}
+
+// Handle single-service copy button callbacks
+window.electronAPI.onSingleChatThreadCopied((data) => {
+    const btn = document.querySelector(`#slot-${data.service} .slot-copy-btn`);
+    if (btn) {
+        const originalText = btn.innerText;
+        btn.innerText = data.success ? '✓' : '✗';
+        setTimeout(() => {
+            btn.innerText = originalText;
+        }, 1500);
+    }
 });
 
 const crossCheckBtn = document.getElementById('cross-check-btn');
@@ -550,8 +585,47 @@ function createSlot(container, service) {
     const slot = document.createElement('div');
     slot.className = 'view-slot';
     slot.id = `slot-${service}`;
-    slot.style.flex = '1'; // Default equal width
-    slot.innerHTML = `<div class="view-label">${service}</div>`;
+    slot.style.flex = '1';
+
+    // Create header bar above BrowserView
+    const header = document.createElement('div');
+    header.className = 'view-header';
+
+    // Left side: service name
+    const serviceName = document.createElement('span');
+    serviceName.className = 'service-name';
+    serviceName.textContent = service;
+
+    // Right side: buttons container
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'header-buttons';
+
+    // Reload button
+    const reloadBtn = document.createElement('button');
+    reloadBtn.className = 'header-btn';
+    reloadBtn.textContent = '🔄';
+    reloadBtn.title = 'Reload';
+    reloadBtn.addEventListener('click', () => {
+        window.electronAPI.reloadService(service);
+    });
+
+    // Copy button
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'header-btn';
+    copyBtn.textContent = '📋';
+    copyBtn.title = 'Copy Chat Thread';
+    copyBtn.addEventListener('click', () => {
+        const format = copyFormatSelect ? copyFormatSelect.value : 'markdown';
+        window.electronAPI.copySingleChatThread(service, { format, anonymousMode: isAnonymousMode });
+    });
+
+    buttonsContainer.appendChild(reloadBtn);
+    buttonsContainer.appendChild(copyBtn);
+
+    header.appendChild(serviceName);
+    header.appendChild(buttonsContainer);
+    slot.appendChild(header);
+
     container.appendChild(slot);
     return slot;
 }
@@ -664,16 +738,18 @@ function initResize(e, prevElement, splitter, direction) {
 }
 
 function updateBounds() {
+    const HEADER_HEIGHT = 28; // Height for header bar with buttons
     const bounds = {};
     activeServiceKeys.forEach(service => {
         const slot = document.getElementById(`slot-${service}`);
         if (slot) {
             const rect = slot.getBoundingClientRect();
+            // BrowserView starts below header bar
             bounds[service] = {
                 x: Math.round(rect.x),
-                y: Math.round(rect.y),
+                y: Math.round(rect.y) + HEADER_HEIGHT,
                 width: Math.round(rect.width),
-                height: Math.round(rect.height)
+                height: Math.round(rect.height) - HEADER_HEIGHT
             };
         }
     });

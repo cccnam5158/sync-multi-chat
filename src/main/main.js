@@ -575,6 +575,13 @@ ipcMain.on('new-chat', () => {
     });
 });
 
+ipcMain.on('reload-service', (event, service) => {
+    if (views[service] && views[service].enabled) {
+        console.log(`Reloading ${service}`);
+        views[service].view.webContents.reload();
+    }
+});
+
 // Helper to extract FULL conversation thread from a service (for Copy Chat Thread)
 async function extractContentFromService(service, options = {}) {
     if (!views[service] || !views[service].enabled) return null;
@@ -697,13 +704,44 @@ async function extractContentFromService(service, options = {}) {
                     
                     aiResponses.forEach(el => {
                         const rect = el.getBoundingClientRect();
-                        // Get markdown content from .standard-markdown or .font-claude-response
-                        const mdEl = el.querySelector('.standard-markdown') || 
-                                    el.querySelector('.font-claude-response') || 
-                                    el;
+                        // Get ALL markdown content sections from the response
+                        // Claude responses can have multiple .standard-markdown sections plus artifact blocks
+                        const container = el.closest('.font-claude-response') || el;
+                        
+                        // Collect all standard-markdown sections
+                        const markdownSections = container.querySelectorAll('.standard-markdown');
+                        
+                        // Collect artifact block descriptions
+                        const artifactBlocks = container.querySelectorAll('.artifact-block-cell, [class*="artifact"]');
+                        
+                        let combinedContent = '';
+                        
+                        // Add all markdown sections
+                        if (markdownSections.length > 0) {
+                            markdownSections.forEach(section => {
+                                combinedContent += section.innerHTML + '\\n\\n';
+                            });
+                        } else {
+                            // Fallback to font-claude-response or direct content
+                            const fallbackEl = el.querySelector('.font-claude-response') || el;
+                            combinedContent = fallbackEl.innerHTML;
+                        }
+                        
+                        // Add artifact information if present
+                        artifactBlocks.forEach(artifact => {
+                            const title = artifact.querySelector('.line-clamp-1, [class*="title"]');
+                            const type = artifact.querySelector('.text-text-400, [class*="type"]');
+                            if (title) {
+                                combinedContent += '\\n\\n**[Artifact: ' + (title.textContent || 'Untitled').trim() + ']**';
+                                if (type) {
+                                    combinedContent += ' (' + type.textContent.trim() + ')';
+                                }
+                            }
+                        });
+                        
                         allTurns.push({ 
                             type: 'ai', 
-                            content: mdEl.innerHTML, 
+                            content: combinedContent.trim(), 
                             top: rect.top 
                         });
                     });
@@ -1216,6 +1254,134 @@ ipcMain.on('copy-chat-thread', async (event, options = {}) => {
 
         if (mainWindow) {
             mainWindow.webContents.send('chat-thread-copied', {
+                success: successServices,
+                failed: failedServices,
+                format
+            });
+        }
+    }
+});
+
+// Copy single service chat thread
+ipcMain.on('copy-single-chat-thread', async (event, service, options = {}) => {
+    const { format = 'markdown', anonymousMode = false } = options;
+
+    if (!views[service] || !views[service].enabled) {
+        if (mainWindow) {
+            mainWindow.webContents.send('single-chat-thread-copied', { service, success: false });
+        }
+        return;
+    }
+
+    const result = await extractContentFromService(service, { format });
+
+    if (result && result.content) {
+        const aliases = {
+            'chatgpt': 'Service A',
+            'claude': 'Service B',
+            'gemini': 'Service C',
+            'grok': 'Service D',
+            'perplexity': 'Service E'
+        };
+
+        let finalOutput = '';
+        let serviceName = service.charAt(0).toUpperCase() + service.slice(1);
+        let content = result.content;
+
+        if (anonymousMode) {
+            serviceName = aliases[service] || serviceName;
+            Object.keys(aliases).forEach(key => {
+                const regex = new RegExp(key, 'gi');
+                content = content.replace(regex, aliases[key]);
+            });
+        }
+
+        if (format === 'json') {
+            finalOutput = JSON.stringify({
+                service: anonymousMode ? aliases[service] : service,
+                content: content,
+                method: result.method,
+                timestamp: new Date().toISOString()
+            }, null, 2);
+        } else if (format === 'markdown') {
+            finalOutput = `# ${serviceName}\n\n${content}`;
+        } else {
+            finalOutput = `=== ${serviceName.toUpperCase()} ===\n${content}`;
+        }
+
+        clipboard.writeText(finalOutput);
+        console.log(`Single chat thread copied from ${service}`);
+
+        if (mainWindow) {
+            mainWindow.webContents.send('single-chat-thread-copied', { service, success: true, format });
+        }
+    } else {
+        if (mainWindow) {
+            mainWindow.webContents.send('single-chat-thread-copied', { service, success: false });
+        }
+    }
+});
+
+// Copy last response from ALL active services
+ipcMain.on('copy-last-response', async (event, options = {}) => {
+    const { format = 'markdown', anonymousMode = false } = options;
+
+    const enabledServices = services.filter(service => views[service] && views[service].enabled);
+    const promises = enabledServices.map(service => extractLastResponseFromService(service, {}));
+    const results = await Promise.all(promises);
+
+    const aliases = {
+        'chatgpt': 'Service A',
+        'claude': 'Service B',
+        'gemini': 'Service C',
+        'grok': 'Service D',
+        'perplexity': 'Service E'
+    };
+
+    results.sort((a, b) => services.indexOf(a.service) - services.indexOf(b.service));
+
+    let finalOutput = '';
+
+    if (format === 'json') {
+        const jsonOutput = results.filter(r => r && r.content).map(r => ({
+            service: anonymousMode ? (aliases[r.service] || r.service) : r.service,
+            content: r.content,
+            method: r.method,
+            timestamp: new Date().toISOString()
+        }));
+        finalOutput = JSON.stringify(jsonOutput, null, 2);
+    } else {
+        results.forEach(result => {
+            if (result && result.content) {
+                let serviceName = result.service.charAt(0).toUpperCase() + result.service.slice(1);
+                let content = result.content;
+
+                if (anonymousMode) {
+                    serviceName = aliases[result.service] || serviceName;
+                    Object.keys(aliases).forEach(key => {
+                        const regex = new RegExp(key, 'gi');
+                        content = content.replace(regex, aliases[key]);
+                    });
+                }
+
+                if (format === 'markdown') {
+                    finalOutput += `# ${serviceName}\n\n${content}\n\n---\n\n`;
+                } else {
+                    finalOutput += `=== ${serviceName.toUpperCase()} ===\n${content}\n\n${'-'.repeat(40)}\n\n`;
+                }
+            }
+        });
+    }
+
+    if (finalOutput) {
+        clipboard.writeText(finalOutput);
+        console.log('Last responses copied to clipboard');
+
+        const successServices = results.filter(r => r && r.content).map(r => r.service);
+        const failedServices = results.filter(r => !r || !r.content).map(r => r ? r.service : 'unknown');
+
+        if (mainWindow) {
+            mainWindow.webContents.send('last-response-copied', {
                 success: successServices,
                 failed: failedServices,
                 format
