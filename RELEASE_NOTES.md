@@ -1,5 +1,25 @@
 # Release Notes
 
+## v0.5.3 (2025-12-05)
+
+### 🚀 New Features
+*   **Enhanced Copy Chat Thread**:
+    *   **Full Conversation Extraction**: Now extracts the complete conversation thread (all user prompts and all AI responses) from all 5 services.
+    *   **Role Distinction**: User messages are prefixed with `## 👤 User` and AI responses with `## 🤖 [Service Name]` for clear visual separation.
+    *   **Service-Specific DOM Traversal**: Implemented tailored extraction logic for each AI service to accurately capture conversation content:
+        - **ChatGPT**: Uses `article[data-testid^="conversation-turn"]` with role detection
+        - **Claude**: Uses `[data-testid="user-message"]` and `[data-is-streaming]` with fallback selectors
+        - **Gemini**: Uses `user-query` and `model-response` custom elements
+        - **Grok**: Uses `div[id^="response-"]` with `items-end`/`items-start` class for role distinction
+        - **Perplexity**: Uses `[class*="query"]` and `.prose` patterns with alternating message detection
+
+### 🔧 Fixes & Improvements
+*   **Grok Cross Check Fix**: Updated `lastResponseSelector` to correctly extract the last AI response from Grok using `div[id^='response-'].items-start:last-of-type .response-content-markdown`.
+*   **Markdown Formatting**: Fixed Turndown processing to only convert HTML parts while preserving the markdown structure (headings and separators).
+*   **Claude Extraction Stability**: Added fallback selectors for Claude to handle dynamic DOM structure changes.
+
+---
+
 ## v0.5.2 (2025-12-04)
 
 ### 🚀 New Features

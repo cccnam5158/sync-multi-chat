@@ -30,7 +30,25 @@
             "div[data-testid='file-attachment']",
             ".group.relative.inline-block",
             "button[data-testid='file-attachment-button']"
-        ]
+        ],
+        "copyButtonSelector": [
+            "button[data-testid='copy-turn-action-button']"
+        ],
+        "conversationContainerSelector": [
+            "main div[class*='react-scroll-to-bottom']",
+            "main .flex-1.overflow-hidden",
+            "main"
+        ],
+        "messageSelector": [
+            "div[data-message-author-role]",
+            "article[data-testid]"
+        ],
+        "lastResponseSelector": [
+            "div[data-message-author-role='assistant']:last-of-type .markdown",
+            "article[data-testid]:last-of-type .markdown",
+            "div[data-message-author-role='assistant']:last-child"
+        ],
+        "copyStrategy": "turndown"
     },
     "claude": {
         "inputSelector": [
@@ -47,9 +65,9 @@
             "div.ProseMirror[contenteditable='true']"
         ],
         "contentSelector": [
-            ".flex-1.overflow-y-auto",
-            "main",
-            "div[role='main']"
+            "[data-is-streaming]",
+            ".font-claude-message",
+            "main"
         ],
         "fileInputSelector": [
             "input[type='file']"
@@ -60,7 +78,26 @@
             "div[class*='attachment']",
             "div[aria-label*='attachment']",
             "img"
-        ]
+        ],
+        "copyButtonSelector": [
+            "button[aria-label='Copy']"
+        ],
+        "conversationContainerSelector": [
+            "div[class*='flex-1'][class*='overflow']",
+            "main .overflow-y-auto",
+            "main"
+        ],
+        "messageSelector": [
+            "div[class*='font-user-message']",
+            "div[class*='font-claude-message']",
+            "[data-is-streaming]"
+        ],
+        "lastResponseSelector": [
+            "[data-is-streaming]:last-of-type",
+            ".font-claude-message:last-of-type",
+            "div[class*='assistant']:last-child"
+        ],
+        "copyStrategy": "turndown"
     },
     "gemini": {
         "inputSelector": [
@@ -80,9 +117,9 @@
             "div[data-test-id='chat-history-button']"
         ],
         "contentSelector": [
-            "main",
-            "div[role='main']",
-            "div.scroll-container"
+            "message-content",
+            "model-response",
+            "main"
         ],
         "fileInputSelector": [
             "input[type='file']",
@@ -104,7 +141,25 @@
             "mat-chip",
             ".image-preview",
             "div[class*='preview']"
-        ]
+        ],
+        "copyButtonSelector": [
+            "button[data-test-id='copy-button']"
+        ],
+        "conversationContainerSelector": [
+            "div[class*='conversation-container']",
+            "infinite-scroller",
+            "main"
+        ],
+        "messageSelector": [
+            "user-query",
+            "model-response"
+        ],
+        "lastResponseSelector": [
+            "model-response:last-of-type .markdown",
+            "message-content:last-of-type .markdown",
+            ".response-container:last-child .markdown"
+        ],
+        "copyStrategy": "turndown"
     },
     "grok": {
         "inputSelector": [
@@ -132,7 +187,21 @@
             "div[class*='preview']",
             "div[class*='thumbnail']",
             "img"
-        ]
+        ],
+        "copyButtonSelector": [],
+        "conversationContainerSelector": [
+            "main div[class*='overflow']",
+            "main"
+        ],
+        "messageSelector": [
+            "div[class*='message']"
+        ],
+        "lastResponseSelector": [
+            "div[id^='response-'].items-start:last-of-type .response-content-markdown",
+            "div[id^='response-'].items-start:last-of-type .message-bubble",
+            "div[id^='response-']:last-of-type .response-content-markdown"
+        ],
+        "copyStrategy": "turndown"
     },
     "perplexity": {
         "inputSelector": [
@@ -161,6 +230,21 @@
         "uploadedFileSelector": [
             "div[class*='attachment']",
             "div[class*='FilePreview']"
-        ]
+        ],
+        "copyButtonSelector": [],
+        "conversationContainerSelector": [
+            "main div[class*='overflow']",
+            "main"
+        ],
+        "messageSelector": [
+            "div[class*='query']",
+            "div[class*='answer']"
+        ],
+        "lastResponseSelector": [
+            "div[class*='prose']:last-of-type",
+            "div[class*='answer']:last-of-type",
+            "div[class*='response']:last-child .prose"
+        ],
+        "copyStrategy": "turndown"
     }
 }

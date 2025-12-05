@@ -35,13 +35,25 @@ clearFilesBtn?.addEventListener('click', () => {
 });
 
 const copyChatBtn = document.getElementById('copy-chat-btn');
+const copyFormatSelect = document.getElementById('copy-format-select');
+
 copyChatBtn.addEventListener('click', () => {
-    window.electronAPI.copyChatThread();
+    const format = copyFormatSelect ? copyFormatSelect.value : 'markdown';
+    window.electronAPI.copyChatThread({ format, anonymousMode: isAnonymousMode });
 });
 
-window.electronAPI.onChatThreadCopied(() => {
+window.electronAPI.onChatThreadCopied((data) => {
     const originalText = copyChatBtn.innerText;
-    copyChatBtn.innerText = 'Copied!';
+
+    if (data && data.failed && data.failed.length > 0) {
+        // Show partial success
+        copyChatBtn.innerText = `Partial Copy (${data.success.length}/${data.success.length + data.failed.length})`;
+        console.warn('Failed to copy from:', data.failed.join(', '));
+        // You could add a toast here if you had a toast component
+    } else {
+        copyChatBtn.innerText = 'Copied!';
+    }
+
     setTimeout(() => {
         copyChatBtn.innerText = originalText;
     }, 2000);

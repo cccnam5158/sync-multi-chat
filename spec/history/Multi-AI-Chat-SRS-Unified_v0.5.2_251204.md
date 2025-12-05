@@ -673,62 +673,48 @@ Where URL navigation fails to start a new chat (e.g., redirects to old chat), th
 **[Ubiquitous]**  
 The system shall display a "Copy Chat Thread" button in the control panel with a distinct background color (e.g., Teal #2b5c5c) to distinguish it from other controls.
 
-#### COPY-002: 전체 대화 스레드 추출 (Full Thread Extraction)
+#### COPY-002: 대화 내용 추출
 **[Event-Driven]**  
-When the user clicks the "Copy Chat Thread" button, the system shall extract the **complete conversation thread** from each enabled service, including:
-- All user prompts
-- All AI responses
-- Preserved formatting (code blocks, lists, headers)
-
-The extraction shall use a tiered strategy:
-1. **Tier 1 (Turndown)**: Extract the HTML of the conversation container and convert it to Markdown using the Turndown library to preserve formatting.
-2. **Tier 2 (Text Fallback)**: If Tier 1 fails, fall back to extracting `innerText`.
+When the user clicks the "Copy Chat Thread" button, the system shall extract the text content from all currently enabled Service Panels.
 
 #### COPY-003: 클립보드 저장
 **[Event-Driven]**  
-When the content has been extracted from all enabled services, the system shall format the content according to the selected format (Markdown/JSON/Text) and write it to the system clipboard.
+When the text content has been extracted from all enabled services, the system shall format the content with service headers and write it to the system clipboard.
 
-#### COPY-004: 추출 셀렉터 설정 확장
+#### COPY-004: 추출 셀렉터 설정
 **[Ubiquitous]**  
-The system shall use an expanded `selectors.json` configuration including:
-- `copyButtonSelector`: Selector for the native copy button (Tier 1).
-- `markdownContainerSelector`: Selector for the container to pass to Turndown (Tier 2).
-- `contentSelector`: Selector for text extraction (Tier 3).
+The system shall use the `contentSelector` defined in `selectors.json` to identify the chat container element for each service.
 
-#### COPY-005: 추출 폴백 및 에러 처리
+#### COPY-005: 추출 폴백
 **[Unwanted]**  
-If a specific extraction tier fails, the system shall automatically proceed to the next tier. If all tiers fail, the system shall return an error message for that service.
+If the configured `contentSelector` fails to find an element, then the system shall fall back to extracting `document.body.innerText`.
 
 #### COPY-006: 비동기 병렬 처리
 **[Ubiquitous]**  
-The system shall execute content extraction for all enabled services in parallel where possible (Turndown/Text), while managing clipboard access sequentially for Native Copy operations.
+The system shall execute content extraction for all enabled services in parallel to minimize waiting time.
 
 #### COPY-007: 타임아웃
 **[Unwanted]**  
-If a service fails to return content within a configurable timeout (default: 5 seconds for Native Copy, 2 seconds for others), then the system shall exclude that service's content and proceed with the rest.
+If a service fails to return content within a configurable timeout (default: 2 seconds), then the system shall exclude that service's content and proceed with the rest.
 
-#### COPY-008: 데이터 포맷팅 및 선택
+#### COPY-008: 데이터 포맷팅
 **[Ubiquitous]**  
-The system shall support multiple output formats selectable by the user:
-- **Markdown (Default)**: Structured with headers (`# Service Name`), user/AI roles, and code blocks.
-- **JSON**: Structured data array `[{ role, content, timestamp }]` for programmatic use.
-- **Plain Text**: Simple text dump (legacy behavior).
+The system shall format the copied text as follows:
+```text
+=== {ServiceName} ===
+{Content}
 
-#### COPY-009: 상세 복사 피드백
+=== {ServiceName} ===
+{Content}
+```
+
+#### COPY-009: 복사 완료 피드백
 **[Event-Driven]**
-When the copy operation completes, the system shall display a granular status message (e.g., "ChatGPT: Success, Claude: Failed") via a toast or status bar, instead of a generic "Copied!" message.
+When the copy operation is successful, the system shall temporarily change the "Copy Chat Thread" button text to "Copied!" for 2 seconds before reverting to the original text.
 
 #### COPY-010: 개별 패널 복사 버튼
 **[Ubiquitous]**
-The system shall display a floating "Copy" button below the "Reload" button in each Service Panel. Clicking this button shall copy only that specific service's chat thread using the Hybrid Extraction Strategy.
-
-#### COPY-011: 익명 모드 (Anonymous Mode)
-**[Optional]**
-Where "Anonymous Mode" is enabled, the system shall replace service names with aliases (e.g., "Service A", "Service B") in the exported content to facilitate blind comparison.
-
-#### COPY-012: 포맷 선택 UI
-**[Ubiquitous]**
-The system shall provide a UI mechanism (e.g., dropdown or settings) to allow the user to select the desired copy format (Markdown, JSON, Text).
+The system shall display a floating "Copy" button below the "Reload" button in each Service Panel. Clicking this button shall copy only that specific service's chat thread to the clipboard with visual feedback.
 
 ---
 
@@ -738,28 +724,24 @@ The system shall provide a UI mechanism (e.g., dropdown or settings) to allow th
 **[Ubiquitous]**
 The system shall display a "Cross Check" button in the control panel, adjacent to the "Copy Chat Thread" button.
 
-#### CROSS-002: 교차 검증 로직 (마지막 응답 추출)
+#### CROSS-002: 교차 검증 로직
 **[Event-Driven]**
 When the user clicks the "Cross Check" button, the system shall:
-1. Extract the **last AI response only** from each currently enabled and active Service Panel.
-2. Construct a specific prompt for each enabled service that includes the last responses of *other* enabled services.
-3. Prepend a predefined or user-defined prompt at the top.
-4. Inject the constructed prompt into each service's input field.
-5. Automatically trigger the send action.
+1. Extract chat history from all currently enabled and active Service Panels.
+2. Construct a specific prompt for each enabled service that includes the chat history of *other* enabled services.
+3. Inject the constructed prompt into each service's input field.
+4. Automatically trigger the send action.
 
 #### CROSS-003: 프롬프트 구성
 **[Ubiquitous]**
 The system shall construct the prompt for a target service (e.g., Service A) as follows:
 ```text
-[User-defined or Predefined Prompt]
-
-=== SERVICE B ===
-[Last AI response from Service B]
-
-=== SERVICE C ===
-[Last AI response from Service C]
+[Service B Thread]
+...
+[Service C Thread]
+...
 ```
-It shall exclude the target service's own response from its input.
+It shall exclude the target service's own thread from its input.
 
 #### CROSS-004: 비활성 패널 처리
 **[State-Driven]**

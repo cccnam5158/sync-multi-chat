@@ -286,6 +286,28 @@ button {
     opacity: 0.9;
 }
 
+.copy-format-select {
+    background-color: hsl(var(--card));
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    height: 32px;
+    padding: 0 8px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+}
+
+.copy-format-select:hover {
+    border-color: hsl(var(--primary));
+}
+
+.copy-format-select:focus {
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
 .cross-check-btn {
     background-color: hsl(var(--primary));
     color: hsl(var(--primary-foreground));

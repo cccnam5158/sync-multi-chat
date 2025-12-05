@@ -9,6 +9,9 @@ try {
     console.warn('robotjs not available:', e.message);
 }
 
+const TurndownService = require('turndown');
+const { gfm } = require('turndown-plugin-gfm');
+
 // Disable automation features to avoid detection
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 app.commandLine.appendSwitch('disable-features', 'IsolateOrigins,site-per-process');
@@ -572,75 +575,651 @@ ipcMain.on('new-chat', () => {
     });
 });
 
-// Helper to extract text from a service
-async function extractTextFromService(service) {
-    if (views[service] && views[service].enabled) {
-        try {
-            const config = selectorsConfig[service];
-            const contentSelectors = config ? config.contentSelector : [];
+// Helper to extract FULL conversation thread from a service (for Copy Chat Thread)
+async function extractContentFromService(service, options = {}) {
+    if (!views[service] || !views[service].enabled) return null;
 
-            const script = `
+    const config = selectorsConfig[service];
+    if (!config) return null;
+
+    let content = null;
+    let method = 'none';
+    const wc = views[service].view.webContents;
+
+    try {
+        // Service-specific extraction scripts based on reference exporters
+        let script;
+
+        if (service === 'chatgpt') {
+            // ChatGPT: Use article[data-testid^="conversation-turn-"] with h5.sr-only (user) and h6.sr-only (AI)
+            script = `
                 (function() {
-                    const selectors = ${JSON.stringify(contentSelectors)};
-                    let content = '';
+                    const turns = document.querySelectorAll('article[data-testid^="conversation-turn-"]');
+                    if (turns.length === 0) return null;
                     
-                    // Try selectors first
-                    if (selectors && selectors.length > 0) {
-                        for (const selector of selectors) {
-                            const el = document.querySelector(selector);
-                            if (el) {
-                                content = el.innerText;
-                                break;
+                    let markdown = '';
+                    turns.forEach((turn, i) => {
+                        // User message
+                        const userHeading = turn.querySelector('h5.sr-only');
+                        if (userHeading) {
+                            const userDiv = userHeading.nextElementSibling;
+                            if (userDiv) {
+                                const userQuery = userDiv.innerText.trim();
+                                if (userQuery) {
+                                    markdown += '## 👤 User\\n\\n' + userQuery + '\\n\\n';
+                                }
                             }
                         }
+                        
+                        // AI message
+                        const modelHeading = turn.querySelector('h6.sr-only');
+                        if (modelHeading) {
+                            const modelDiv = turn.querySelector('.markdown');
+                            if (modelDiv) {
+                                markdown += '## 🤖 ChatGPT\\n\\n' + modelDiv.innerHTML + '\\n\\n';
+                            }
+                        }
+                        
+                        markdown += '---\\n\\n';
+                    });
+                    return markdown;
+                })();
+            `;
+        } else if (service === 'claude') {
+            // Claude: Use actual DOM selectors from user-provided HTML
+            // User messages: [data-testid="user-message"] with .whitespace-pre-wrap
+            // AI responses: [data-is-streaming] with .standard-markdown
+            script = `
+                (function() {
+                    let markdown = '';
+                    
+                    // Get all user messages - look for the actual message content
+                    const userMessages = document.querySelectorAll('[data-testid="user-message"]');
+                    // Get all AI responses - look for streaming containers
+                    const aiResponses = document.querySelectorAll('[data-is-streaming]');
+                    
+                    // Debug: log what we found
+                    console.log('Claude extraction - userMessages:', userMessages.length, 'aiResponses:', aiResponses.length);
+                    
+                    if (userMessages.length === 0 && aiResponses.length === 0) {
+                        // Fallback: try to find messages in the main content area
+                        // Look for the conversation container (not sidebar)
+                        const mainArea = document.querySelector('.flex-1.flex.flex-col');
+                        if (mainArea) {
+                            // Find user bubbles (bg-bg-300 rounded-xl)
+                            const userBubbles = mainArea.querySelectorAll('div.bg-bg-300.rounded-xl .whitespace-pre-wrap');
+                            // Find AI responses (font-claude-response)
+                            const aiBlocks = mainArea.querySelectorAll('.font-claude-response .standard-markdown');
+                            
+                            console.log('Claude fallback - userBubbles:', userBubbles.length, 'aiBlocks:', aiBlocks.length);
+                            
+                            if (userBubbles.length > 0 || aiBlocks.length > 0) {
+                                const allTurns = [];
+                                
+                                userBubbles.forEach(el => {
+                                    const rect = el.getBoundingClientRect();
+                                    allTurns.push({ type: 'user', content: el.innerText.trim(), top: rect.top });
+                                });
+                                
+                                aiBlocks.forEach(el => {
+                                    const rect = el.getBoundingClientRect();
+                                    allTurns.push({ type: 'ai', content: el.innerHTML, top: rect.top });
+                                });
+                                
+                                allTurns.sort((a, b) => a.top - b.top);
+                                
+                                allTurns.forEach(turn => {
+                                    if (turn.type === 'user') {
+                                        markdown += '## 👤 User\\n\\n' + turn.content + '\\n\\n---\\n\\n';
+                                    } else {
+                                        markdown += '## 🤖 Claude\\n\\n' + turn.content + '\\n\\n---\\n\\n';
+                                    }
+                                });
+                                
+                                return markdown || null;
+                            }
+                        }
+                        return null;
                     }
                     
-                    // Fallback to body if no content found
-                    if (!content) {
-                        content = document.body.innerText;
-                    }
+                    // Collect all messages with their positions
+                    const allTurns = [];
                     
-                    return content;
+                    userMessages.forEach(el => {
+                        const rect = el.getBoundingClientRect();
+                        const textEl = el.querySelector('.whitespace-pre-wrap') || el;
+                        allTurns.push({ 
+                            type: 'user', 
+                            content: textEl.innerText.trim(), 
+                            top: rect.top 
+                        });
+                    });
+                    
+                    aiResponses.forEach(el => {
+                        const rect = el.getBoundingClientRect();
+                        // Get markdown content from .standard-markdown or .font-claude-response
+                        const mdEl = el.querySelector('.standard-markdown') || 
+                                    el.querySelector('.font-claude-response') || 
+                                    el;
+                        allTurns.push({ 
+                            type: 'ai', 
+                            content: mdEl.innerHTML, 
+                            top: rect.top 
+                        });
+                    });
+                    
+                    // Sort by vertical position to maintain conversation order
+                    allTurns.sort((a, b) => a.top - b.top);
+                    
+                    allTurns.forEach(turn => {
+                        if (turn.type === 'user') {
+                            markdown += '## 👤 User\\n\\n' + turn.content + '\\n\\n---\\n\\n';
+                        } else {
+                            markdown += '## 🤖 Claude\\n\\n' + turn.content + '\\n\\n---\\n\\n';
+                        }
+                    });
+                    
+                    return markdown || null;
+                })();
+            `;
+        } else if (service === 'gemini') {
+            // Gemini: Use user-query and model-response custom tags (from reference)
+            script = `
+                (function() {
+                    const turns = document.querySelectorAll('user-query, model-response');
+                    if (turns.length === 0) return null;
+                    
+                    let markdown = '';
+                    turns.forEach(turn => {
+                        if (turn.tagName.toLowerCase() === 'user-query') {
+                            const queryText = turn.querySelector('.query-text');
+                            if (queryText) {
+                                markdown += '## 👤 User\\n\\n' + queryText.innerText.trim() + '\\n\\n---\\n\\n';
+                            }
+                        } else if (turn.tagName.toLowerCase() === 'model-response') {
+                            const responseEl = turn.querySelector('.markdown');
+                            if (responseEl) {
+                                markdown += '## 🤖 Gemini\\n\\n' + responseEl.innerHTML + '\\n\\n---\\n\\n';
+                            }
+                        }
+                    });
+                    return markdown || null;
+                })();
+            `;
+        } else if (service === 'perplexity') {
+            // Perplexity: Look for question and answer blocks
+            script = `
+                (function() {
+                    // Try to find conversation turns
+                    const container = document.querySelector('main');
+                    if (!container) return null;
+                    
+                    // Perplexity uses various class patterns for questions and answers
+                    const questions = container.querySelectorAll('[class*="query"], [class*="question"], .text-base.font-medium');
+                    const answers = container.querySelectorAll('.prose, [class*="answer"], [class*="response"]');
+                    
+                    const allItems = [];
+                    
+                    questions.forEach(el => {
+                        const rect = el.getBoundingClientRect();
+                        if (el.innerText.trim().length > 0) {
+                            allItems.push({ type: 'user', el, top: rect.top, content: el.innerText.trim() });
+                        }
+                    });
+                    
+                    answers.forEach(el => {
+                        const rect = el.getBoundingClientRect();
+                        if (el.innerHTML.trim().length > 0) {
+                            allItems.push({ type: 'ai', el, top: rect.top, content: el.innerHTML });
+                        }
+                    });
+                    
+                    allItems.sort((a, b) => a.top - b.top);
+                    
+                    // Dedupe consecutive same-type items
+                    let markdown = '';
+                    let lastType = null;
+                    allItems.forEach(item => {
+                        if (item.type !== lastType) {
+                            if (item.type === 'user') {
+                                markdown += '## 👤 User\\n\\n' + item.content + '\\n\\n---\\n\\n';
+                            } else {
+                                markdown += '## 🤖 Perplexity\\n\\n' + item.content + '\\n\\n---\\n\\n';
+                            }
+                            lastType = item.type;
+                        }
+                    });
+                    
+                    return markdown || null;
+                })();
+            `;
+        } else if (service === 'grok') {
+            // Grok: User messages have items-end class, AI responses have items-start class
+            // Container: div[id^="response-"] with .message-bubble containing content
+            script = `
+                (function() {
+                    let markdown = '';
+                    
+                    // Find all response containers
+                    const responseContainers = document.querySelectorAll('div[id^="response-"]');
+                    
+                    if (responseContainers.length === 0) return null;
+                    
+                    const allTurns = [];
+                    
+                    responseContainers.forEach(container => {
+                        const rect = container.getBoundingClientRect();
+                        const messageBubble = container.querySelector('.message-bubble');
+                        if (!messageBubble) return;
+                        
+                        const contentEl = messageBubble.querySelector('.response-content-markdown') || messageBubble;
+                        const content = contentEl.innerHTML;
+                        
+                        // Check if this is a user message (items-end) or AI response (items-start)
+                        const isUser = container.classList.contains('items-end');
+                        
+                        if (content.trim()) {
+                            allTurns.push({
+                                type: isUser ? 'user' : 'ai',
+                                content: isUser ? contentEl.innerText.trim() : content,
+                                top: rect.top
+                            });
+                        }
+                    });
+                    
+                    // Sort by position
+                    allTurns.sort((a, b) => a.top - b.top);
+                    
+                    allTurns.forEach(turn => {
+                        if (turn.type === 'user') {
+                            markdown += '## \ud83d\udc64 User\\n\\n' + turn.content + '\\n\\n---\\n\\n';
+                        } else {
+                            markdown += '## \ud83e\udd16 Grok\\n\\n' + turn.content + '\\n\\n---\\n\\n';
+                        }
+                    });
+                    
+                    return markdown || null;
+                })();
+            `;
+        }
+
+        const rawContent = await wc.executeJavaScript(script);
+
+        if (rawContent) {
+            // The service-specific scripts return pre-formatted markdown with HTML in AI responses
+            // We need to convert only the HTML parts to markdown, not the entire structure
+            const turndownService = new TurndownService({
+                headingStyle: 'atx',
+                codeBlockStyle: 'fenced'
+            });
+            turndownService.use(gfm);
+
+            // Remove noise elements
+            turndownService.remove('button');
+            turndownService.remove('style');
+            turndownService.remove('script');
+            turndownService.remove('nav');
+            turndownService.remove('aside');
+            turndownService.remove('svg');
+
+            // Add rule to remove specific noise patterns
+            turndownService.addRule('removeNoisePatterns', {
+                filter: function (node) {
+                    if (node.nodeName === 'SPAN' || node.nodeName === 'DIV') {
+                        const text = node.innerText ? node.innerText.trim() : '';
+                        const noisePatterns = [
+                            'Copy code', '코드 복사', 'Copy', 'Copied!',
+                            'python', 'javascript', 'typescript', 'html', 'css', 'bash', 'sql', 'json'
+                        ];
+                        if (noisePatterns.includes(text) && node.childNodes.length <= 1) {
+                            return true;
+                        }
+                    }
+                    return false;
+                },
+                replacement: function () {
+                    return '';
+                }
+            });
+
+            // Process each section: convert HTML content while preserving markdown headers
+            // The rawContent has structure like: ## 👤 User\n\ntext\n\n---\n\n## 🤖 Service\n\n<html>\n\n---
+            // We need to convert only the <html> parts
+            const sections = rawContent.split(/(?=## [👤🤖])/);
+            let processedContent = '';
+
+            for (const section of sections) {
+                if (!section.trim()) continue;
+
+                // Check if this section contains HTML (AI responses have innerHTML)
+                if (section.includes('<') && section.includes('>')) {
+                    // Find the header part and content part
+                    const headerMatch = section.match(/^(## [🤖👤][^\n]+\n\n)/);
+                    if (headerMatch) {
+                        const header = headerMatch[1];
+                        let htmlContent = section.substring(header.length);
+
+                        // Remove the trailing ---\n\n if present
+                        const separatorIndex = htmlContent.lastIndexOf('---');
+                        let separator = '';
+                        if (separatorIndex !== -1) {
+                            separator = htmlContent.substring(separatorIndex);
+                            htmlContent = htmlContent.substring(0, separatorIndex);
+                        }
+
+                        // Convert HTML to markdown
+                        const converted = turndownService.turndown(htmlContent.trim());
+                        processedContent += header + converted + '\n\n' + separator;
+                    } else {
+                        // No header found, just convert the whole section
+                        processedContent += turndownService.turndown(section);
+                    }
+                } else {
+                    // No HTML, keep as-is (user messages with plain text)
+                    processedContent += section;
+                }
+            }
+
+            content = processedContent || rawContent;
+            method = 'service-specific';
+        }
+    } catch (e) {
+        console.warn(`Service-specific extraction failed for ${service}:`, e);
+    }
+
+    // Fallback: Try to get the main content area
+    if (!content) {
+        try {
+            const containerSelectors = config.conversationContainerSelector || config.contentSelector || [];
+            const script = `
+                (function() {
+                    const selectors = ${JSON.stringify(containerSelectors)};
+                    for (const selector of selectors) {
+                        const el = document.querySelector(selector);
+                        if (el) {
+                            return el.innerHTML;
+                        }
+                    }
+                    return null;
                 })();
             `;
 
-            const text = await Promise.race([
-                views[service].view.webContents.executeJavaScript(script),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
-            ]);
+            const html = await wc.executeJavaScript(script);
 
-            return text;
+            if (html) {
+                const turndownService = new TurndownService({
+                    headingStyle: 'atx',
+                    codeBlockStyle: 'fenced'
+                });
+                turndownService.use(gfm);
+                turndownService.remove('button');
+                turndownService.remove('style');
+                turndownService.remove('script');
+                turndownService.remove('nav');
+                turndownService.remove('aside');
+
+                content = turndownService.turndown(html);
+                method = 'fallback';
+            }
         } catch (e) {
-            console.error(`Error extracting text from ${service}:`, e);
-            return `[Error extracting text: ${e.message}]`;
+            console.warn(`Fallback extraction failed for ${service}:`, e);
         }
     }
-    return null;
+
+    // Final fallback: innerText
+    if (!content) {
+        try {
+            const contentSelectors = config.contentSelector || [];
+            const script = `
+                (function() {
+                    const selectors = ${JSON.stringify(contentSelectors)};
+                    for (const selector of selectors) {
+                        const el = document.querySelector(selector);
+                        if (el) {
+                            return el.innerText;
+                        }
+                    }
+                    return document.body.innerText;
+                })();
+            `;
+
+            content = await Promise.race([
+                wc.executeJavaScript(script),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+            ]);
+            method = 'text';
+        } catch (e) {
+            console.error(`Error extracting text from ${service}:`, e);
+            content = `[Error extracting content: ${e.message}]`;
+            method = 'error';
+        }
+    }
+
+    return { service, content, method };
 }
 
-ipcMain.on('copy-chat-thread', async (event) => {
-    const promises = services.map(async (service) => {
-        const text = await extractTextFromService(service);
-        return { service, text };
-    });
+// Helper to extract ONLY the last AI response from a service (for Cross Check)
+async function extractLastResponseFromService(service, options = {}) {
+    if (!views[service] || !views[service].enabled) return null;
 
+    const config = selectorsConfig[service];
+    if (!config) return null;
+
+    let content = null;
+    let method = 'none';
+    const wc = views[service].view.webContents;
+
+    // Try lastResponseSelector first
+    const lastResponseSelectors = config.lastResponseSelector || [];
+
+    if (lastResponseSelectors.length > 0) {
+        try {
+            const script = `
+                (function() {
+                    const selectors = ${JSON.stringify(lastResponseSelectors)};
+                    for (const selector of selectors) {
+                        // Use querySelectorAll and get the last match
+                        const elements = document.querySelectorAll(selector);
+                        if (elements.length > 0) {
+                            const lastEl = elements[elements.length - 1];
+                            return lastEl.innerHTML;
+                        }
+                    }
+                    return null;
+                })();
+            `;
+
+            const html = await wc.executeJavaScript(script);
+
+            if (html) {
+                const turndownService = new TurndownService({
+                    headingStyle: 'atx',
+                    codeBlockStyle: 'fenced'
+                });
+                turndownService.use(gfm);
+
+                // Remove noise elements
+                turndownService.remove('button');
+                turndownService.remove('style');
+                turndownService.remove('script');
+                turndownService.remove('nav');
+                turndownService.remove('aside');
+
+                // Add rule to remove specific noise patterns
+                turndownService.addRule('removeNoisePatterns', {
+                    filter: function (node) {
+                        if (node.nodeName === 'SPAN' || node.nodeName === 'DIV') {
+                            const text = node.innerText ? node.innerText.trim() : '';
+                            const noisePatterns = [
+                                'Copy code', '코드 복사', 'Copy', 'Copied!',
+                                'python', 'javascript', 'typescript', 'html', 'css', 'bash', 'sql', 'json'
+                            ];
+                            if (noisePatterns.includes(text) && node.childNodes.length <= 1) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    },
+                    replacement: function () {
+                        return '';
+                    }
+                });
+
+                content = turndownService.turndown(html);
+                method = 'lastResponse';
+            }
+        } catch (e) {
+            console.warn(`Last response extraction failed for ${service}:`, e);
+        }
+    }
+
+    // Fallback: use markdownContainerSelector and get last message
+    if (!content && config.markdownContainerSelector && config.markdownContainerSelector.length > 0) {
+        try {
+            const script = `
+                (function() {
+                    const selectors = ${JSON.stringify(config.markdownContainerSelector)};
+                    for (const selector of selectors) {
+                        const elements = document.querySelectorAll(selector);
+                        if (elements.length > 0) {
+                            const lastEl = elements[elements.length - 1];
+                            return lastEl.innerHTML;
+                        }
+                    }
+                    return null;
+                })();
+            `;
+
+            const html = await wc.executeJavaScript(script);
+
+            if (html) {
+                const turndownService = new TurndownService({
+                    headingStyle: 'atx',
+                    codeBlockStyle: 'fenced'
+                });
+                turndownService.use(gfm);
+                turndownService.remove('button');
+                turndownService.remove('style');
+                turndownService.remove('script');
+
+                content = turndownService.turndown(html);
+                method = 'turndown-fallback';
+            }
+        } catch (e) {
+            console.warn(`Fallback extraction failed for ${service}:`, e);
+        }
+    }
+
+    // Final fallback: innerText of last response-like element
+    if (!content) {
+        try {
+            const script = `
+                (function() {
+                    // Try common patterns for AI responses
+                    const patterns = [
+                        '[data-message-author-role="assistant"]',
+                        '.assistant',
+                        '[class*="response"]',
+                        '[class*="answer"]',
+                        '.prose'
+                    ];
+                    for (const pattern of patterns) {
+                        const elements = document.querySelectorAll(pattern);
+                        if (elements.length > 0) {
+                            return elements[elements.length - 1].innerText;
+                        }
+                    }
+                    return null;
+                })();
+            `;
+
+            content = await Promise.race([
+                wc.executeJavaScript(script),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+            ]);
+            method = 'text-fallback';
+        } catch (e) {
+            console.error(`Error extracting last response from ${service}:`, e);
+            content = null;
+            method = 'error';
+        }
+    }
+
+    return { service, content, method };
+}
+
+ipcMain.on('copy-chat-thread', async (event, options = {}) => {
+    const { format = 'markdown', anonymousMode = false } = options;
+
+    // Get all enabled services
+    const enabledServices = services.filter(service => views[service] && views[service].enabled);
+
+    // Process all services in parallel (no more native copy, so no clipboard race conditions)
+    const promises = enabledServices.map(service => extractContentFromService(service, { format }));
     const results = await Promise.all(promises);
 
-    let clipboardText = '';
-    results.forEach(result => {
-        if (result.text) {
-            clipboardText += `=== ${result.service.toUpperCase()} ===\n`;
-            clipboardText += result.text.trim();
-            clipboardText += '\n\n' + '-'.repeat(40) + '\n\n';
-        }
-    });
+    // Format and combine
+    let finalOutput = '';
+    const aliases = {
+        'chatgpt': 'Service A',
+        'claude': 'Service B',
+        'gemini': 'Service C',
+        'grok': 'Service D',
+        'perplexity': 'Service E'
+    };
 
-    if (clipboardText) {
-        clipboard.writeText(clipboardText);
+    // Sort results by service order
+    results.sort((a, b) => services.indexOf(a.service) - services.indexOf(b.service));
+
+    if (format === 'json') {
+        const jsonOutput = results.map(r => ({
+            service: anonymousMode ? (aliases[r.service] || r.service) : r.service,
+            content: r.content,
+            method: r.method,
+            timestamp: new Date().toISOString()
+        }));
+        finalOutput = JSON.stringify(jsonOutput, null, 2);
+    } else {
+        // Markdown or Text
+        results.forEach(result => {
+            if (result && result.content) {
+                let serviceName = result.service.charAt(0).toUpperCase() + result.service.slice(1);
+                let content = result.content;
+
+                if (anonymousMode) {
+                    serviceName = aliases[result.service] || serviceName;
+                    // Simple anonymization of content (can be improved)
+                    Object.keys(aliases).forEach(key => {
+                        const regex = new RegExp(key, 'gi');
+                        content = content.replace(regex, aliases[key]);
+                    });
+                }
+
+                if (format === 'markdown') {
+                    finalOutput += `# ${serviceName}\n\n${content}\n\n---\n\n`;
+                } else {
+                    finalOutput += `=== ${serviceName.toUpperCase()} ===\n${content}\n\n${'-'.repeat(40)}\n\n`;
+                }
+            } else {
+                errors.push(result.service);
+            }
+        });
+    }
+
+    if (finalOutput) {
+        clipboard.writeText(finalOutput);
         console.log('Chat threads copied to clipboard');
-        // Notify renderer for visual feedback
+
+        // Granular feedback
+        const successServices = results.filter(r => r.content).map(r => r.service);
+        const failedServices = results.filter(r => !r.content).map(r => r.service);
+
         if (mainWindow) {
-            mainWindow.webContents.send('chat-thread-copied');
+            mainWindow.webContents.send('chat-thread-copied', {
+                success: successServices,
+                failed: failedServices,
+                format
+            });
         }
     }
 });
@@ -656,12 +1235,15 @@ ipcMain.on('cross-check', async (event, isAnonymousMode, promptPrefix) => {
         'perplexity': '(E)'
     };
 
-    // 1. Extract all texts
+    // 1. Extract LAST RESPONSE ONLY from each service
     const results = {};
     for (const service of services) {
-        const text = await extractTextFromService(service);
-        if (text) {
-            results[service] = text;
+        if (views[service] && views[service].enabled) {
+            const result = await extractLastResponseFromService(service, {});
+            if (result && result.content) {
+                results[service] = result.content;
+                console.log(`Cross Check: Extracted last response from ${service} (method: ${result.method})`);
+            }
         }
     }
 
