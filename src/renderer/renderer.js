@@ -1211,9 +1211,10 @@ btnAddCustom.addEventListener('click', () => {
     }
 
     // Check uniqueness
-    const exists = customPrompts.some(p => p.title === title);
-    if (exists) {
-        alert('A prompt with this title already exists. Please use a different title.');
+    const existingIndex = customPrompts.findIndex(p => p.title === title);
+    if (existingIndex !== -1) {
+        // Show overwrite confirmation modal instead of alert
+        showOverwriteConfirmModal(title, content, existingIndex);
         return;
     }
 
@@ -1222,6 +1223,119 @@ btnAddCustom.addEventListener('click', () => {
     // Clear inputs
     resetCustomPromptForm({ preserveSaveCheckbox: true });
 });
+
+// Overwrite Confirmation Modal
+function showOverwriteConfirmModal(title, content, existingIndex) {
+    // Create modal if not exists
+    let overwriteModal = document.getElementById('overwrite-confirm-modal');
+    if (!overwriteModal) {
+        overwriteModal = document.createElement('div');
+        overwriteModal.id = 'overwrite-confirm-modal';
+        overwriteModal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        `;
+        overwriteModal.innerHTML = `
+            <div style="background: hsl(220 15% 18%); border-radius: 12px; padding: 24px; max-width: 400px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.4); position: relative;">
+                <button id="overwrite-close-btn" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: #888; cursor: pointer; font-size: 1.2rem; padding: 4px; line-height: 1;">&times;</button>
+                <h3 style="margin: 0 0 16px 0; color: #fff;">Overwrite Prompt?</h3>
+                <p style="margin: 0 0 24px 0; color: #888;">A custom prompt with this title already exists. Do you want to overwrite it?</p>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button id="overwrite-cancel-btn" style="padding: 8px 24px; background: #444; color: #fff; border: none; border-radius: 6px; cursor: pointer;">No</button>
+                    <button id="overwrite-confirm-btn" style="padding: 8px 24px; background: #3b82f6; color: #fff; border: none; border-radius: 6px; cursor: pointer;">Yes</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overwriteModal);
+    }
+
+    // Reset button state whenever modal opens
+    const confirmBtn = document.getElementById('overwrite-confirm-btn');
+    const cancelBtn = document.getElementById('overwrite-cancel-btn');
+    if (confirmBtn) {
+        confirmBtn.innerHTML = 'Yes';
+        confirmBtn.style.background = '#3b82f6';
+        confirmBtn.disabled = false;
+    }
+    if (cancelBtn) {
+        cancelBtn.disabled = false;
+    }
+
+    // Show modal
+    overwriteModal.style.display = 'flex';
+
+    // Close modal function
+    function closeOverwriteModal() {
+        overwriteModal.style.display = 'none';
+        // Re-enable inputs after modal closes
+        ensureCustomPromptInputsEnabled();
+    }
+
+    // Get buttons - they are fresh each time since modal is reused
+    // (Variables declared above already)
+
+    // Setup Close Button
+    const closeBtn = document.getElementById('overwrite-close-btn');
+    if (closeBtn) {
+        // Clone to clear old listeners
+        const newCloseBtn = closeBtn.cloneNode(true);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+        newCloseBtn.onclick = () => {
+            closeOverwriteModal();
+        };
+    }
+
+    // Clear old listeners by replacing with clones
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+    // Attach new listeners to the newly inserted buttons
+    newConfirmBtn.onclick = () => {
+        // Update existing prompt
+        customPrompts[existingIndex] = {
+            ...customPrompts[existingIndex],
+            content: content,
+            lastUsed: new Date().toISOString()
+        };
+        localStorage.setItem('customPrompts', JSON.stringify(customPrompts));
+        renderSavedPrompts();
+
+        // Show success feedback
+        newConfirmBtn.innerHTML = 'Saved!';
+        newConfirmBtn.style.background = '#22c55e';
+        newConfirmBtn.disabled = true;
+        newCancelBtn.disabled = true;
+
+        // Close modal after brief delay for user to see feedback
+        setTimeout(() => {
+            resetCustomPromptForm({ preserveSaveCheckbox: true });
+            closeOverwriteModal();
+        }, 800);
+    };
+
+    newCancelBtn.onclick = () => {
+        closeOverwriteModal();
+    };
+
+    // Click outside to close (use a one-time handler)
+    const outsideClickHandler = (e) => {
+        if (e.target === overwriteModal) {
+            closeOverwriteModal();
+            overwriteModal.removeEventListener('click', outsideClickHandler);
+        }
+    };
+    overwriteModal.addEventListener('click', outsideClickHandler);
+}
 
 btnSendCustom.addEventListener('click', () => {
     const prompt = customPromptInput.value.trim();
