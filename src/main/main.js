@@ -1,7 +1,19 @@
-const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const Store = require('electron-store');
+
+// Session persistence store (SESS-006)
+const store = new Store();
+const defaultSessionState = {
+    serviceUrls: {}, // Current URLs for each service
+    layout: '1x4',
+    activeServices: ['chatgpt', 'claude', 'gemini', 'perplexity'],
+    isAnonymousMode: false,
+    isScrollSyncEnabled: false
+};
+
 let robot;
 try {
     robot = require('robotjs');
@@ -33,10 +45,24 @@ const serviceUrls = {
     perplexity: 'https://www.perplexity.ai'
 };
 
+// Domain whitelist for each service (EXTLINK-002)
+// URLs within these domains will stay in the webview, others open in external browser
+const serviceDomains = {
+    chatgpt: ['chatgpt.com', 'chat.openai.com', 'openai.com', 'auth0.com', 'auth.openai.com'],
+    claude: ['claude.ai', 'anthropic.com'],
+    gemini: ['gemini.google.com', 'google.com', 'accounts.google.com', 'gstatic.com'],
+    grok: ['grok.com', 'x.com', 'twitter.com'],
+    perplexity: ['perplexity.ai']
+};
+
 let currentLayout = '1x4'; // Default layout
 
 let selectorsConfig = {};
 let currentZoomLevel = 0.9; // Default zoom level
+
+// Session state tracking (SESS)
+let savedSessionUrls = {}; // URLs to load on startup
+let isAnonymousMode = false; // Track anonymous mode for session save
 
 // Load selectors
 try {
@@ -70,6 +96,11 @@ function createWindow() {
         });
     });
 
+    // Save session state when window is closed (catches Alt+F4, X button, etc.)
+    mainWindow.on('close', () => {
+        saveSessionState();
+    });
+
     // Initial Layout is now handled by renderer sending bounds
 }
 
@@ -99,7 +130,11 @@ function createServiceView(service) {
     });
 
     mainWindow.addBrowserView(view);
-    view.webContents.loadURL(serviceUrls[service]);
+
+    // Use saved session URL if available, otherwise use default (SESS-003)
+    const urlToLoad = savedSessionUrls[service] || serviceUrls[service];
+    console.log(`[Session] Loading ${service} with URL: ${urlToLoad}`);
+    view.webContents.loadURL(urlToLoad);
 
     // Modify headers for X-Frame-Options (SEC-001)
     view.webContents.session.webRequest.onHeadersReceived((details, callback) => {
@@ -128,7 +163,24 @@ function createServiceView(service) {
         if (selectorsConfig[service]) {
             view.webContents.send('set-config', { config: selectorsConfig[service], service });
         }
+
+        // Defensive URL update: ensure URL bar shows current URL after page loads
+        const currentUrl = view.webContents.getURL();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('webview-url-changed', { service, url: currentUrl });
+        }
     });
+
+    // URL Bar: Track URL changes (URLBAR-003)
+    const sendUrlUpdate = () => {
+        const currentUrl = view.webContents.getURL();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('webview-url-changed', { service, url: currentUrl });
+        }
+    };
+
+    view.webContents.on('did-navigate', sendUrlUpdate);
+    view.webContents.on('did-navigate-in-page', sendUrlUpdate);
 
     // Handle config request from preload (Handshake)
     ipcMain.on('request-config', (event) => {
@@ -137,6 +189,41 @@ function createServiceView(service) {
                 view.webContents.send('set-config', { config: selectorsConfig[service], service });
             }
         }
+    });
+
+    // External Link Handling (EXTLINK-001, EXTLINK-003)
+    // Check if URL is within allowed domains for this service
+    const isAllowedDomain = (url) => {
+        try {
+            const urlObj = new URL(url);
+            const hostname = urlObj.hostname.toLowerCase();
+            const allowedDomains = serviceDomains[service] || [];
+            return allowedDomains.some(domain =>
+                hostname === domain || hostname.endsWith('.' + domain)
+            );
+        } catch (e) {
+            return true; // If URL parsing fails, allow it
+        }
+    };
+
+    // Intercept navigation to external domains (EXTLINK-003)
+    view.webContents.on('will-navigate', (event, url) => {
+        if (!isAllowedDomain(url)) {
+            console.log(`[${service}] Blocking navigation to external URL: ${url}`);
+            event.preventDefault();
+            shell.openExternal(url);
+        }
+    });
+
+    // Handle new window requests (EXTLINK-004)
+    view.webContents.setWindowOpenHandler(({ url }) => {
+        if (!isAllowedDomain(url)) {
+            console.log(`[${service}] Opening external URL in browser: ${url}`);
+            shell.openExternal(url);
+            return { action: 'deny' };
+        }
+        // Allow popup for auth flows within allowed domains
+        return { action: 'allow' };
     });
 
     views[service] = { view, enabled: true };
@@ -558,6 +645,20 @@ ipcMain.on('toggle-service', (event, service, isEnabled) => {
     // Layout update will be triggered by renderer via toggle change -> updateLayoutState -> renderLayout -> updateBounds
 });
 
+// Request current URLs for all services (URLBAR - for layout/toggle changes)
+ipcMain.on('request-current-urls', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+
+    services.forEach(service => {
+        if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
+            const currentUrl = views[service].view.webContents.getURL();
+            if (currentUrl) {
+                mainWindow.webContents.send('webview-url-changed', { service, url: currentUrl });
+            }
+        }
+    });
+});
+
 ipcMain.on('new-chat', () => {
     services.forEach(service => {
         if (views[service] && views[service].enabled) {
@@ -579,6 +680,14 @@ ipcMain.on('reload-service', (event, service) => {
     if (views[service] && views[service].enabled) {
         console.log(`Reloading ${service}`);
         views[service].view.webContents.reload();
+    }
+});
+
+// Open URL in external browser (URLBAR-005)
+ipcMain.on('open-url-in-chrome', (event, url) => {
+    if (url) {
+        console.log(`Opening URL in external browser: ${url}`);
+        shell.openExternal(url);
     }
 });
 
@@ -1703,7 +1812,71 @@ ipcMain.on('set-service-visibility', (event, isVisible) => {
     });
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    // Load saved session state (SESS-003)
+    const savedState = store.get('sessionState', defaultSessionState);
+    currentLayout = savedState.layout || '1x4';
+    savedSessionUrls = savedState.serviceUrls || {}; // Load saved URLs for createServiceView
+    isAnonymousMode = savedState.isAnonymousMode || false;
+    console.log('[Session] Loaded saved state:', savedState);
+
+    createWindow();
+
+    // Send saved state to renderer after window is ready
+    mainWindow.webContents.once('did-finish-load', () => {
+        mainWindow.webContents.send('apply-saved-state', savedState);
+    });
+});
+
+// Save session state function (reusable for close and quit events)
+function saveSessionState() {
+    const sessionState = {
+        serviceUrls: {},
+        layout: currentLayout,
+        activeServices: [],
+        isAnonymousMode: isAnonymousMode,
+        isScrollSyncEnabled: isScrollSyncEnabled
+    };
+
+    // Collect current URLs from all BrowserViews (SESS-002)
+    services.forEach(service => {
+        if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
+            sessionState.serviceUrls[service] = views[service].view.webContents.getURL();
+            if (views[service].enabled) {
+                sessionState.activeServices.push(service);
+            }
+        }
+    });
+
+    store.set('sessionState', sessionState);
+    console.log('[Session] Saved state:', sessionState);
+}
+
+// Save session state before quit (SESS-001)
+app.on('before-quit', () => {
+    saveSessionState();
+});
+
+// IPC handler for renderer to report UI state (SESS-002)
+ipcMain.on('report-ui-state', (event, uiState) => {
+    // Update tracking variables for before-quit
+    isAnonymousMode = uiState.isAnonymousMode || false;
+
+    // Update the session state with UI control states
+    const savedState = store.get('sessionState', defaultSessionState);
+    store.set('sessionState', {
+        ...savedState,
+        isAnonymousMode: uiState.isAnonymousMode,
+        isScrollSyncEnabled: uiState.isScrollSyncEnabled,
+        layout: uiState.layout,
+        activeServices: uiState.activeServices
+    });
+});
+
+// IPC handler to get current saved state (SESS-003)
+ipcMain.handle('get-saved-session', () => {
+    return store.get('sessionState', defaultSessionState);
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {

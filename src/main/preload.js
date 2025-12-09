@@ -20,5 +20,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveTempFile: (buffer, name) => ipcRenderer.invoke('save-temp-file', { buffer, name }),
     onFileUploadComplete: (callback) => ipcRenderer.on('file-upload-complete', () => callback()),
     confirmSend: () => ipcRenderer.send('confirm-send'),
-    setServiceVisibility: (isVisible) => ipcRenderer.send('set-service-visibility', isVisible)
+    setServiceVisibility: (isVisible) => ipcRenderer.send('set-service-visibility', isVisible),
+    // URL Bar APIs (URLBAR-005)
+    openUrlInChrome: (url) => ipcRenderer.send('open-url-in-chrome', url),
+    onWebviewUrlChanged: (callback) => ipcRenderer.on('webview-url-changed', (event, data) => callback(data)),
+    requestCurrentUrls: () => ipcRenderer.send('request-current-urls'),
+    // Session Persistence APIs (SESS)
+    onApplySavedState: (callback) => ipcRenderer.on('apply-saved-state', (event, state) => callback(state)),
+    reportUiState: (state) => ipcRenderer.send('report-ui-state', state),
+    getSavedSession: () => ipcRenderer.invoke('get-saved-session')
 });

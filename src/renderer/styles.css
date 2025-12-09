@@ -58,51 +58,143 @@ body {
     display: flex;
     flex-direction: column;
     background-color: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
+    /* No border on slot - splitters handle the visual separation */
     position: relative;
     min-width: 100px;
     min-height: 100px;
+    overflow: hidden;
 }
 
 .view-header {
-    height: 28px;
-    min-height: 28px;
-    max-height: 28px;
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
     padding: 0 8px;
+    margin: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: hsl(var(--secondary));
+    background-color: hsl(220 20% 25%);
     border-bottom: 1px solid hsl(var(--border));
     z-index: 100;
     flex-shrink: 0;
+    box-sizing: border-box;
 }
 
 .view-header .service-name {
     font-size: 0.85rem;
     font-weight: 600;
     color: hsl(var(--muted-foreground));
-    text-transform: capitalize;
+    /* No text-transform - use display name directly */
 }
 
 .view-header .header-buttons {
     display: flex;
-    gap: 4px;
+    gap: 6px;
+    align-items: center;
 }
 
 .view-header .header-btn {
-    font-size: 0.8rem;
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--border));
-    border-radius: var(--radius);
-    padding: 2px 6px;
+    font-size: 0.9rem;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 6px;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.2s ease;
+    color: hsl(var(--muted-foreground));
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .view-header .header-btn:hover {
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
+    background: rgba(255, 255, 255, 0.15);
+    color: hsl(var(--foreground));
+    transform: scale(1.1);
+}
+
+/* URL Bar (URLBAR-001) */
+.url-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+    margin: 0;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid hsl(var(--border));
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    flex-shrink: 0;
+    gap: 8px;
+    box-sizing: border-box;
+}
+
+.url-text {
+    font-size: 0.75rem;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.url-bar-buttons {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+.url-bar-btn {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 6px;
+    cursor: pointer;
+    color: #666;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.url-bar-btn:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: #333;
+    transform: scale(1.1);
+}
+
+.url-bar-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Reload button spin animation */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.url-bar-btn.spinning svg {
+    animation: spin 0.5s ease-in-out;
+}
+
+/* Header button spin animation (for copy feedback) */
+.header-btn.spinning svg {
+    animation: spin 0.5s ease-in-out;
+}
+
+.header-btn svg {
+    width: 14px;
+    height: 14px;
 }
 
 /* Copy Last Response Button */
@@ -122,29 +214,65 @@ body {
     background-color: hsl(210 50% 40%);
 }
 
-/* Splitters */
+/* Splitters - Wide hit area with thin visual line */
 .splitter {
-    background-color: hsl(var(--border));
-    transition: background-color 0.2s;
+    background-color: transparent;
+    transition: all 0.15s ease;
     z-index: 10;
     flex-shrink: 0;
+    position: relative;
 }
 
-.splitter:hover,
-.splitter.dragging {
-    background-color: hsl(var(--primary));
+/* Thin visible line in center - 1px by default */
+.splitter::after {
+    content: '';
+    position: absolute;
+    background-color: hsl(var(--border));
+    transition: all 0.15s ease;
+}
+
+/* Hover/Drag: thicker dark gray line for visibility */
+.splitter:hover::after,
+.splitter.dragging::after {
+    background-color: #555;
 }
 
 .splitter-vertical {
-    width: 1px;
+    width: 4px;
     cursor: col-resize;
     height: 100%;
 }
 
+.splitter-vertical::after {
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1px;
+    height: 100%;
+    top: 0;
+}
+
+.splitter-vertical:hover::after,
+.splitter-vertical.dragging::after {
+    width: 3px;
+}
+
 .splitter-horizontal {
-    height: 1px;
+    height: 4px;
     width: 100%;
     cursor: row-resize;
+}
+
+.splitter-horizontal::after {
+    top: 50%;
+    transform: translateY(-50%);
+    height: 1px;
+    width: 100%;
+    left: 0;
+}
+
+.splitter-horizontal:hover::after,
+.splitter-horizontal.dragging::after {
+    height: 3px;
 }
 
 .row-container {
@@ -480,6 +608,13 @@ input:checked~.switch-label {
     background: hsl(var(--background));
     color: hsl(var(--foreground));
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.layout-btn.disabled,
+.layout-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 /* Prompt Toggle (Collapse) */

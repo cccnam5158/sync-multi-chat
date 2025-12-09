@@ -10,7 +10,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 ## 📋 Overview
 
 -   **Project Name**: Multi-AI Chat
--   **Version**: v0.5.3
+-   **Version**: v0.5.4
 -   **Platform**: Windows 10/11 (64-bit)
 -   **Tech Stack**: Electron, Node.js, HTML/CSS/JavaScript
 
@@ -29,14 +29,15 @@ This application allows you to enter a prompt once in a **Master Input** field a
 -   **Unified Master Input**: Type your prompt once, send to all active services.
 -   **Multi-Panel Layout**: View ChatGPT, Claude, and Gemini side-by-side (default 3-panel view).
 -   **Service Toggling**: Easily enable or disable specific AI services.
--   **Session Persistence**: Automatically saves your login state (cookies/local storage) so you don't have to log in every time.
--   **Advanced Layouts**: Support for **1x4** (Horizontal) and **2x2** (Grid) layouts with **resizable panels**.
--   **Copy Chat Thread**: One-click copy of all chat threads to clipboard with proper Markdown formatting (role distinction with `## 👤 User` and `## 🤖 [Service Name]`).
+-   **Session Persistence**: Automatically saves your login state, layout, active services, and URLs so you can continue where you left off.
+-   **Advanced Layouts**: Support for **1x3**, **3x1**, **1x4**, and **2x2** layouts with **resizable panels**.
+-   **WebView URL Bar**: Each panel displays the current URL with copy, reload, and external browser buttons.
+-   **External Link Handling**: Links to external sites open in your default browser automatically.
+-   **Copy Chat Thread**: One-click copy of all chat threads to clipboard with proper Markdown formatting.
 -   **Copy Last Response**: Copy only the last AI response from all active services for quick comparisons.
--   **Per-Service Header Bar**: Each service panel has a header bar with the service name and quick-access **Reload (🔄)** and **Copy (📋)** buttons.
--   **Cross Check**: Click the "Cross Check" button to open a modal with options: use an editable predefined comparison prompt or create custom prompts for cross-referencing AI answers. Save up to 10 custom prompts for reuse.
+-   **Cross Check**: Click the "Cross Check" button to have each AI review the answers provided by the other AIs.
 -   **Anonymous Cross Check**: Option to hide AI service names (replaced with aliases A, B, C...) during cross-checking to reduce bias.
--   **File Upload**: Attach images or text files to your prompt and broadcast them to all supported services (except Grok). Supports **Drag & Drop** and **Clipboard Paste**.
+-   **File Upload**: Attach images or text files to your prompt and broadcast them to all supported services. Supports **Drag & Drop** and **Clipboard Paste**.
 
 ### Security & Privacy
 -   **Sandboxed Environment**: Each service runs in an isolated `BrowserView` with context isolation.

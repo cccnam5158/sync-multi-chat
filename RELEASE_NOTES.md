@@ -1,5 +1,41 @@
 # Release Notes
 
+## v0.5.4 (2025-12-09)
+
+### 🚀 New Features
+*   **Session Persistence (Full State)**:
+    *   Automatically saves and restores: **active services**, **layout mode**, **anonymous mode**, **scroll sync state**, and **current URLs** for each service.
+    *   Continue exactly where you left off on app restart.
+    *   Session is saved on **window close** (X button, Alt+F4, etc.) ensuring state is preserved even on unexpected closes.
+*   **WebView URL Bar**:
+    *   Each panel now has a dedicated URL bar below the header showing the current page URL.
+    *   **Reload**: Refresh the current page with a spinning animation feedback.
+    *   **Copy URL**: Copy the current URL to clipboard with a green checkmark confirmation.
+    *   **Copy Chat Thread**: Moved from header to URL bar for consolidated actions.
+    *   **Open in Browser**: Open the current URL in your default external browser.
+    *   **URL Truncation**: Long URLs are truncated with "..." and full URL shown on hover.
+*   **External Link Handling**:
+    *   Links to external websites (outside the AI service domain) automatically open in your default browser.
+    *   Keeps you focused on the AI services while still allowing access to referenced content.
+*   **3x1 Vertical Layout**:
+    *   New layout option for viewing 3 services stacked vertically.
+    *   Layout buttons dynamically enable/disable based on active service count.
+
+### 🔧 Fixes & Improvements
+*   **Button Click Feedback**:
+    *   **Reload**: Arrow spins for 0.5s when clicked.
+    *   **Copy buttons**: Show green checkmark (✓) for 2 seconds before returning to original icon.
+*   **Splitter Improvements**:
+    *   **Real-time Sync**: Header, URL bar, and content now move together smoothly during resize.
+    *   **Thinner Splitters**: Reduced from 8px to 4px hit area for a cleaner look.
+    *   **Hover Visual**: Splitter line thickens to 3px with dark gray (#555) color on hover.
+*   **Toggle Button Fix**: Fixed bug where the 4th checked toggle was incorrectly disabled on app startup.
+*   **Header Title Fix**: Service names now display correctly (e.g., "ChatGPT (A)" instead of "Chatgpt") based on anonymous mode state.
+*   **URL Update on Layout Change**: URL bars now correctly update when switching between layouts (e.g., 1x3 → 3x1).
+*   **Unified UI Padding**: Header and URL bar now use consistent padding (8px) for cleaner alignment.
+
+---
+
 ## v0.5.3 (2025-12-05)
 
 ### 🚀 New Features

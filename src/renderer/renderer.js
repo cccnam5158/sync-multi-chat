@@ -123,6 +123,11 @@ function toggleAnonymousMode() {
     }
 
     updateServiceToggles();
+
+    // Report state change to main process for session persistence (SESS-002)
+    if (typeof reportCurrentUIState === 'function') {
+        reportCurrentUIState();
+    }
 }
 
 function updateServiceToggles() {
@@ -137,15 +142,17 @@ function updateServiceToggles() {
     for (const [service, toggle] of Object.entries(toggles)) {
         // The label text is now in a span with class 'label-text'
         const labelText = toggle.parentElement.querySelector('.label-text');
+        const name = names[service] || service;
+        const displayName = isAnonymousMode ? `${name} ${SERVICE_ALIASES[service] || ''}` : name;
+
         if (labelText) {
-            const name = names[service] || service;
-            if (isAnonymousMode) {
-                // Format: Name (Alias)
-                labelText.innerText = `${name} ${SERVICE_ALIASES[service] || ''}`;
-            } else {
-                // Format: Name
-                labelText.innerText = name;
-            }
+            labelText.innerText = displayName;
+        }
+
+        // Also update webview header name
+        const headerName = document.querySelector(`#slot-${service} .service-name`);
+        if (headerName) {
+            headerName.textContent = displayName;
         }
     }
 }
@@ -460,6 +467,7 @@ function renderFilePreview() {
 const viewsPlaceholder = document.getElementById('views-placeholder');
 const layoutBtns = {
     '1x3': document.getElementById('layout-1x3'),
+    '3x1': document.getElementById('layout-3x1'),
     '1x4': document.getElementById('layout-1x4'),
     '2x2': document.getElementById('layout-2x2')
 };
@@ -473,10 +481,11 @@ function updateLayoutState() {
     const activeCount = activeToggles.length;
     activeServiceKeys = activeToggles.map(([k]) => k);
 
-    // 2. Constraint: Max 4 services
+    // 2. Constraint: Max 4 services - disable UNCHECKED toggles only
     if (activeCount >= 4) {
         for (const toggle of Object.values(toggles)) {
-            if (!toggle.checked) toggle.disabled = true;
+            // Only disable unchecked toggles, never disable checked ones
+            toggle.disabled = !toggle.checked;
         }
     } else {
         for (const toggle of Object.values(toggles)) {
@@ -484,29 +493,52 @@ function updateLayoutState() {
         }
     }
 
-    // 3. Layout Buttons Logic
+    // 3. Layout Buttons Logic (LAYOUT-002-1)
+    // Disable all layout buttons when fewer than 3 services are active
     if (activeCount < 3) {
-        // < 3 services: Force 1x3
-        if (currentLayout !== '1x3') setLayout('1x3');
-        layoutBtns['1x3'].disabled = false;
-        layoutBtns['1x4'].disabled = true;
-        layoutBtns['2x2'].disabled = true;
+        // < 3 services: Disable all layout buttons
+        Object.values(layoutBtns).forEach(btn => {
+            btn.disabled = true;
+            btn.classList.add('disabled');
+        });
+        // Don't change current layout, just let it use whatever is current
     } else if (activeCount === 3) {
-        // 3 services: Only 1x3 available (User request)
-        if (currentLayout !== '1x3') setLayout('1x3');
+        // 3 services: Enable 1x3 and 3x1, disable others
         layoutBtns['1x3'].disabled = false;
+        layoutBtns['1x3'].classList.remove('disabled');
+        layoutBtns['3x1'].disabled = false;
+        layoutBtns['3x1'].classList.remove('disabled');
         layoutBtns['1x4'].disabled = true;
+        layoutBtns['1x4'].classList.add('disabled');
         layoutBtns['2x2'].disabled = true;
+        layoutBtns['2x2'].classList.add('disabled');
+        // If current layout is not valid for 3 services, switch to 1x3
+        if (currentLayout === '1x4' || currentLayout === '2x2') {
+            setLayout('1x3');
+        }
     } else {
-        // >= 4 services
+        // >= 4 services: Enable 1x4 and 2x2, disable 1x3 and 3x1
         layoutBtns['1x3'].disabled = true;
+        layoutBtns['1x3'].classList.add('disabled');
+        layoutBtns['3x1'].disabled = true;
+        layoutBtns['3x1'].classList.add('disabled');
         layoutBtns['1x4'].disabled = false;
+        layoutBtns['1x4'].classList.remove('disabled');
         layoutBtns['2x2'].disabled = false;
-        if (currentLayout === '1x3') setLayout('1x4');
+        layoutBtns['2x2'].classList.remove('disabled');
+        // If current layout is not valid for 4 services, switch to 1x4
+        if (currentLayout === '1x3' || currentLayout === '3x1') {
+            setLayout('1x4');
+        }
     }
 
     // 4. Render the Layout
     renderLayout();
+
+    // 5. Request current URLs from main process to update URL bars (fix Loading... display)
+    if (window.electronAPI.requestCurrentUrls) {
+        setTimeout(() => window.electronAPI.requestCurrentUrls(), 100);
+    }
 }
 
 function setLayout(layout) {
@@ -519,6 +551,11 @@ function setLayout(layout) {
 
     // Re-render
     renderLayout();
+
+    // Request current URLs from main process to update URL bars after layout change
+    if (window.electronAPI.requestCurrentUrls) {
+        setTimeout(() => window.electronAPI.requestCurrentUrls(), 100);
+    }
 }
 
 function renderLayout() {
@@ -563,8 +600,27 @@ function renderLayout() {
 
         viewsPlaceholder.appendChild(row2);
 
+    } else if (currentLayout === '3x1') {
+        // 3x1 Layout (Vertical Stack - 3 rows stacked on top of each other)
+        viewsPlaceholder.style.flexDirection = 'column';
+
+        activeServiceKeys.forEach((service, index) => {
+            createSlot(viewsPlaceholder, service);
+            if (index < activeServiceKeys.length - 1) {
+                // Add horizontal splitter between rows
+                const splitter = document.createElement('div');
+                splitter.className = 'splitter splitter-horizontal';
+                const prevSlot = viewsPlaceholder.lastElementChild.previousElementSibling || viewsPlaceholder.lastElementChild;
+                splitter.addEventListener('mousedown', (e) => {
+                    const prev = splitter.previousElementSibling;
+                    initResize(e, prev, splitter, 'vertical');
+                });
+                viewsPlaceholder.appendChild(splitter);
+            }
+        });
+
     } else {
-        // 1xN Layout (Horizontal Split)
+        // 1xN Layout (Horizontal Split - side by side)
         viewsPlaceholder.style.flexDirection = 'row';
 
         activeServiceKeys.forEach((service, index) => {
@@ -591,40 +647,105 @@ function createSlot(container, service) {
     const header = document.createElement('div');
     header.className = 'view-header';
 
-    // Left side: service name
+    // Left side: service name with proper display name
+    const serviceNames = {
+        'chatgpt': 'ChatGPT',
+        'claude': 'Claude',
+        'gemini': 'Gemini',
+        'grok': 'Grok',
+        'perplexity': 'Perplexity'
+    };
+    const baseDisplayName = serviceNames[service] || service;
+    const displayName = isAnonymousMode ? `${baseDisplayName} ${SERVICE_ALIASES[service] || ''}` : baseDisplayName;
+
     const serviceName = document.createElement('span');
     serviceName.className = 'service-name';
-    serviceName.textContent = service;
+    serviceName.textContent = displayName;
 
-    // Right side: buttons container
-    const buttonsContainer = document.createElement('div');
-    buttonsContainer.className = 'header-buttons';
+    // Header only contains service name (buttons moved to URL bar)
+    header.appendChild(serviceName);
+    slot.appendChild(header);
 
-    // Reload button
+    // Create URL bar below header (URLBAR-001)
+    const urlBar = document.createElement('div');
+    urlBar.className = 'url-bar';
+    urlBar.id = `url-bar-${service}`;
+
+    // URL text display (URLBAR-002)
+    const urlText = document.createElement('span');
+    urlText.className = 'url-text';
+    urlText.id = `url-text-${service}`;
+    urlText.textContent = 'Loading...';
+
+    // URL bar buttons container
+    const urlBtnsContainer = document.createElement('div');
+    urlBtnsContainer.className = 'url-bar-buttons';
+
+    // Reload button - SVG refresh icon with spin animation
     const reloadBtn = document.createElement('button');
-    reloadBtn.className = 'header-btn';
-    reloadBtn.textContent = '🔄';
+    reloadBtn.className = 'url-bar-btn';
+    const reloadSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+    reloadBtn.innerHTML = reloadSvg;
     reloadBtn.title = 'Reload';
     reloadBtn.addEventListener('click', () => {
+        reloadBtn.classList.add('spinning');
+        setTimeout(() => reloadBtn.classList.remove('spinning'), 500);
         window.electronAPI.reloadService(service);
     });
 
-    // Copy button
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'header-btn';
-    copyBtn.textContent = '📋';
-    copyBtn.title = 'Copy Chat Thread';
-    copyBtn.addEventListener('click', () => {
-        const format = copyFormatSelect ? copyFormatSelect.value : 'markdown';
-        window.electronAPI.copySingleChatThread(service, { format, anonymousMode: isAnonymousMode });
+    // Copy URL button - overlapping squares icon
+    const copyUrlBtn = document.createElement('button');
+    copyUrlBtn.className = 'url-bar-btn';
+    copyUrlBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    copyUrlBtn.title = 'Copy URL';
+    copyUrlBtn.addEventListener('click', () => {
+        const currentUrl = urlText.dataset.url || urlText.textContent;
+        if (currentUrl && currentUrl !== 'Loading...') {
+            navigator.clipboard.writeText(currentUrl).then(() => {
+                copyUrlBtn.innerHTML = '<span style="color:#22c55e;">✓</span>';
+                setTimeout(() => { copyUrlBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'; }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy URL:', err);
+            });
+        }
     });
 
-    buttonsContainer.appendChild(reloadBtn);
-    buttonsContainer.appendChild(copyBtn);
+    // Copy Chat Thread button (moved from header) - clipboard icon
+    const copyChatBtn = document.createElement('button');
+    copyChatBtn.className = 'url-bar-btn';
+    copyChatBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>';
+    copyChatBtn.title = 'Copy Chat Thread';
+    copyChatBtn.addEventListener('click', function () {
+        const button = this;
+        const format = copyFormatSelect ? copyFormatSelect.value : 'markdown';
+        window.electronAPI.copySingleChatThread(service, { format, anonymousMode: isAnonymousMode });
+        button.innerHTML = '<span style="color:#22c55e;font-weight:bold;">✓</span>';
+        setTimeout(function () {
+            button.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>';
+        }, 2000);
+    });
 
-    header.appendChild(serviceName);
-    header.appendChild(buttonsContainer);
-    slot.appendChild(header);
+    // Open in external browser button - external link icon
+    const chromeBtn = document.createElement('button');
+    chromeBtn.className = 'url-bar-btn';
+    chromeBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+    chromeBtn.title = 'Open in external browser';
+    chromeBtn.addEventListener('click', () => {
+        const currentUrl = urlText.dataset.url || urlText.textContent;
+        if (currentUrl && currentUrl !== 'Loading...') {
+            window.electronAPI.openUrlInChrome(currentUrl);
+        }
+    });
+
+    // Order: Reload, Copy URL, Copy Chat, Open in browser
+    urlBtnsContainer.appendChild(reloadBtn);
+    urlBtnsContainer.appendChild(copyUrlBtn);
+    urlBtnsContainer.appendChild(copyChatBtn);
+    urlBtnsContainer.appendChild(chromeBtn);
+
+    urlBar.appendChild(urlText);
+    urlBar.appendChild(urlBtnsContainer);
+    slot.appendChild(urlBar);
 
     container.appendChild(slot);
     return slot;
@@ -720,8 +841,8 @@ function initResize(e, prevElement, splitter, direction) {
             nextElement.style.height = `${newNextHeight}px`;
         }
 
-        // Optional: Update bounds during drag if performance allows
-        // requestAnimationFrame(updateBounds); 
+        // Update bounds in real-time during drag for smooth sync with BrowserView content
+        updateBounds();
     }
 
     function onMouseUp() {
@@ -738,18 +859,20 @@ function initResize(e, prevElement, splitter, direction) {
 }
 
 function updateBounds() {
-    const HEADER_HEIGHT = 28; // Height for header bar with buttons
+    const HEADER_HEIGHT = 32; // Height for header bar with buttons
+    const URL_BAR_HEIGHT = 32; // Height for URL bar (URLBAR-001) - same as header
+    const TOTAL_TOP_HEIGHT = HEADER_HEIGHT + URL_BAR_HEIGHT;
     const bounds = {};
     activeServiceKeys.forEach(service => {
         const slot = document.getElementById(`slot-${service}`);
         if (slot) {
             const rect = slot.getBoundingClientRect();
-            // BrowserView starts below header bar
+            // BrowserView starts below header bar and URL bar
             bounds[service] = {
                 x: Math.round(rect.x),
-                y: Math.round(rect.y) + HEADER_HEIGHT,
+                y: Math.round(rect.y) + TOTAL_TOP_HEIGHT,
                 width: Math.round(rect.width),
-                height: Math.round(rect.height) - HEADER_HEIGHT
+                height: Math.round(rect.height) - TOTAL_TOP_HEIGHT
             };
         }
     });
@@ -775,6 +898,20 @@ for (const [service, toggle] of Object.entries(toggles)) {
     toggle.addEventListener('change', (e) => {
         window.electronAPI.toggleService(service, e.target.checked);
         updateLayoutState();
+    });
+}
+
+// URL Bar: Listen for URL changes from main process (URLBAR-003)
+if (window.electronAPI.onWebviewUrlChanged) {
+    window.electronAPI.onWebviewUrlChanged(({ service, url }) => {
+        const urlTextEl = document.getElementById(`url-text-${service}`);
+        if (urlTextEl && url) {
+            // Truncate URL for display if necessary
+            const displayUrl = url.length > 80 ? url.substring(0, 77) + '...' : url;
+            urlTextEl.textContent = displayUrl;
+            urlTextEl.dataset.url = url; // Store full URL for copy/chrome buttons
+            urlTextEl.title = url; // Show full URL on hover
+        }
     });
 }
 
@@ -1315,3 +1452,63 @@ window.addEventListener('DOMContentLoaded', () => {
     // Update layout state based on initial toggles
     updateLayoutState();
 });
+
+// Session Persistence: Listen for saved state restoration (SESS-003)
+if (window.electronAPI.onApplySavedState) {
+    window.electronAPI.onApplySavedState((savedState) => {
+        console.log('[Session] Applying saved state:', savedState);
+
+        // Restore active services (toggles)
+        if (savedState.activeServices && Array.isArray(savedState.activeServices)) {
+            const allServices = ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity'];
+            allServices.forEach(service => {
+                const shouldBeActive = savedState.activeServices.includes(service);
+                if (toggles[service]) {
+                    toggles[service].checked = shouldBeActive;
+                    window.electronAPI.toggleService(service, shouldBeActive);
+                }
+            });
+        }
+
+        // Restore layout
+        if (savedState.layout && layoutBtns[savedState.layout]) {
+            setLayout(savedState.layout);
+        }
+
+        // Restore anonymous mode
+        if (savedState.isAnonymousMode && !isAnonymousMode) {
+            toggleAnonymousMode();
+        } else {
+            // Even if not toggling, update header names to match current state
+            updateServiceToggles();
+        }
+
+        // Restore scroll sync
+        if (savedState.isScrollSyncEnabled && scrollSyncToggle) {
+            scrollSyncToggle.checked = true;
+            isScrollSyncEnabled = true;
+            window.electronAPI.toggleScrollSync(true);
+        }
+
+        // Update layout after restoring state
+        updateLayoutState();
+    });
+}
+
+// Report UI state changes to main process for persistence
+function reportCurrentUIState() {
+    if (window.electronAPI.reportUiState) {
+        const activeServices = Object.entries(toggles)
+            .filter(([_, toggle]) => toggle.checked)
+            .map(([service, _]) => service);
+
+        window.electronAPI.reportUiState({
+            isAnonymousMode,
+            isScrollSyncEnabled,
+            layout: currentLayout,
+            activeServices
+        });
+    }
+}
+
+// Call reportCurrentUIState on relevant changes (called from toggle handlers already via updateLayoutState)

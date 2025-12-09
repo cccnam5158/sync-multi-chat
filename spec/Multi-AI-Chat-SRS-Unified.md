@@ -2,8 +2,8 @@
 ## Software Requirements Specification (SRS)
 ### EARS (Easy Approach to Requirements Syntax) 기반 통합 요구사항 명세서
 
-**문서 버전**: 0.9.0 (Copy Last Response 및 서비스별 헤더 바 추가)  
-**작성일**: 2025-12-05  
+**문서 버전**: 0.10.0 (Session Persistence, WebView URL Bar, 3x1 Layout, External Link Handling)  
+**작성일**: 2025-12-09  
 **프로젝트명**: Multi-AI Chat (코드명: MAPB - Multi AI Prompt Broadcaster / Clash of LLMs)
 
 ---
@@ -509,9 +509,16 @@ The system shall display panels for enabled services (default: ChatGPT, Claude, 
 #### LAYOUT-002: 레이아웃 모드
 **[Ubiquitous]**  
 The system shall support the following layout configurations:
-- 1x3 (Horizontal Split) - 3개 서비스 활성화 시 강제
-- 1x4 (Horizontal Split) - 4개 이상 서비스 활성화 시 기본값
-- 2x2 (Grid Layout) - 4개 이상 서비스 활성화 시 선택 가능
+- 1x3 (Vertical Stack) - 1 column × 3 rows
+- 3x1 (Horizontal Split) - 3 columns × 1 row
+- 4x1 (Horizontal Split) - 4 columns × 1 row, 4개 이상 서비스 활성화 시 기본값
+- 2x2 (Grid Layout) - 2 columns × 2 rows
+
+The layout buttons shall be displayed in the following order (left to right): 1x3, 3x1, 4x1, 2x2.
+
+#### LAYOUT-002-1: 레이아웃 버튼 비활성화 조건
+**[State-Driven]**  
+While fewer than 3 service panels are enabled, the system shall disable all layout selection buttons, displaying them in a grayed-out state with `cursor: not-allowed`.
 
 #### LAYOUT-003: 동적 레이아웃 재조정
 **[Event-driven]**  
@@ -909,6 +916,113 @@ While Anonymous mode is ON and a Cross Check is initiated, the system shall repl
 #### ANON-004: 익명 교차 검증 실행
 **[Event-Driven]**
 When the user executes a Cross Check with Anonymous mode ON, the system shall send the anonymized prompts to each service, ensuring that no service receives explicit names of other services in the context.
+
+---
+
+### 4.15 세션 영속성 (SESS)
+
+#### SESS-001: 상태 저장 트리거
+**[Event-Driven]**
+When the application is about to close (before-quit event), the system shall persist the current session state to local storage.
+
+#### SESS-002: 저장 항목
+**[Ubiquitous]**
+The system shall save the following session state:
+- Current URL of each BrowserView (not just the homepage URL)
+- Current layout mode (1x3, 3x1, 4x1, 2x2)
+- Active services list (which service toggles are enabled)
+- Anonymous mode state (ON/OFF)
+- Scroll Sync toggle state (ON/OFF)
+
+#### SESS-003: 상태 복원
+**[Event-Driven]**
+When the application launches, the system shall restore the previously saved session state, including:
+1. Loading each BrowserView with its saved URL
+2. Applying the saved layout configuration
+3. Restoring all toggle/button states
+
+#### SESS-004: 상태 스키마
+**[Ubiquitous]**
+The system shall store session state in JSON format with the following structure:
+```json
+{
+  "version": 1,
+  "savedAt": "ISO8601 timestamp",
+  "webViews": {
+    "chatgpt": { "url": "string", "active": true/false },
+    "claude": { "url": "string", "active": true/false },
+    ...
+  },
+  "layout": "1x3|3x1|4x1|2x2",
+  "controls": {
+    "anonymousMode": true/false,
+    "scrollSync": true/false
+  }
+}
+```
+
+#### SESS-005: 기본값 처리
+**[Unwanted]**
+If the session state file is missing, corrupted, or has an incompatible version, then the system shall use default settings (4 active services: ChatGPT, Claude, Gemini, Perplexity; 4x1 layout; Anonymous OFF; Scroll Sync OFF).
+
+#### SESS-006: 저장소 위치
+**[Ubiquitous]**
+The system shall store session state using electron-store in the application data directory (`%APPDATA%/multi-ai-chat/`).
+
+---
+
+### 4.16 웹 뷰 URL 바 (URLBAR)
+
+#### URLBAR-001: URL 바 표시
+**[Ubiquitous]**
+The system shall display a URL bar row in each Service Panel, positioned below the existing service header bar. The URL bar shall have:
+- Light background color (e.g., `rgba(255, 255, 255, 0.1)`)
+- Height of 24-28 pixels
+- Layout: `[URL Text] [Copy Icon] [Chrome Icon]`
+
+#### URLBAR-002: URL 표시
+**[State-Driven]**
+While a BrowserView is loaded, the URL bar shall display the current URL of that webview. Long URLs shall be truncated with ellipsis.
+
+#### URLBAR-003: URL 실시간 업데이트
+**[Event-Driven]**
+When a BrowserView navigates to a new URL (did-navigate event), the system shall update the corresponding URL bar display in real-time.
+
+#### URLBAR-004: URL 복사 기능
+**[Event-Driven]**
+When the user clicks the Copy icon (📋) in the URL bar, the system shall copy the current URL to the system clipboard and display brief visual feedback.
+
+#### URLBAR-005: 외부 브라우저로 열기
+**[Event-Driven]**
+When the user clicks the Chrome icon (🌐) in the URL bar, the system shall open the current URL in the system's default external browser using `shell.openExternal()`.
+
+---
+
+### 4.17 외부 링크 처리 (EXTLINK)
+
+#### EXTLINK-001: 외부 링크 감지
+**[Event-Driven]**
+When a user clicks a link within a BrowserView that would navigate to a domain outside the service's allowed domain list, the system shall intercept the navigation.
+
+#### EXTLINK-002: 서비스별 허용 도메인
+**[Ubiquitous]**
+The system shall maintain a whitelist of allowed domains for each service:
+- ChatGPT: `chatgpt.com`, `chat.openai.com`, `openai.com`, `auth0.com`
+- Claude: `claude.ai`, `anthropic.com`
+- Gemini: `gemini.google.com`, `google.com`, `accounts.google.com`
+- Grok: `grok.com`, `x.com`, `twitter.com`
+- Perplexity: `perplexity.ai`
+
+#### EXTLINK-003: 외부 링크 처리
+**[Event-Driven]**
+When a navigation to an external domain is detected, the system shall:
+1. Prevent the navigation within the BrowserView
+2. Open the URL in the system's default external browser using `shell.openExternal()`
+3. Keep the BrowserView on its current page
+
+#### EXTLINK-004: 새 창 요청 처리
+**[Event-Driven]**
+When a link with `target="_blank"` is clicked within a BrowserView, the system shall check if the URL is external and, if so, open it in the external browser instead of creating a new window.
 
 ---
 
