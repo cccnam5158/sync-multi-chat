@@ -2,8 +2,8 @@
 ## Software Requirements Specification (SRS)
 ### EARS (Easy Approach to Requirements Syntax) 기반 통합 요구사항 명세서
 
-**문서 버전**: 1.2 (Copy Chat Thread 기능 추가)  
-**작성일**: 2025-11-27  
+**문서 버전**: 0.9.0 (Copy Last Response 및 서비스별 헤더 바 추가)  
+**작성일**: 2025-12-05  
 **프로젝트명**: Multi-AI Chat (코드명: MAPB - Multi AI Prompt Broadcaster / Clash of LLMs)
 
 ---
@@ -25,6 +25,8 @@
 - ChatGPT (chat.openai.com 또는 chatgpt.com)
 - Claude (claude.ai)
 - Gemini (gemini.google.com/app)
+- Grok (grok.com)
+- Perplexity (perplexity.ai)
 
 #### 1.2.3 범위에 포함
 - 멀티 패널 UI(최소 3분할): 각 패널에 서비스 웹 화면 로딩
@@ -130,6 +132,8 @@
 | ChatGPT | https://chat.openai.com 또는 https://chatgpt.com | OpenAI 계정 또는 Google SSO |
 | Claude | https://claude.ai | Anthropic 계정 또는 Google SSO |
 | Gemini | https://gemini.google.com/app | Google 계정 필수 |
+| Grok | https://grok.com | X(Twitter) 계정 필수 |
+| Perplexity | https://www.perplexity.ai | Google SSO 또는 이메일 로그인 |
 
 ---
 
@@ -143,7 +147,7 @@ The system shall create a main window with dimensions 1400x900 pixels (minimum) 
 
 #### APP-002: 레이아웃 초기화
 **[Event-Driven]**  
-When the main window is created, the system shall divide the window into a 3-panel grid layout (1x3 or configurable) with equal width distribution for each Service Panel.
+When the main window is created, the system shall divide the window into a 4-panel grid layout (1x4) by default, activating ChatGPT, Claude, Gemini, and Perplexity.
 
 #### APP-003: Master Input 영역
 **[Ubiquitous]**  
@@ -151,7 +155,7 @@ The system shall display a Master Input area at the bottom of the main window wi
 
 #### APP-004: 서비스 토글 컨트롤
 **[Ubiquitous]**  
-The system shall provide, adjacent to the Master Input, toggle controls that allow the user to enable or disable each target service (ChatGPT, Claude, Gemini) individually.
+The system shall provide, adjacent to the Master Input, toggle controls that allow the user to enable or disable each target service (ChatGPT, Claude, Gemini, Grok, Perplexity) individually.
 
 #### APP-004-1: 새 대화 버튼
 **[Ubiquitous]**  
@@ -163,7 +167,7 @@ The system shall display a "Send" button associated with the Master Input.
 
 #### APP-006: BrowserView 생성
 **[Event-Driven]**  
-When the layout is initialized, the system shall create three separate BrowserView instances (or equivalent web containers) for ChatGPT, Claude, and Gemini respectively, each with isolated sandbox environment.
+When the layout is initialized, the system shall create separate BrowserView instances for all enabled services (ChatGPT, Claude, Gemini, Grok, Perplexity), each with isolated sandbox environment.
 
 #### APP-007: 서비스 페이지 로딩
 **[Ubiquitous]**  
@@ -194,6 +198,8 @@ When a Service Panel completes page loading, the system shall detect login statu
 | ChatGPT | `textarea[id="prompt-textarea"]` 존재 |
 | Claude | `div[contenteditable="true"]` 존재 |
 | Gemini | `div[contenteditable="true"]` 또는 입력 영역 존재 |
+| Grok | `div.ProseMirror` 또는 `div[contenteditable="true"]` 존재 |
+| Perplexity | `div[data-lexical-editor="true"]` 또는 `#ask-input` 존재 |
 
 #### AUTH-005: 로그인 필요 표시
 **[State-Driven]**  
@@ -267,7 +273,7 @@ new BrowserView({
 
 #### SEC-006: 자격증명 미저장
 **[Ubiquitous]**  
-The system shall not store user account credentials for ChatGPT, Claude, or Gemini; all authentication shall occur within the official service web pages.
+The system shall not store user account credentials for any AI service; all authentication shall occur within the official service web pages.
 
 #### SEC-007: 로컬 저장소 암호화
 **[Optional]**  
@@ -291,7 +297,7 @@ When the user presses Enter (without Shift) in the Master Input, the system shal
 
 #### INPUT-003: 키보드 전송 (Ctrl+Enter)
 **[Event-driven]**  
-When the user presses `Ctrl+Enter` inside the Master Input, the system shall behave as if the "Send" button were clicked.
+When the user presses `Ctrl+Enter` inside the Master Input, the system shall behave as if the "Send" button were clicked, triggering the delivery of both the prompt text and any attached files.
 
 #### INPUT-004: 멀티라인 입력
 **[Event-Driven]**  
@@ -369,6 +375,20 @@ The system shall maintain a Selector Config file containing DOM selectors for ea
       "main",
       "div[role='main']"
     ]
+  }
+}
+  },
+  "grok": {
+    "inputSelector": ["div.ProseMirror"],
+    "sendButtonSelector": ["button[aria-label='Submit']"],
+    "loggedInSelector": ["div.ProseMirror"],
+    "contentSelector": ["main", "div[class*='message-container']"]
+  },
+  "perplexity": {
+    "inputSelector": ["#ask-input", "div[data-lexical-editor='true']"],
+    "sendButtonSelector": ["button[aria-label='Submit']"],
+    "loggedInSelector": ["#ask-input"],
+    "contentSelector": ["main"]
   }
 }
 ```
@@ -484,14 +504,14 @@ When all enabled services have completed response generation, the system shall p
 
 #### LAYOUT-001: 기본 패널 표시
 **[Ubiquitous]**  
-The system shall display three primary panels, each assigned to ChatGPT, Claude, and Gemini respectively.
+The system shall display panels for enabled services (default: ChatGPT, Claude, Gemini, Perplexity).
 
 #### LAYOUT-002: 레이아웃 모드
 **[Ubiquitous]**  
 The system shall support the following layout configurations:
-- 3-panel horizontal (1x3) - 기본값
-- 3-panel vertical (3x1)
-- 2+1 layout (2 panels top, 1 panel bottom)
+- 1x3 (Horizontal Split) - 3개 서비스 활성화 시 강제
+- 1x4 (Horizontal Split) - 4개 이상 서비스 활성화 시 기본값
+- 2x2 (Grid Layout) - 4개 이상 서비스 활성화 시 선택 가능
 
 #### LAYOUT-003: 동적 레이아웃 재조정
 **[Event-driven]**  
@@ -499,7 +519,11 @@ When the user clicks the 'layout change' button, the system shall automatically 
 
 #### LAYOUT-004: 패널 크기 조절
 **[Event-Driven]**  
-When the user drags a panel divider, the system shall resize adjacent panels proportionally while maintaining minimum panel width of 300 pixels.
+When the user drags a panel divider (vertical or horizontal), the system shall resize adjacent panels in real-time or upon drag completion, maintaining a minimum panel width/height of 100 pixels.
+
+#### LAYOUT-004-1: 2x2 리사이징
+**[Event-Driven]**
+When in 2x2 layout, the system shall provide a central horizontal splitter to resize row heights and vertical splitters within each row to resize column widths.
 
 #### LAYOUT-005: 패널 활성화/비활성화
 **[Event-Driven]**  
@@ -520,6 +544,10 @@ The system shall enforce a minimum window size of 1200x700 pixels.
 #### LAYOUT-009: 비활성화 서비스 표시
 **[Optional]**  
 Where a service is disabled in the configuration, the system shall hide or grey out the corresponding panel and toggle.
+
+#### LAYOUT-010: Modern UI (shadcn/ui Style)
+**[Ubiquitous]**
+The system shall implement a modern user interface for the Master Input and control area, replicating the design aesthetics of the **shadcn/ui** design system (clean typography, subtle borders, specific color palette, and component styling) using vanilla CSS.
 
 ---
 
@@ -544,7 +572,7 @@ The system shall support the following configurable options:
 | response.timeout | number | 300000 | 응답 타임아웃 (ms) |
 | notification.sound | boolean | true | 완료 알림음 |
 | notification.visual | boolean | true | 시각적 완료 알림 |
-| services.enabled | object | {chatgpt:true, claude:true, gemini:true} | 서비스 활성화 상태 |
+| services.enabled | object | {chatgpt:true, claude:true, gemini:true, grok:false, perplexity:true} | 서비스 활성화 상태 |
 
 #### CONFIG-003: 외부 셀렉터 설정
 **[Optional]**  
@@ -594,8 +622,8 @@ Where the user presses `Ctrl+1`, `Ctrl+2`, or `Ctrl+3`, the system shall bring t
 ### 4.9 에러 처리 및 복구 (ERR)
 
 #### ERR-001: 네트워크 오류 및 새로고침
-**[Unwanted]**  
-If a Service Panel fails to load or becomes unresponsive, the system shall provide a "Refresh" button (🔄) on the panel header to allow the user to manually reload the specific service view.
+**[Event-Driven]**  
+If a Service Panel fails to load or becomes unresponsive, the system shall provide a "Refresh" button (🔄) on the panel header. Clicking this button shall reload ONLY the specific service view where the button was clicked.
 
 #### ERR-002: DOM 셀렉터 실패
 **[Unwanted]**  
@@ -630,6 +658,8 @@ The system shall use the following URLs to reset conversations:
 - ChatGPT: `https://chatgpt.com/`
 - Claude: `https://claude.ai/new`
 - Gemini: `https://gemini.google.com/app`
+- Grok: `https://grok.com`
+- Perplexity: `https://www.perplexity.ai`
 
 #### CONV-004: DOM 기반 초기화 (Fallback)
 **[Optional]**  
@@ -641,42 +671,244 @@ Where URL navigation fails to start a new chat (e.g., redirects to old chat), th
 
 #### COPY-001: 복사 버튼 표시
 **[Ubiquitous]**  
-The system shall display a "Copy Chat Thread" button in the control panel, adjacent to the "New Chat" button.
+The system shall display a "Copy Chat Thread" button in the control panel with a distinct background color (e.g., Teal #2b5c5c) to distinguish it from other controls.
 
-#### COPY-002: 대화 내용 추출
+#### COPY-002: 전체 대화 스레드 추출 (Full Thread Extraction)
 **[Event-Driven]**  
-When the user clicks the "Copy Chat Thread" button, the system shall extract the text content from all currently enabled Service Panels.
+When the user clicks the "Copy Chat Thread" button, the system shall extract the **complete conversation thread** from each enabled service, including:
+- All user prompts
+- All AI responses
+- Preserved formatting (code blocks, lists, headers)
+
+The extraction shall use a tiered strategy:
+1. **Tier 1 (Turndown)**: Extract the HTML of the conversation container and convert it to Markdown using the Turndown library to preserve formatting.
+2. **Tier 2 (Text Fallback)**: If Tier 1 fails, fall back to extracting `innerText`.
 
 #### COPY-003: 클립보드 저장
 **[Event-Driven]**  
-When the text content has been extracted from all enabled services, the system shall format the content with service headers and write it to the system clipboard.
+When the content has been extracted from all enabled services, the system shall format the content according to the selected format (Markdown/JSON/Text) and write it to the system clipboard.
 
-#### COPY-004: 추출 셀렉터 설정
+#### COPY-004: 추출 셀렉터 설정 확장
 **[Ubiquitous]**  
-The system shall use the `contentSelector` defined in `selectors.json` to identify the chat container element for each service.
+The system shall use an expanded `selectors.json` configuration including:
+- `copyButtonSelector`: Selector for the native copy button (Tier 1).
+- `markdownContainerSelector`: Selector for the container to pass to Turndown (Tier 2).
+- `contentSelector`: Selector for text extraction (Tier 3).
 
-#### COPY-005: 추출 폴백
+#### COPY-005: 추출 폴백 및 에러 처리
 **[Unwanted]**  
-If the configured `contentSelector` fails to find an element, then the system shall fall back to extracting `document.body.innerText`.
+If a specific extraction tier fails, the system shall automatically proceed to the next tier. If all tiers fail, the system shall return an error message for that service.
 
 #### COPY-006: 비동기 병렬 처리
 **[Ubiquitous]**  
-The system shall execute content extraction for all enabled services in parallel to minimize waiting time.
+The system shall execute content extraction for all enabled services in parallel where possible (Turndown/Text), while managing clipboard access sequentially for Native Copy operations.
 
 #### COPY-007: 타임아웃
 **[Unwanted]**  
-If a service fails to return content within a configurable timeout (default: 2 seconds), then the system shall exclude that service's content and proceed with the rest.
+If a service fails to return content within a configurable timeout (default: 5 seconds for Native Copy, 2 seconds for others), then the system shall exclude that service's content and proceed with the rest.
 
-#### COPY-008: 데이터 포맷팅
+#### COPY-008: 데이터 포맷팅 및 선택
 **[Ubiquitous]**  
-The system shall format the copied text as follows:
-```text
-=== {ServiceName} ===
-{Content}
+The system shall support multiple output formats selectable by the user:
+- **Markdown (Default)**: Structured with headers (`# Service Name`), user/AI roles, and code blocks.
+- **JSON**: Structured data array `[{ role, content, timestamp }]` for programmatic use.
+- **Plain Text**: Simple text dump (legacy behavior).
 
-=== {ServiceName} ===
-{Content}
+#### COPY-009: 상세 복사 피드백
+**[Event-Driven]**
+When the copy operation completes, the system shall display a granular status message (e.g., "ChatGPT: Success, Claude: Failed") via a toast or status bar, instead of a generic "Copied!" message.
+
+#### COPY-010: 서비스별 헤더 바 (Per-Service Header Bar)
+**[Ubiquitous]**
+The system shall display a fixed header bar (28px height) at the top of each Service Panel, above the BrowserView. The header bar shall contain:
+- The **service name** on the left side.
+- **Reload (🔄)** and **Copy (📋)** buttons on the right side.
+Clicking the Copy button shall extract that specific service's full chat thread using the same Markdown formatting as the main "Copy Chat Thread" feature (with `## 👤 User` and `## 🤖 [Service Name]` headings).
+
+#### COPY-011: 익명 모드 (Anonymous Mode)
+**[Optional]**
+Where "Anonymous Mode" is enabled, the system shall replace service names with aliases (e.g., "Service A", "Service B") in the exported content to facilitate blind comparison.
+
+#### COPY-012: 포맷 선택 UI
+**[Ubiquitous]**
+The system shall provide a UI mechanism (e.g., dropdown or settings) to allow the user to select the desired copy format (Markdown, JSON, Text).
+
+#### COPY-013: Copy Last Response 버튼
+**[Ubiquitous]**
+The system shall display a "Copy Last Response" button in the control panel, adjacent to the "Copy Chat Thread" button.
+
+#### COPY-014: Copy Last Response 기능
+**[Event-Driven]**
+When the user clicks the "Copy Last Response" button, the system shall:
+1. Extract only the **last AI response** from each currently active Service Panel.
+2. Format the combined responses according to the selected format (Markdown/JSON/Text).
+3. Apply Anonymous mode aliases if enabled.
+4. Write the formatted content to the system clipboard.
+5. Display a granular status message indicating success/failure for each service.
+
+---
+
+### 4.12 교차 검증 (CROSS)
+
+#### CROSS-001: 교차 검증 버튼
+**[Ubiquitous]**
+The system shall display a "Cross Check" button in the control panel, adjacent to the "Copy Chat Thread" button.
+
+#### CROSS-002: 교차 검증 로직 (마지막 응답 추출)
+**[Event-Driven]**
+When the user clicks the "Cross Check" button, the system shall:
+1. Extract the **last AI response only** from each currently enabled and active Service Panel.
+2. Construct a specific prompt for each enabled service that includes the last responses of *other* enabled services.
+3. Prepend a predefined or user-defined prompt at the top.
+4. Inject the constructed prompt into each service's input field.
+5. Automatically trigger the send action.
+
+#### CROSS-003: 프롬프트 구성
+**[Ubiquitous]**
+The system shall construct the prompt for a target service (e.g., Service A) as follows:
+```text
+[User-defined or Predefined Prompt]
+
+=== SERVICE B ===
+[Last AI response from Service B]
+
+=== SERVICE C ===
+[Last AI response from Service C]
 ```
+It shall exclude the target service's own response from its input.
+
+#### CROSS-004: 비활성 패널 처리
+**[State-Driven]**
+While a service panel is disabled or closed, the system shall exclude its content from the cross-check context and shall not send a prompt to that service.
+
+#### CROSS-005: 빈 컨텐츠 처리
+**[Unwanted]**
+If a service's thread is empty, then the system shall exclude it from the context provided to other services.
+
+#### CROSS-006: 교차 검증 팝업
+**[Event-Driven]**
+When the user clicks the "Cross Check" button, the system shall display a modal popup offering two options: "각 AI 응답 비교" (Compare AI Responses) and "사용자 정의 프롬프트 추가" (Add Custom Prompt).
+
+#### CROSS-007: 응답 비교 모드 (기본)
+**[Event-Driven]**
+When the user selects "각 AI 응답 비교", the system shall prepend the current predefined comparison prompt to the collected AI responses and broadcast it to all enabled services.
+*Default Predefined Prompt*: "Below are responses from different AI models. Please compare and analyze them for accuracy, completeness, and logic. Identify any discrepancies and suggest the best answer."
+
+#### CROSS-008: 사용자 정의 프롬프트 모드
+**[Event-Driven]**
+When the user selects "사용자 정의 프롬프트 추가", the system shall display an input form with required Title and Content fields. Upon confirmation, the system shall prepend this custom prompt to the collected AI responses and broadcast it.
+
+#### CROSS-009: 사용자 프롬프트 저장
+**[Ubiquitous]**
+The system shall allow saving up to 10 custom prompts with a required "Title" and "Content". Saved prompts shall be stored in local storage with creation and last-used timestamps and persist across sessions.
+
+#### CROSS-010: 사용자 프롬프트 관리
+**[State-Driven]**
+While in the "Add Custom Prompt" view, the system shall display a sortable table of saved prompts showing Title, Preview, Last Used, Created dates, and Delete actions. Users can click table headers to sort, select a prompt to populate the input fields, or delete prompts with confirmation.
+
+#### CROSS-011: 사전 정의 프롬프트 편집
+**[Event-Driven]**
+When the user hovers over "Compare AI Responses" button, the system shall display a preview tooltip and an edit icon. When the edit icon is clicked, the system shall open an edit modal allowing modification of the predefined prompt with validation (Modify button enabled only when changes are made).
+
+#### CROSS-012: 입력 필드 유효성 검사
+**[State-Driven]**
+While in the "Add Custom Prompt" view, the system shall disable "Add Custom Prompt" and "Send Cross Check" buttons when either Title or Content fields are empty, and shall ensure Title uniqueness among saved prompts.
+
+#### CROSS-013: 프롬프트 삭제 확인
+**[Event-Driven]**
+When the user clicks the delete button on a saved prompt, the system shall display a confirmation modal showing the prompt title. The prompt shall only be deleted upon user confirmation.
+
+#### CROSS-014: 입력 상태 관리
+**[Ubiquitous]**
+The system shall ensure Title and Content input fields remain enabled at all times, using MutationObserver and multiple re-enablement strategies to prevent unwanted disabled states.
+
+#### CROSS-015: BrowserView 가시성 관리
+**[State-Driven]**
+While the Cross Check modal is visible, the system shall temporarily hide all AI service BrowserViews. When the modal is closed, the system shall restore BrowserView visibility.
+
+
+
+---
+
+### 4.13 파일 업로드 (FILE)
+
+#### FILE-001: 파일 첨부 UI
+**[Ubiquitous]**
+The system shall display a "Clip" icon button within or adjacent to the Master Input area.
+
+#### FILE-002: 파일 선택 다이얼로그
+**[Event-Driven]**
+When the user clicks the "Clip" icon, the system shall open a native file selection dialog allowing multiple file selection.
+
+#### FILE-003: 파일 미리보기 및 관리
+**[State-Driven]**
+While files are attached, the system shall display a list of attached files (chips or list view) showing the filename and a "Remove" (X) button for each.
+
+#### FILE-004: 드래그 앤 드롭
+**[Event-Driven]**
+When the user drags and drops files into the Master Input area, the system shall add them to the attached file list.
+
+#### FILE-005: 클립보드 이미지 붙여넣기
+**[Event-Driven]**
+When the user pastes an image from the clipboard into the Master Input area, the system shall automatically convert it to an image file (e.g., `paste-{timestamp}.png`) and add it to the attached file list.
+
+#### FILE-006: 클립보드 텍스트 파일 변환
+**[Event-Driven]**
+When the user pastes text into the **File Preview Area** (or uses a specific "Paste as File" action), the system shall automatically convert the text content into a text file (e.g., `paste-{timestamp}.txt`) and add it to the attached file list.
+*Note: Standard pasting into the text input field shall remain as text insertion.*
+
+#### FILE-007: 2단계 전송 프로세스 (Two-Step Send)
+**[Event-Driven]**
+When the user triggers the "Send" action with attached files, the system shall:
+1. Upload files to all enabled Service Panels.
+2. Display a confirmation modal ("파일 업로드 완료 확인 후, Ctrl + Enter를 입력하여 진행해주세요.").
+3. Wait for the user to press `Ctrl+Enter` again to confirm and trigger the final send action.
+
+#### FILE-008: 파일 업로드 메커니즘
+**[Ubiquitous]**
+The system shall use the Chrome DevTools Protocol (CDP) `DOM.setFileInputFiles` method to programmatically attach files. For services like Gemini where the file input is dynamic, the system shall simulate necessary UI interactions (e.g., clicking upload buttons) to reveal the input field.
+
+#### FILE-009: 파일 입력 셀렉터
+**[Ubiquitous]**
+The system shall maintain `fileInputSelector`, `uploadIconSelector`, and `uploadMenuButtonSelector` in `selectors.json` to handle various service-specific upload UI patterns.
+
+#### FILE-010: 업로드 대기 및 검증
+**[State-Driven]**
+While files are being uploaded, the system shall wait for UI indicators (defined in `uploadedFileSelector`) to confirm successful attachment before allowing the final send action.
+
+#### FILE-011: 클립보드 붙여넣기 (이미지/텍스트)
+**[Event-Driven]**
+- **Image**: When an image is pasted, it is converted to a PNG file.
+- **Text**: When long text (>5 lines) is pasted into the file preview area or when explicitly requested, it is converted to a TXT file.
+
+#### FILE-012: 드래그 앤 드롭
+**[Event-Driven]**
+The system shall support dragging and dropping files directly into the Master Input area to attach them.
+
+---
+
+### 4.14 익명 모드 (ANON)
+
+#### ANON-001: 익명 모드 토글
+**[Ubiquitous]**
+The system shall display an "Anonymous" (익명) toggle button adjacent to the "Cross Check" button in the control panel.
+
+#### ANON-002: 서비스 별칭 표시
+**[State-Driven]**
+While Anonymous mode is ON, the system shall display service toggle buttons with aliases instead of their full names:
+- ChatGPT -> **(A)**
+- Claude -> **(B)**
+- Gemini -> **(C)**
+- Grok -> **(D)**
+- Perplexity -> **(E)**
+
+#### ANON-003: 익명 프롬프트 구성
+**[State-Driven]**
+While Anonymous mode is ON and a Cross Check is initiated, the system shall replace all occurrences of service names in the generated prompt with their corresponding aliases (e.g., replace "Claude" with "(B)").
+
+#### ANON-004: 익명 교차 검증 실행
+**[Event-Driven]**
+When the user executes a Cross Check with Anonymous mode ON, the system shall send the anonymized prompts to each service, ensuring that no service receives explicit names of other services in the context.
 
 ---
 
