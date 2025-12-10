@@ -19,13 +19,25 @@ newChatBtn.addEventListener('click', () => {
 });
 
 if (promptToggleBtn) {
-    promptToggleBtn.addEventListener('click', () => {
-        isPromptCollapsed = !isPromptCollapsed;
-        if (inputArea) inputArea.classList.toggle('collapsed', isPromptCollapsed);
-        if (controlsContainer) controlsContainer.classList.toggle('collapsed', isPromptCollapsed);
-        // promptToggleBtn.textContent = isPromptCollapsed ? '△' : '▽'; // Removed to preserve SVG
+    promptToggleBtn.title = isPromptCollapsed ? 'Expand controls' : 'Collapse controls';
+}
+
+function setPromptCollapsed(collapsed) {
+    if (collapsed === isPromptCollapsed) return; // No change
+
+    isPromptCollapsed = collapsed;
+    if (inputArea) inputArea.classList.toggle('collapsed', isPromptCollapsed);
+    if (controlsContainer) controlsContainer.classList.toggle('collapsed', isPromptCollapsed);
+
+    if (promptToggleBtn) {
         promptToggleBtn.setAttribute('aria-expanded', (!isPromptCollapsed).toString());
         promptToggleBtn.title = isPromptCollapsed ? 'Expand controls' : 'Collapse controls';
+    }
+}
+
+if (promptToggleBtn) {
+    promptToggleBtn.addEventListener('click', () => {
+        setPromptCollapsed(!isPromptCollapsed);
     });
 }
 
@@ -664,6 +676,29 @@ function createSlot(container, service) {
 
     // Header only contains service name (buttons moved to URL bar)
     header.appendChild(serviceName);
+
+    // Header Buttons Container (Restored for Maximize button)
+    const headerBtns = document.createElement('div');
+    headerBtns.className = 'header-buttons';
+
+    // Maximize/Restore Button
+    const maxBtn = document.createElement('button');
+    maxBtn.className = 'header-btn';
+    maxBtn.title = 'Maximize';
+    // Maximize Icon (Expand)
+    const maxIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>';
+    // Restore Icon (Compress)
+    const restoreIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>';
+
+    maxBtn.innerHTML = maxIcon;
+
+    maxBtn.addEventListener('click', () => {
+        toggleMaximize(service, maxBtn, maxIcon, restoreIcon);
+    });
+
+    headerBtns.appendChild(maxBtn);
+    header.appendChild(headerBtns);
+
     slot.appendChild(header);
 
     // Create URL bar below header (URLBAR-001)
@@ -1626,3 +1661,32 @@ function reportCurrentUIState() {
 }
 
 // Call reportCurrentUIState on relevant changes (called from toggle handlers already via updateLayoutState)
+
+function toggleMaximize(service, btn, maxIcon, restoreIcon) {
+    const slot = document.getElementById('slot-' + service);
+    const viewsPlaceholder = document.getElementById('views-placeholder');
+
+    if (slot && viewsPlaceholder) {
+        const isMaximized = slot.classList.toggle('maximized');
+
+        if (isMaximized) {
+            viewsPlaceholder.classList.add('has-maximized-view');
+            btn.innerHTML = restoreIcon;
+            btn.title = 'Restore';
+            btn.classList.add('maximized-btn');
+            // Auto collapse prompt input when maximized
+            setPromptCollapsed(true);
+        } else {
+            viewsPlaceholder.classList.remove('has-maximized-view');
+            btn.innerHTML = maxIcon;
+            btn.title = 'Maximize';
+            btn.classList.remove('maximized-btn');
+            // Auto expand prompt input when restored
+            setPromptCollapsed(false);
+        }
+
+        // Send updated bounds to main process
+        updateBounds();
+    }
+}
+

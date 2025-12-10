@@ -148,6 +148,24 @@ body {
     align-items: center;
 }
 
+/* Maximized View Styles */
+#views-placeholder.has-maximized-view .view-slot:not(.maximized),
+#views-placeholder.has-maximized-view .splitter {
+    display: none !important;
+}
+
+#views-placeholder.has-maximized-view .view-slot.maximized {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+}
+
+.maximized-btn {
+    color: hsl(var(--primary));
+}
+
 .url-bar-btn {
     background: transparent;
     border: none;
