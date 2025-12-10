@@ -143,20 +143,15 @@ Contributions are welcome! Please follow these steps:
 
 ## 📄 License
 
-This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the **Polyform Noncommercial License 1.0.0**. See the [LICENSE](LICENSE) file for details.
+
+This license allows for:
+*   **Personal Use**: You are free to use this software for your own personal needs.
+*   **Non-Commercial Use**: You are free to use this software for non-profit and non-commercial purposes.
+
+This license **PROHIBITS**:
+*   **Commercial Use**: You may NOT use this software for any commercial purpose, including business operations, giving it away as part of a freemium service, or any activity primarily intended for commercial advantage or monetary compensation.
 
 ```text
-Copyright 2025 Joseph Nam
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+Copyright (c) 2025 Joseph Nam. All rights reserved.
 ```

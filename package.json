@@ -12,7 +12,7 @@
   },
   "keywords": [],
   "author": "Joseph Nam",
-  "license": "ISC",
+  "license": "SEE LICENSE IN LICENSE",
   "type": "commonjs",
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",
