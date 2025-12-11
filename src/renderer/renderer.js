@@ -1455,6 +1455,14 @@ function deleteCustomPrompt(index, e) {
 function formatDate(isoString) {
     if (!isoString) return '-';
     const date = new Date(isoString);
+    const dateStr = date.toLocaleDateString();
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${dateStr}<br>${timeStr}`;
+}
+
+function formatDateTooltip(isoString) {
+    if (!isoString) return '-';
+    const date = new Date(isoString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
@@ -1488,10 +1496,10 @@ function renderSavedPrompts() {
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${escapeHtml(prompt.title)}</td>
-            <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(prompt.content)}">${escapeHtml(prompt.content)}</td>
-            <td>${formatDate(prompt.lastUsedAt)}</td>
-            <td>${formatDate(prompt.createdAt)}</td>
+            <td title="${escapeHtml(prompt.title)}">${escapeHtml(prompt.title)}</td>
+            <td title="${escapeHtml(prompt.content)}">${escapeHtml(prompt.content)}</td>
+            <td title="${formatDateTooltip(prompt.lastUsedAt)}">${formatDate(prompt.lastUsedAt)}</td>
+            <td title="${formatDateTooltip(prompt.createdAt)}">${formatDate(prompt.createdAt)}</td>
             <td style="text-align: center;">
                 <button class="delete-prompt-btn" title="Delete">✕</button>
             </td>
