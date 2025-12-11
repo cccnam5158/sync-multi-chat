@@ -1,7 +1,7 @@
 # Session Persistence & UI Enhancement Features
 
 ## 1. Overview
-This document outlines the implementation of four new features to enhance the Multi-AI Chat application:
+This document outlines the implementation of four new features to enhance the Sync Multi Chat application:
 1. **Session Persistence**: Save and restore application state across sessions
 2. **WebView URL Bar**: Add URL display and action bar to each webview panel
 3. **3x1 Layout & Layout Conditions**: Add 3x1 layout option and conditional button enablement
@@ -9,7 +9,7 @@ This document outlines the implementation of four new features to enhance the Mu
 
 ## 2. User Requirements
 
-### 2.1 Feature 1: Session Persistence (세션 영속성)
+### 2.1 Feature 1: Session Persistence (?�션 ?�속??
 
 #### 2.1.1 Saved State
 When the application closes, the system shall save the following state:
@@ -35,7 +35,7 @@ When the application launches:
 
 ---
 
-### 2.2 Feature 2: WebView URL Bar (웹 뷰 URL 바)
+### 2.2 Feature 2: WebView URL Bar (??�?URL �?
 
 #### 2.2.1 UI Design
 - Add a new row below the existing service header bar in each panel
@@ -48,19 +48,19 @@ When the application launches:
 - Truncate long URLs with ellipsis if needed
 - Update URL in real-time as webview navigates
 
-#### 2.2.3 Copy Button (복사 아이콘)
-- 📋 or similar copy icon
+#### 2.2.3 Copy Button (복사 ?�이�?
+- ?�� or similar copy icon
 - On click: Copy current URL to system clipboard
 - Show brief visual feedback (e.g., icon change or tooltip)
 
-#### 2.2.4 Open in Chrome Button (Chrome 아이콘)
-- 🌐 or Chrome-like icon
+#### 2.2.4 Open in Chrome Button (Chrome ?�이�?
+- ?�� or Chrome-like icon
 - On click: Open current URL in system default browser (Chrome)
 - Use Electron's `shell.openExternal()` API
 
 ---
 
-### 2.3 Feature 3: 3x1 Layout & Layout Conditions (3x1 레이아웃 및 조건)
+### 2.3 Feature 3: 3x1 Layout & Layout Conditions (3x1 ?�이?�웃 �?조건)
 
 #### 2.3.1 New Layout Option
 - Add "3x1" layout button to existing layout controls
@@ -82,7 +82,7 @@ When the application launches:
 
 ---
 
-### 2.4 Feature 4: External Link Handling (외부 링크 처리)
+### 2.4 Feature 4: External Link Handling (?��? 링크 처리)
 
 #### 2.4.1 Link Click Behavior
 - When a user clicks any link (`<a>` tag) inside a webview that would navigate away from the current AI service domain
@@ -262,7 +262,7 @@ graph TD
 ## 7. Verification Plan
 
 ### 7.1 Manual Testing
-- [ ] Close app, reopen → Verify all state is restored
+- [ ] Close app, reopen ??Verify all state is restored
 - [ ] URL bar displays correct URL for each webview
 - [ ] Copy button copies URL to clipboard
 - [ ] Chrome button opens URL in external browser

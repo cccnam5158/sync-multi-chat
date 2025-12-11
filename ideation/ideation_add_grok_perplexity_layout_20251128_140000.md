@@ -1,7 +1,7 @@
 # Ideation: Add Grok, Perplexity and Layout Options
 
 ## 1. Feature Summary
-- **Add New Services**: Integrate **Grok** (https://grok.com/) and **Perplexity** (https://www.perplexity.ai/) into the Multi-AI Chat application.
+- **Add New Services**: Integrate **Grok** (https://grok.com/) and **Perplexity** (https://www.perplexity.ai/) into the Sync Multi Chat application.
 - **Layout Options**: Add layout selection buttons (**1x3**, **1x4**, **2x2**) to the control bar.
 - **Dynamic Layout Logic**:
     - Automatically select **1x3** if < 3 services are active.

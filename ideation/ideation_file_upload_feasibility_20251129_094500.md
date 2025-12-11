@@ -1,7 +1,7 @@
 # File Upload Feasibility Study
 
 ## 1. Overview
-This document outlines the feasibility and technical approach for implementing a simultaneous file upload feature in the Multi-AI Chat application. The goal is to allow users to upload a file via the main chat interface and have it automatically injected and uploaded to all active AI services (ChatGPT, Claude, Gemini, etc.) along with the prompt.
+This document outlines the feasibility and technical approach for implementing a simultaneous file upload feature in the Sync Multi Chat application. The goal is to allow users to upload a file via the main chat interface and have it automatically injected and uploaded to all active AI services (ChatGPT, Claude, Gemini, etc.) along with the prompt.
 
 ## 2. Current Architecture
 - **Renderer**: The chat interface (`renderer.js`) captures text input and sends it via IPC (`send-prompt`) to the main process.

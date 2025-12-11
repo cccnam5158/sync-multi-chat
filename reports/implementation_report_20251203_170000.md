@@ -3,7 +3,7 @@ Date: 2025-12-03
 Version: 0.6.1
 
 ## Overview
-This report documents the UI refinements and modernization updates applied to the Multi-AI Chat application. The changes focus on improving aesthetics, usability, and visual consistency using shadcn/ui inspired design principles.
+This report documents the UI refinements and modernization updates applied to the Sync Multi Chat application. The changes focus on improving aesthetics, usability, and visual consistency using shadcn/ui inspired design principles.
 
 ## Changes Implemented
 

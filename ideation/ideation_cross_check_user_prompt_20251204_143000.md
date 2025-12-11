@@ -8,8 +8,8 @@ This document outlines the implementation of enhancements to the "Cross Check" f
 ### 2.1 Cross Check Popup
 - **Trigger**: Clicking the "Cross Check" button opens a modal popup instead of immediately executing the cross-check.
 - **Options**: The popup presents two main options:
-    - **Compare AI Responses (각 AI 응답 비교)**: Uses an editable predefined prompt to ask AIs to compare the collected responses.
-    - **Add Custom Prompt (사용자 정의 프롬프트 추가)**: Allows the user to input, save, and manage custom prompts.
+    - **Compare AI Responses (�?AI ?�답 비교)**: Uses an editable predefined prompt to ask AIs to compare the collected responses.
+    - **Add Custom Prompt (?�용???�의 ?�롬?�트 추�?)**: Allows the user to input, save, and manage custom prompts.
 
 ### 2.2 Compare AI Responses Mode
 - **Behavior**:
@@ -138,31 +138,31 @@ This document outlines the implementation of enhancements to the "Cross Check" f
 
 ## 5. Verification
 - **Manual Testing**:
-    - Click Cross Check → Verify Modal opens with options
-    - Hover "Compare AI Responses" → Verify preview tooltip appears
-    - Click edit icon → Verify edit modal with disabled "Modify" button
-    - Edit predefined prompt → Verify "Modify" enables on change
-    - Click "Compare" → Verify predefined prompt is prepended and sent
-    - Click "Custom" → Enter title and prompt → Verify buttons enable/disable correctly
-    - Click "Add Custom Prompt" → Verify prompt saves and form clears
+    - Click Cross Check ??Verify Modal opens with options
+    - Hover "Compare AI Responses" ??Verify preview tooltip appears
+    - Click edit icon ??Verify edit modal with disabled "Modify" button
+    - Edit predefined prompt ??Verify "Modify" enables on change
+    - Click "Compare" ??Verify predefined prompt is prepended and sent
+    - Click "Custom" ??Enter title and prompt ??Verify buttons enable/disable correctly
+    - Click "Add Custom Prompt" ??Verify prompt saves and form clears
     - Verify saved prompts appear in table with dates
-    - Click table headers → Verify sorting works
-    - Select saved prompt → Verify it populates inputs and enables buttons
-    - Delete prompt → Verify confirmation modal appears
-    - Confirm deletion → Verify inputs remain enabled
+    - Click table headers ??Verify sorting works
+    - Select saved prompt ??Verify it populates inputs and enables buttons
+    - Delete prompt ??Verify confirmation modal appears
+    - Confirm deletion ??Verify inputs remain enabled
     - Check persistence after reload
 
 ## 6. Key Features Implemented
-- ✅ Editable predefined prompt with persistent storage
-- ✅ Custom prompt management (add, save, delete, sort)
-- ✅ Required field validation (Title and Content)
-- ✅ Unique title validation
-- ✅ Delete confirmation modal
-- ✅ Sortable table with creation and last used dates
-- ✅ Robust input state management preventing unwanted disabled states
-- ✅ Hover preview tooltip for predefined prompt
-- ✅ Visual feedback for button states (disabled/enabled)
-- ✅ BrowserView visibility management during modal display
+- ??Editable predefined prompt with persistent storage
+- ??Custom prompt management (add, save, delete, sort)
+- ??Required field validation (Title and Content)
+- ??Unique title validation
+- ??Delete confirmation modal
+- ??Sortable table with creation and last used dates
+- ??Robust input state management preventing unwanted disabled states
+- ??Hover preview tooltip for predefined prompt
+- ??Visual feedback for button states (disabled/enabled)
+- ??BrowserView visibility management during modal display
 
 ## 7. Implementation Date
 **Completed**: 2025-12-04

@@ -1,115 +1,115 @@
-# 구현 현황 보고서 (Implementation Report)
+# 구현 ?�황 보고??(Implementation Report)
 
 **문서 버전**: 1.0  
-**작성일**: 2025-12-09  
-**기준 버전**: v0.5.4
+**?�성??*: 2025-12-09  
+**기�? 버전**: v0.5.4
 
 ---
 
 ## 1. 개요
 
-본 보고서는 Multi-AI Chat v0.5.4 릴리스에서 구현된 새로운 기능들과 개선 사항을 정리합니다.
-이번 릴리스는 **세션 영속성**, **WebView URL 바**, **외부 링크 처리**, **3x1 레이아웃**, 그리고 **다양한 UI/UX 개선**에 중점을 두었습니다.
+�?보고?�는 Sync Multi Chat v0.5.4 릴리?�에??구현???�로??기능?�과 개선 ?�항???�리?�니??
+?�번 릴리?�는 **?�션 ?�속??*, **WebView URL �?*, **?��? 링크 처리**, **3x1 ?�이?�웃**, 그리�?**?�양??UI/UX 개선**??중점???�었?�니??
 
 ---
 
-## 2. 새로운 기능 구현
+## 2. ?�로??기능 구현
 
-### 2.1 세션 영속성 (Session Persistence)
+### 2.1 ?�션 ?�속??(Session Persistence)
 
-| 항목 | 구현 내용 |
+| ??�� | 구현 ?�용 |
 |------|----------|
-| **저장 항목** | 활성 서비스, 레이아웃, 익명 모드, 스크롤 동기화, 각 서비스 URL |
-| **저장 시점** | `mainWindow.on('close')` 및 `app.on('before-quit')` |
-| **저장 방식** | `electron-store` 사용 |
-| **복원 시점** | `app.whenReady()` 에서 저장된 상태 로드 후 렌더러에 전송 |
+| **?�????��** | ?�성 ?�비?? ?�이?�웃, ?�명 모드, ?�크�??�기?? �??�비??URL |
+| **?�???�점** | `mainWindow.on('close')` �?`app.on('before-quit')` |
+| **?�??방식** | `electron-store` ?�용 |
+| **복원 ?�점** | `app.whenReady()` ?�서 ?�?�된 ?�태 로드 ???�더?�에 ?�송 |
 
-**주요 변경 파일**:
-- `src/main/main.js`: `saveSessionState()` 함수 추가, IPC 핸들러 구현
-- `src/main/preload.js`: `onApplySavedState`, `reportUiState`, `getSavedSession` API 추가
-- `src/renderer/renderer.js`: 저장된 상태 복원 리스너 구현
+**주요 변�??�일**:
+- `src/main/main.js`: `saveSessionState()` ?�수 추�?, IPC ?�들??구현
+- `src/main/preload.js`: `onApplySavedState`, `reportUiState`, `getSavedSession` API 추�?
+- `src/renderer/renderer.js`: ?�?�된 ?�태 복원 리스??구현
 
-### 2.2 WebView URL 바 (URL Bar)
+### 2.2 WebView URL �?(URL Bar)
 
-| 항목 | 구현 내용 |
+| ??�� | 구현 ?�용 |
 |------|----------|
-| **위치** | 각 웹뷰 헤더 아래 32px 높이 |
-| **버튼 순서** | Reload → Copy URL → Copy Chat → Open in Browser |
-| **URL 표시** | 80자 초과 시 "..." 말줄임, 전체 URL은 `data-url` 속성에 저장 |
-| **피드백** | Reload: 회전 애니메이션 / Copy: 녹색 체크마크 2초 표시 |
+| **?�치** | �??�뷰 ?�더 ?�래 32px ?�이 |
+| **버튼 ?�서** | Reload ??Copy URL ??Copy Chat ??Open in Browser |
+| **URL ?�시** | 80??초과 ??"..." 말줄?? ?�체 URL?� `data-url` ?�성???�??|
+| **?�드�?* | Reload: ?�전 ?�니메이??/ Copy: ?�색 체크마크 2�??�시 |
 
-**주요 변경 파일**:
-- `src/renderer/renderer.js`: `createSlot()` 함수에서 URL 바 DOM 생성
-- `src/renderer/styles.css`: `.url-bar`, `.url-bar-btn` 스타일 추가
-- `src/main/main.js`: `request-current-urls` IPC 핸들러 추가
+**주요 변�??�일**:
+- `src/renderer/renderer.js`: `createSlot()` ?�수?�서 URL �?DOM ?�성
+- `src/renderer/styles.css`: `.url-bar`, `.url-bar-btn` ?��???추�?
+- `src/main/main.js`: `request-current-urls` IPC ?�들??추�?
 
-### 2.3 외부 링크 처리 (External Link Handling)
+### 2.3 ?��? 링크 처리 (External Link Handling)
 
-| 항목 | 구현 내용 |
+| ??�� | 구현 ?�용 |
 |------|----------|
-| **도메인 화이트리스트** | ChatGPT, Claude, Gemini, Grok, Perplexity 내부 URL 허용 |
-| **외부 링크** | 화이트리스트 외 URL은 `shell.openExternal()`로 기본 브라우저에서 열기 |
-| **이벤트 핸들러** | `will-navigate`, `setWindowOpenHandler` 사용 |
+| **?�메???�이?�리?�트** | ChatGPT, Claude, Gemini, Grok, Perplexity ?��? URL ?�용 |
+| **?��? 링크** | ?�이?�리?�트 ??URL?� `shell.openExternal()`�?기본 브라?��??�서 ?�기 |
+| **?�벤???�들??* | `will-navigate`, `setWindowOpenHandler` ?�용 |
 
-**주요 변경 파일**:
-- `src/main/main.js`: `createServiceView()`에 `serviceDomains` 화이트리스트 및 이벤트 핸들러 추가
+**주요 변�??�일**:
+- `src/main/main.js`: `createServiceView()`??`serviceDomains` ?�이?�리?�트 �??�벤???�들??추�?
 
-### 2.4 3x1 세로 레이아웃
+### 2.4 3x1 ?�로 ?�이?�웃
 
-| 항목 | 구현 내용 |
+| ??�� | 구현 ?�용 |
 |------|----------|
-| **레이아웃 버튼** | 기존 1x3, 1x4, 2x2에 3x1 추가 |
-| **동적 활성화** | 3개 서비스: 1x3, 3x1만 활성화 / 4개 서비스: 1x4, 2x2만 활성화 |
-| **렌더링** | `flex-direction: column` 방식으로 수직 배치 |
+| **?�이?�웃 버튼** | 기존 1x3, 1x4, 2x2??3x1 추�? |
+| **?�적 ?�성??* | 3�??�비?? 1x3, 3x1�??�성??/ 4�??�비?? 1x4, 2x2�??�성??|
+| **?�더�?* | `flex-direction: column` 방식?�로 ?�직 배치 |
 
-**주요 변경 파일**:
-- `src/renderer/index.html`: 3x1 레이아웃 버튼 SVG 아이콘 추가
-- `src/renderer/renderer.js`: `layoutBtns`, `updateLayoutState()`, `renderLayout()` 수정
+**주요 변�??�일**:
+- `src/renderer/index.html`: 3x1 ?�이?�웃 버튼 SVG ?�이�?추�?
+- `src/renderer/renderer.js`: `layoutBtns`, `updateLayoutState()`, `renderLayout()` ?�정
 
 ---
 
-## 3. 버그 수정 및 개선 사항
+## 3. 버그 ?�정 �?개선 ?�항
 
-### 3.1 버그 수정
+### 3.1 버그 ?�정
 
-| 버그 | 원인 | 해결 |
+| 버그 | ?�인 | ?�결 |
 |------|------|------|
-| **4번째 토글 비활성화** | `toggle.disabled = true` 조건 오류 | `toggle.disabled = !toggle.checked`로 수정 |
-| **헤더 타이틀 대소문자** | CSS `text-transform: capitalize` | CSS에서 제거, JS에서 `serviceNames` 매핑 사용 |
-| **Copy 버튼 미복원** | 클로저에서 변수 참조 문제 | 함수 내부에 SVG 문자열 직접 정의 |
-| **레이아웃 변경 시 URL 미갱신** | `setLayout()`에서 URL 요청 누락 | `requestCurrentUrls()` 호출 추가 |
+| **4번째 ?��? 비활?�화** | `toggle.disabled = true` 조건 ?�류 | `toggle.disabled = !toggle.checked`�??�정 |
+| **?�더 ?�?��? ?�?�문??* | CSS `text-transform: capitalize` | CSS?�서 ?�거, JS?�서 `serviceNames` 매핑 ?�용 |
+| **Copy 버튼 미복??* | ?�로?�?�서 변??참조 문제 | ?�수 ?��???SVG 문자??직접 ?�의 |
+| **?�이?�웃 변�???URL 미갱??* | `setLayout()`?�서 URL ?�청 ?�락 | `requestCurrentUrls()` ?�출 추�? |
 
 ### 3.2 UI/UX 개선
 
-| 개선 항목 | 변경 내용 |
+| 개선 ??�� | 변�??�용 |
 |----------|----------|
-| **슬릿터 hit area** | 8px → 4px로 축소 |
-| **슬릿터 호버** | 1px → 3px 두꺼운 `#555` 색상 표시 |
-| **실시간 리사이즈** | `onMouseMove`에서 `updateBounds()` 호출로 즉시 동기화 |
-| **패딩 통일** | 헤더/URL바 모두 `padding: 0 8px`로 통일 |
-| **버튼 피드백** | Reload 회전, Copy 녹색 체크 애니메이션 |
+| **?�릿??hit area** | 8px ??4px�?축소 |
+| **?�릿???�버** | 1px ??3px ?�꺼??`#555` ?�상 ?�시 |
+| **?�시�?리사?�즈** | `onMouseMove`?�서 `updateBounds()` ?�출�?즉시 ?�기??|
+| **?�딩 ?�일** | ?�더/URL�?모두 `padding: 0 8px`�??�일 |
+| **버튼 ?�드�?* | Reload ?�전, Copy ?�색 체크 ?�니메이??|
 
 ---
 
-## 4. 파일별 주요 변경 사항
+## 4. ?�일�?주요 변�??�항
 
-| 파일 | 변경 내용 |
+| ?�일 | 변�??�용 |
 |------|----------|
-| `src/main/main.js` | 세션 저장/로드, 외부 링크 처리, URL 요청 IPC |
-| `src/main/preload.js` | 세션 및 URL 관련 API 노출 |
-| `src/renderer/renderer.js` | URL 바 생성, 세션 복원, 3x1 레이아웃, 토글 버그 수정 |
-| `src/renderer/styles.css` | URL 바 스타일, 슬릿터 개선, 스핀 애니메이션 |
-| `src/renderer/index.html` | 3x1 레이아웃 버튼 추가 |
+| `src/main/main.js` | ?�션 ?�??로드, ?��? 링크 처리, URL ?�청 IPC |
+| `src/main/preload.js` | ?�션 �?URL 관??API ?�출 |
+| `src/renderer/renderer.js` | URL �??�성, ?�션 복원, 3x1 ?�이?�웃, ?��? 버그 ?�정 |
+| `src/renderer/styles.css` | URL �??��??? ?�릿??개선, ?��? ?�니메이??|
+| `src/renderer/index.html` | 3x1 ?�이?�웃 버튼 추�? |
 
 ---
 
 ## 5. 결론
 
-v0.5.4 릴리스는 사용자 경험을 크게 개선하는 다음 기능들을 추가했습니다:
+v0.5.4 릴리?�는 ?�용??경험???�게 개선?�는 ?�음 기능?�을 추�??�습?�다:
 
-1. **세션 영속성**: 앱 재시작 시 이전 상태 완벽 복원
-2. **URL 바**: 현재 페이지 정보 확인 및 빠른 액션 제공
-3. **외부 링크**: AI가 제공한 링크를 원활하게 열기
-4. **UI 개선**: 더 부드럽고 직관적인 패널 리사이징
+1. **?�션 ?�속??*: ???�시?????�전 ?�태 ?�벽 복원
+2. **URL �?*: ?�재 ?�이지 ?�보 ?�인 �?빠른 ?�션 ?�공
+3. **?��? 링크**: AI가 ?�공??링크�??�활?�게 ?�기
+4. **UI 개선**: ??부?�럽�?직�??�인 ?�널 리사?�징
 
-다음 단계로는 응답 완료 감지(RESP), 글로벌 단축키(SHORT), 설정 UI(CONFIG) 기능 강화를 권장합니다.
+?�음 ?�계로는 ?�답 ?�료 감�?(RESP), 글로벌 ?�축??SHORT), ?�정 UI(CONFIG) 기능 강화�?권장?�니??

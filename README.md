@@ -1,52 +1,61 @@
-# Multi-AI Chat (MAPB)
+# Sync Multi Chat
 
-**Multi-AI Chat** (Code Name: MAPB - Multi AI Prompt Broadcaster) is an Electron-based desktop application designed to maximize productivity for users who utilize multiple AI services simultaneously.
+**Sync Multi Chat** (Code Name: MAPB - Multi AI Prompt Broadcaster) is an Electron-based desktop application designed to maximize productivity for users who utilize multiple AI services simultaneously.
+It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, **Grok**, and **Perplexity** at once, displaying their responses side-by-side for easy comparison.
 
-This application allows you to enter a prompt once in a **Master Input** field and broadcast it to **ChatGPT**, **Claude**, and **Gemini** at the same time. You can compare the responses from each AI model in a single, unified interface.
+![Sync Multi Chat Application Screenshot](assets/mutli-ai-chat.png)
+*Figure 1: Sync Multi Chat Interface showing simultaneous interactions with ChatGPT, Claude, and Gemini.*
 
-![Multi-AI Chat Application Screenshot](assets/mutli-ai-chat.png)
-*Figure 1: Multi-AI Chat Interface showing simultaneous interactions with ChatGPT, Claude, and Gemini.*
+## Key Features
 
-## üìã Overview
+-   **Multi-Pane Interface**: View and interact with up to 4 AI services (ChatGPT, Claude, Gemini, Grok, Perplexity) simultaneously in a grid layout.
+-   **Simultaneous Prompting**: Send a message from a central "Master Input" to all active AI services instantly.
+-   **Broad Service Support**: Supports ChatGPT, Claude, Gemini, Grok (xAI), and Perplexity.
+-   **Chat History Management**: "New Chat" button to reset sessions across all services at once.
+-   **Zoom & Layout Controls**: Adjust text size and switch between 2x2, 1x3, 1x4, and Maximize layouts.
+-   **Prompt History**: Save and reuse frequently used prompts.
+-   **Cross Check**: Iterate on your prompts by sending an AI's response as a new prompt to others.
 
--   **Project Name**: Multi-AI Chat
--   **Version**: v0.5.4
--   **Platform**: Windows 10/11 (64-bit)
--   **Tech Stack**: Electron, Node.js, HTML/CSS/JavaScript
+## Tech Stack
 
-### Supported Services (Phase 1)
--   [ChatGPT](https://chat.openai.com)
--   [Claude](https://claude.ai)
--   [Gemini](https://gemini.google.com/app)
--   [Grok](https://grok.com)
--   [Perplexity](https://www.perplexity.ai)
+-   **Electron**: Cross-platform desktop application framework.
+-   **Puppeteer**: Headless Chrome Node.js API for automating the web views and interactions.
+-   **Vanilla HTML/CSS/JS**: Lightweight and fast frontend.
 
----
+## Version
 
-## ‚ú® Key Features
+-   **Current Version**: v0.5.4
 
-### Core Functionality
--   **Unified Master Input**: Type your prompt once, send to all active services.
--   **Multi-Panel Layout**: View ChatGPT, Claude, and Gemini side-by-side (default 3-panel view).
--   **Service Toggling**: Easily enable or disable specific AI services.
--   **Session Persistence**: Automatically saves your login state, layout, active services, and URLs so you can continue where you left off.
--   **Advanced Layouts**: Support for **1x3**, **3x1**, **1x4**, and **2x2** layouts with **resizable panels**.
--   **WebView URL Bar**: Each panel displays the current URL with copy, reload, and external browser buttons.
--   **External Link Handling**: Links to external sites open in your default browser automatically.
+## Installation
+
+This application is distributed as a portable executable for Windows (`.exe`). No complex installation is required.
+
+1.  Download the latest release zip file (e.g., `Sync Multi Chat-win32-x64-v0.5.4.zip`).
+2.  Extract the zip file to a location of your choice.
+3.  Run `Sync Multi Chat.exe` inside the extracted folder.
+
+### Development Setup (For Contributors)
+
+1.  Clone the repository.
+2.  Run `npm install` to install dependencies.
+3.  Run `npm start` to launch the application in development mode.
+
+## Architecture & Design
+
+-   **Project Name**: Sync Multi Chat
 -   **Copy Chat Thread**: One-click copy of all chat threads to clipboard with proper Markdown formatting.
 -   **Copy Last Response**: Copy only the last AI response from all active services for quick comparisons.
 -   **Cross Check**: Click the "Cross Check" button to have each AI review the answers provided by the other AIs.
 -   **Anonymous Cross Check**: Option to hide AI service names (replaced with aliases A, B, C...) during cross-checking to reduce bias.
 -   **File Upload**: Attach images or text files to your prompt and broadcast them to all supported services. Supports **Drag & Drop** and **Clipboard Paste**.
 
-### Security & Privacy
 -   **Sandboxed Environment**: Each service runs in an isolated `BrowserView` with context isolation.
 -   **No Credential Storage**: Your passwords are never stored by the app; you log in directly via the official service websites.
 -   **Bot Detection Evasion**: Uses User-Agent spoofing and human-like input event triggering to ensure compatibility.
 
 ---
 
-## üöÄ Installation & Getting Started
+## ?? Installation & Getting Started
 
 ### Prerequisites
 -   [Node.js](https://nodejs.org/) (v16 or higher recommended)
@@ -77,7 +86,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
     ```bash
     npm run build:portable
     ```
-    The executable will be located in: `dist-packager/Multi-AI Chat-win32-x64/Multi-AI Chat.exe`
+    The executable will be located in: `dist-packager/Sync Multi Chat-win32-x64/Sync Multi Chat.exe`
 
     **Option B: Installer (NSIS)**
     Creates a setup.exe installer (requires valid code signing environment).
@@ -88,7 +97,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 
 ---
 
-## üìñ Usage Guide
+## ?ìñ Usage Guide
 
 1.  **Initial Setup**: When you launch the app for the first time, you will see the login screens for ChatGPT, Claude, and Gemini in their respective panels. Please **log in** to each service manually.
 2.  **Broadcasting Prompts**:
@@ -101,8 +110,8 @@ This application allows you to enter a prompt once in a **Master Input** field a
     -   **Copy Last Response**: Click the **Copy Last Response** button to copy only the last AI response from each active service.
     -   **Cross Check**: Click the **Cross Check** button to have each AI review the answers provided by the other AIs.
     -   **Per-Service Header**: Each panel has a header bar with the service name and quick-access buttons:
-        -   üîÑ **Reload**: Refresh only that specific service panel.
-        -   üìã **Copy**: Copy that service's full chat thread with Markdown formatting.
+        -   ?îÑ **Reload**: Refresh only that specific service panel.
+        -   ?ìã **Copy**: Copy that service's full chat thread with Markdown formatting.
 4.  **File Upload**:
     -   **Attach Files**: Click the **Clip** icon or **Drag & Drop** files into the input area.
     -   **Paste Images**: Paste images directly from your clipboard.
@@ -129,7 +138,7 @@ This application allows you to enter a prompt once in a **Master Input** field a
 
 ---
 
-## ü§ù Contributing
+## ?§ù Contributing
 
 Contributions are welcome! Please follow these steps:
 
@@ -141,7 +150,7 @@ Contributions are welcome! Please follow these steps:
 
 ---
 
-## üìÑ License
+## ?ìÑ License
 
 This project is licensed under the **Polyform Noncommercial License 1.0.0**. See the [LICENSE](LICENSE) file for details.
 

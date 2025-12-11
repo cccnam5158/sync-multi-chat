@@ -9,22 +9,22 @@ This report validates the implementation of the "Copy Chat Thread Improvements" 
 
 ## 2. Requirement Verification
 
-### 4.11 대화 내용 복사 (COPY) - Improvements
+### 4.11 ?�???�용 복사 (COPY) - Improvements
 
 | ID | Requirement | Status | Verification Details |
 |----|-------------|--------|----------------------|
-| **COPY-009** | **복사 완료 피드백**: "Copy Chat Thread" button text changes to "Copied!" for 2 seconds. | ✅ Pass | Implemented in `src/renderer/renderer.js` via `onChatThreadCopied` listener. |
-| **COPY-010** | **개별 패널 복사 버튼**: Floating "Copy" button in each Service Panel. | ✅ Pass | Implemented in `src/preload/service-preload.js` (`createCopyButton`). |
+| **COPY-009** | **복사 ?�료 ?�드�?*: "Copy Chat Thread" button text changes to "Copied!" for 2 seconds. | ??Pass | Implemented in `src/renderer/renderer.js` via `onChatThreadCopied` listener. |
+| **COPY-010** | **개별 ?�널 복사 버튼**: Floating "Copy" button in each Service Panel. | ??Pass | Implemented in `src/preload/service-preload.js` (`createCopyButton`). |
 
-### 4.12 교차 검증 (CROSS)
+### 4.12 교차 검�?(CROSS)
 
 | ID | Requirement | Status | Verification Details |
 |----|-------------|--------|----------------------|
-| **CROSS-001** | **교차 검증 버튼**: "Cross Check" button in the control panel. | ✅ Pass | Implemented in `src/renderer/index.html` and `src/renderer/styles.css`. |
-| **CROSS-002** | **교차 검증 로직**: Extract history, construct prompts, and send. | ✅ Pass | Implemented in `src/main/main.js` (`cross-check` IPC handler). |
-| **CROSS-003** | **프롬프트 구성**: Prompt includes history of *other* services. | ✅ Pass | Implemented in `src/main/main.js`. |
-| **CROSS-004** | **비활성 패널 처리**: Disabled panels excluded from context. | ✅ Pass | Implemented in `src/main/main.js` (checks `views[service].enabled`). |
-| **CROSS-005** | **빈 컨텐츠 처리**: Empty threads excluded. | ✅ Pass | Implemented in `src/main/main.js`. |
+| **CROSS-001** | **교차 검�?버튼**: "Cross Check" button in the control panel. | ??Pass | Implemented in `src/renderer/index.html` and `src/renderer/styles.css`. |
+| **CROSS-002** | **교차 검�?로직**: Extract history, construct prompts, and send. | ??Pass | Implemented in `src/main/main.js` (`cross-check` IPC handler). |
+| **CROSS-003** | **?�롬?�트 구성**: Prompt includes history of *other* services. | ??Pass | Implemented in `src/main/main.js`. |
+| **CROSS-004** | **비활???�널 처리**: Disabled panels excluded from context. | ??Pass | Implemented in `src/main/main.js` (checks `views[service].enabled`). |
+| **CROSS-005** | **�?컨텐�?처리**: Empty threads excluded. | ??Pass | Implemented in `src/main/main.js`. |
 
 ## 3. Code Review Notes
 

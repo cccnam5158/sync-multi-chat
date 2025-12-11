@@ -1,7 +1,7 @@
 # File Upload Feature Implementation Plan
 
 ## 1. Overview
-This document outlines the implementation plan for adding file upload capabilities to the Multi-AI Chat application. The goal is to allow users to attach files (images, text, etc.) via the Master Input area and have them delivered to all active AI service panels (ChatGPT, Claude, Gemini, etc.) simultaneously.
+This document outlines the implementation plan for adding file upload capabilities to the Sync Multi Chat application. The goal is to allow users to attach files (images, text, etc.) via the Master Input area and have them delivered to all active AI service panels (ChatGPT, Claude, Gemini, etc.) simultaneously.
 
 ## 2. User Requirements
 - **UI**:
@@ -114,7 +114,7 @@ This document outlines the implementation plan for adding file upload capabiliti
     - *User Request*: "Cliboard text ... automatically created as text file ... added".
     - *Context*: "Clip icon... drag & drop... Clipboard text...".
     - *Assumption*: If the user pastes into the *textarea*, it should be text. If they paste while focus is not on textarea? Or maybe the user means "If I paste a *large* amount of text"?
-    - *Re-reading*: "클립보드의 텍스트가 복사될 때는 텍스트 파일로 자동으로 만들어져서 추가되도록 구성해줘" (When clipboard text is copied, configure it to be automatically created as a text file and added).
+    - *Re-reading*: "?�립보드???�스?��? 복사???�는 ?�스???�일�??�동?�로 만들?�져??추�??�도�?구성?�줘" (When clipboard text is copied, configure it to be automatically created as a text file and added).
     - This sounds like *all* pastes might become files? That would be annoying for normal chatting.
     - *Likely Intent*: If the user pastes *files* (e.g. from Explorer), they are added. If they paste *text*, maybe they want an option?
     - *Strict Interpretation*: The user explicitly asked for this. But it breaks normal usage.
@@ -131,7 +131,7 @@ This document outlines the implementation plan for adding file upload capabiliti
     - *Maybe*: The user wants to *force* text to be a file?
     - *Action*: I will add a "Paste as File" context menu or button, OR just implement Image -> File, and Text -> Text (standard). I will note this in the plan as a deviation/clarification point.
     - *Actually*, I'll implement: If the user pastes, and it's an image, it's a file. If it's text, it's text. I will *also* add a feature: If the user holds `Shift` while pasting, it becomes a file? Or just stick to the common sense UX.
-    - *Re-reading User Request carefully*: "클립보드의 텍스트가 복사될 때는 텍스트 파일로 자동으로 만들어져서 추가되도록 구성해줘" -> "When clipboard text is copied [pasted], configure it to be automatically created as a text file and added".
+    - *Re-reading User Request carefully*: "?�립보드???�스?��? 복사???�는 ?�스???�일�??�동?�로 만들?�져??추�??�도�?구성?�줘" -> "When clipboard text is copied [pasted], configure it to be automatically created as a text file and added".
     - This is a strong requirement. I will implement it such that *if* the user pastes into the **File Preview Area** (which I will make focusable or droppable), it becomes a file. If they paste in the **Textarea**, it stays text. This separates concerns.
 
 ## 6. Task List

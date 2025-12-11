@@ -14,7 +14,7 @@ This document outlines the plan to modernize the bottom multi-prompt input area 
 - **Constraint**: Since the project uses Vanilla HTML/CSS/JS, we will **replicate** the shadcn/ui design tokens (CSS variables) and component styles manually, rather than importing the React library.
 
 ### 2.2 Anonymous Cross Check
-- **New Control**: Add an "Anonymous" (익명) toggle button next to the "Cross Check" button.
+- **New Control**: Add an "Anonymous" (?�명) toggle button next to the "Cross Check" button.
 - **Behavior when Anonymous is ON**:
     - **Service Toggles**: Change labels from service names to aliases:
         - ChatGPT -> **(A)**
@@ -25,7 +25,7 @@ This document outlines the plan to modernize the bottom multi-prompt input area 
     - **Prompt Injection**: When Cross Check is executed:
         - Remove the explicit service name from the prompt sent to other services.
         - If the prompt refers to a service (e.g., "Compare with Claude's answer"), replace it with the alias (e.g., "Compare with (B)'s answer").
-        - *Specific Requirement*: "CrossCheck의 익명 버튼 On 선택 후 CrossCheck가 선택되었을 때는 기존에 자동 설정되던 Claude 라는 정보가 아니라 (A) 라는 정보가 전달 되도록 해줘" (When Anonymous is On and CrossCheck is selected, pass information as (A) instead of the previously automatically set Claude).
+        - *Specific Requirement*: "CrossCheck???�명 버튼 On ?�택 ??CrossCheck가 ?�택?�었???�는 기존???�동 ?�정?�던 Claude ?�는 ?�보가 ?�니??(A) ?�는 ?�보가 ?�달 ?�도�??�줘" (When Anonymous is On and CrossCheck is selected, pass information as (A) instead of the previously automatically set Claude).
 
 ## 3. Technical Architecture
 

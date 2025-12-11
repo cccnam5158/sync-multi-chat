@@ -261,12 +261,12 @@ setInterval(() => {
 }, 2000);
 
 function updateLoginStatusUI(isLoggedIn) {
-    const badgeId = 'multi-ai-chat-login-badge';
-    let badge = document.getElementById(badgeId);
+    const badgeId = 'sync-multi-chat-login-badge';
+    const badge = document.getElementById('sync-multi-chat-login-badge');
 
     if (!isLoggedIn) {
         if (!badge) {
-            badge = document.createElement('div');
+            const badge = document.createElement('div');
             badge.id = badgeId;
             badge.style.position = 'fixed';
             badge.style.top = '10px';
