@@ -468,9 +468,15 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                 }
 
                                 if (nodeId) {
+                                    // Sanitize arguments for Electron 39 strictness
+                                    const sanitizedFiles = filePaths.map(p => String(p));
+                                    const sanitizedNodeId = parseInt(nodeId, 10);
+
+                                    console.log(`[CDP] Calling DOM.setFileInputFiles with nodeId: ${sanitizedNodeId}, files:`, sanitizedFiles);
+
                                     await wc.debugger.sendCommand('DOM.setFileInputFiles', {
-                                        files: filePaths,
-                                        nodeId: nodeId
+                                        files: sanitizedFiles,
+                                        nodeId: sanitizedNodeId
                                     });
                                     console.log(`Files uploaded to ${service}`);
 

@@ -162,6 +162,10 @@ body {
     max-height: none !important;
 }
 
+#views-placeholder.has-maximized-view .row-container:not(:has(.view-slot.maximized)) {
+    display: none !important;
+}
+
 .maximized-btn {
     color: hsl(var(--primary));
 }

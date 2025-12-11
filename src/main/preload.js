@@ -1,6 +1,7 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+    pathForFile: (file) => webUtils.getPathForFile(file),
     sendPrompt: (text, activeServices, filePaths) => ipcRenderer.send('send-prompt', text, activeServices, filePaths),
     toggleService: (service, isEnabled) => ipcRenderer.send('toggle-service', service, isEnabled),
     onServiceStatusUpdate: (callback) => ipcRenderer.on('service-status-update', (event, data) => callback(data)),

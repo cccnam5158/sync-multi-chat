@@ -225,11 +225,13 @@
             "div[role='main']"
         ],
         "fileInputSelector": [
+            "input[data-testid='file-upload-input']",
             "input[type='file']"
         ],
         "uploadedFileSelector": [
             "div[class*='attachment']",
-            "div[class*='FilePreview']"
+            "div[class*='FilePreview']",
+            "div[class*='file-preview']"
         ],
         "copyButtonSelector": [],
         "conversationContainerSelector": [

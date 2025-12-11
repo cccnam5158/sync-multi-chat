@@ -433,7 +433,9 @@ document.addEventListener('paste', async (e) => {
 
 function addFile(file) {
     // file is a File object, it has a 'path' property in Electron
-    attachedFiles.push({ name: file.name, path: file.path });
+    // BUT in recent Electron versions (web security), we must use webUtils to get the path
+    const filePath = window.electronAPI.pathForFile(file);
+    attachedFiles.push({ name: file.name, path: filePath });
     renderFilePreview();
 }
 
