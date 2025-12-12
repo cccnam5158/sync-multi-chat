@@ -13,8 +13,50 @@ const promptToggleBtn = document.getElementById('prompt-toggle-btn');
 let isPromptCollapsed = false;
 let attachedFiles = [];
 
+// History Manager
+const historyManager = new window.HistoryManager();
+
 // Handle New Chat Button Click
-newChatBtn.addEventListener('click', () => {
+newChatBtn.addEventListener('click', async () => {
+    // Save current session first (if there is one)
+    if (currentSessionId) {
+        await saveCurrentSession();
+    }
+
+    // Collect current URLs BEFORE resetting webviews
+    const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
+    const currentUrls = {};
+    activeServices.forEach(service => {
+        const urlEl = document.getElementById(`url-text-${service}`);
+        if (urlEl && urlEl.dataset && urlEl.dataset.url) {
+            currentUrls[service] = urlEl.dataset.url;
+        }
+    });
+
+    // Generate new session ID and create new history entry
+    currentSessionId = generateId();
+    const newSessionData = {
+        id: currentSessionId,
+        title: `Chat ${new Date().toLocaleTimeString()}`,
+        layout: currentLayout,
+        activeServices: activeServices,
+        prompt: '',
+        isAnonymousMode: isAnonymousMode,
+        isScrollSyncEnabled: isScrollSyncEnabled,
+        urls: currentUrls, // Save current URLs (base chat URLs)
+        createdAt: new Date().toISOString(),
+    };
+
+    // Save new session to history
+    await historyManager.saveSession(newSessionData);
+
+    // Persist new session ID to localStorage
+    localStorage.setItem(currentSessionIdKey, currentSessionId);
+
+    // Refresh history list to show new active chat
+    loadHistoryList();
+
+    // Notify main process to reset webviews (navigates to base URLs)
     window.electronAPI.newChat();
 });
 
@@ -22,16 +64,40 @@ if (promptToggleBtn) {
     promptToggleBtn.title = isPromptCollapsed ? 'Expand controls' : 'Collapse controls';
 }
 
+// Store user preference height
+let userPreferredHeight = '';
+
 function setPromptCollapsed(collapsed) {
     if (collapsed === isPromptCollapsed) return; // No change
 
     isPromptCollapsed = collapsed;
+
     if (inputArea) inputArea.classList.toggle('collapsed', isPromptCollapsed);
-    if (controlsContainer) controlsContainer.classList.toggle('collapsed', isPromptCollapsed);
+    if (controlsContainer) {
+        controlsContainer.classList.toggle('collapsed', isPromptCollapsed);
+
+        // Handle inline height interference with collapse
+        if (collapsed) {
+            if (controlsContainer.style.height) {
+                userPreferredHeight = controlsContainer.style.height;
+                controlsContainer.style.height = ''; // Reset to let CSS handle collapsed state
+            }
+        } else {
+            if (userPreferredHeight) {
+                controlsContainer.style.height = userPreferredHeight;
+            }
+        }
+    }
 
     if (promptToggleBtn) {
         promptToggleBtn.setAttribute('aria-expanded', (!isPromptCollapsed).toString());
         promptToggleBtn.title = isPromptCollapsed ? 'Expand controls' : 'Collapse controls';
+        // Rotate icon
+        const icon = promptToggleBtn.querySelector('.toggle-icon');
+        if (icon) {
+            // CSS handles rotation via class on container, but let's ensure icon state if needed
+            // styles.css: #controls-container.collapsed .toggle-icon { transform: rotate(180deg); }
+        }
     }
 }
 
@@ -939,6 +1005,8 @@ for (const [service, toggle] of Object.entries(toggles)) {
 }
 
 // URL Bar: Listen for URL changes from main process (URLBAR-003)
+// Also save session on URL changes for history persistence
+let urlChangeDebounceTimer = null;
 if (window.electronAPI.onWebviewUrlChanged) {
     window.electronAPI.onWebviewUrlChanged(({ service, url }) => {
         const urlTextEl = document.getElementById(`url-text-${service}`);
@@ -948,6 +1016,17 @@ if (window.electronAPI.onWebviewUrlChanged) {
             urlTextEl.textContent = displayUrl;
             urlTextEl.dataset.url = url; // Store full URL for copy/chrome buttons
             urlTextEl.title = url; // Show full URL on hover
+
+            // Debounced save on URL change (only if session exists)
+            if (typeof currentSessionId !== 'undefined' && currentSessionId) {
+                if (urlChangeDebounceTimer) {
+                    clearTimeout(urlChangeDebounceTimer);
+                }
+                urlChangeDebounceTimer = setTimeout(() => {
+                    console.log('[History] URL changed, saving session');
+                    saveCurrentSession();
+                }, 1000);
+            }
         }
     });
 }
@@ -1700,3 +1779,718 @@ function toggleMaximize(service, btn, maxIcon, restoreIcon) {
     }
 }
 
+
+// ==========================================
+// History & Sidebar Logic
+// ==========================================
+const historySidebar = document.getElementById('history-sidebar');
+const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+const historyList = document.getElementById('history-list');
+const clearHistoryBtn = document.getElementById('clear-history-btn');
+const currentSessionIdKey = 'multi_chat_current_session_id';
+
+async function setupHistory() {
+    try {
+        await historyManager.init();
+
+        if (!historySidebar || !sidebarToggleBtn) return;
+
+        // Toggle Sidebar - NOW toggles the 'collapsed' class instead of hiding/showing separate buttons
+        sidebarToggleBtn.addEventListener('click', () => {
+            historySidebar.classList.toggle('collapsed');
+            // Adjust icon based on state if desired, but hamburger is fine for both
+        });
+
+        if (clearHistoryBtn) {
+            clearHistoryBtn.addEventListener('click', () => {
+                showClearAllModal();
+            });
+        }
+
+        // Check if there are any sessions in DB
+        const sessions = await historyManager.getSessions(1);
+
+        // Restore saved session ID from localStorage
+        const savedSessionId = localStorage.getItem(currentSessionIdKey);
+
+        if (sessions.length === 0) {
+            // No sessions in DB - create initial session
+            console.log('[History] No sessions found, creating initial session');
+            const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
+            const initialUrls = {};
+            activeServices.forEach(service => {
+                const urlEl = document.getElementById(`url-text-${service}`);
+                if (urlEl && urlEl.dataset && urlEl.dataset.url) {
+                    initialUrls[service] = urlEl.dataset.url;
+                }
+            });
+
+            currentSessionId = generateId();
+            const initialSession = {
+                id: currentSessionId,
+                title: `Chat ${new Date().toLocaleTimeString()}`,
+                layout: currentLayout,
+                activeServices: activeServices,
+                prompt: '',
+                isAnonymousMode: isAnonymousMode,
+                isScrollSyncEnabled: isScrollSyncEnabled,
+                urls: initialUrls,
+                createdAt: new Date().toISOString(),
+            };
+            await historyManager.saveSession(initialSession);
+            localStorage.setItem(currentSessionIdKey, currentSessionId);
+        } else if (savedSessionId) {
+            // Restore saved session ID
+            const savedSession = await historyManager.getSession(savedSessionId);
+            if (savedSession) {
+                console.log('[History] Restoring saved session:', savedSessionId);
+                currentSessionId = savedSessionId;
+                // Don't call loadSession here - let main.js handle URL restoration
+            } else {
+                // Saved session doesn't exist anymore, use first available
+                currentSessionId = sessions[0].id;
+                localStorage.setItem(currentSessionIdKey, currentSessionId);
+            }
+        } else {
+            // Use first session
+            currentSessionId = sessions[0].id;
+            localStorage.setItem(currentSessionIdKey, currentSessionId);
+        }
+
+        loadHistoryList();
+
+    } catch (e) {
+        console.error('Failed to setup history:', e);
+    }
+}
+
+async function loadHistoryList() {
+    const listContainer = document.getElementById('history-list');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = '<div style="padding:10px; text-align:center; color:#666;">Loading...</div>';
+
+    try {
+        const sessions = await historyManager.getSessions(50); // Load last 50
+        listContainer.innerHTML = '';
+
+        if (sessions.length === 0) {
+            listContainer.innerHTML = '<div style="padding:10px; text-align:center; color:#666;">No history yet</div>';
+            return;
+        }
+
+        sessions.forEach(session => {
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            if (session.id === currentSessionId) {
+                item.classList.add('active');
+            }
+
+            const title = session.title || 'Untitled Session';
+            const createdAtStr = session.createdAt ? new Date(session.createdAt).toLocaleString() : 'Unknown';
+            const updatedAtStr = session.updatedAt ? new Date(session.updatedAt).toLocaleString() : 'Unknown';
+
+            // Tooltip with full info
+            const tooltip = `title: ${title}\ncreatedAt: ${createdAtStr}\nupdatedAt: ${updatedAtStr}`;
+
+            item.innerHTML = `
+                <div class="history-item-content" title="${tooltip.replace(/"/g, '&quot;')}">
+                    <div class="history-title">${title}</div>
+                    <div class="history-date">${createdAtStr}</div>
+                </div>
+                <div class="history-actions">
+                     <button class="history-btn-mini context-menu-btn" title="Options">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                     </button>
+                </div>
+            `;
+
+            // Click to load
+            item.onclick = (e) => {
+                if (e.target.closest('.history-actions')) return;
+                loadSession(session);
+            };
+
+            // Context Menu Logic
+            const menuBtn = item.querySelector('.context-menu-btn');
+            menuBtn.onclick = (e) => {
+                e.stopPropagation();
+                // Show simple native-like context menu via custom HTML or Electron API? 
+                // Using a simple prompt method for now as requested for rename, but customized for menu
+                // For simplicity, we can reuse the rename/delete logic directly or show a small absolute div
+
+                // Let's use a dynamic custom menu
+                showCustomContextMenu(e, session);
+            };
+
+            listContainer.appendChild(item);
+        });
+    } catch (e) {
+        console.error('Error loading history list:', e);
+        listContainer.innerHTML = '<div style="padding:10px; color:red;">Error loading history</div>';
+    }
+}
+
+// Custom Context Menu Helper
+function showCustomContextMenu(event, session) {
+    // Remove existing menus
+    const existing = document.querySelector('.custom-context-menu');
+    if (existing) existing.remove();
+
+    const menu = document.createElement('div');
+    menu.className = 'custom-context-menu';
+    menu.style.position = 'fixed';
+    menu.style.top = `${event.clientY}px`;
+    menu.style.left = `${event.clientX}px`;
+    menu.style.backgroundColor = 'hsl(var(--popover))';
+    menu.style.border = '1px solid hsl(var(--border))';
+    menu.style.borderRadius = 'var(--radius)';
+    menu.style.padding = '4px';
+    menu.style.zIndex = '100000';
+    menu.style.minWidth = '120px';
+    menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)';
+
+    // Hide webviews so context menu is visible above them
+    window.electronAPI.setServiceVisibility(false);
+
+    // Track if we should restore webviews on close
+    let keepWebviewsHidden = false;
+
+    const createOption = (text, iconSvg, handler, hideWebviewsAfter = false) => {
+        const option = document.createElement('div');
+        option.style.padding = '6px 12px';
+        option.style.cursor = 'pointer';
+        option.style.display = 'flex';
+        option.style.alignItems = 'center';
+        option.style.gap = '8px';
+        option.style.color = 'hsl(var(--popover-foreground))';
+        option.style.fontSize = '0.9rem';
+        option.style.borderRadius = 'var(--radius)';
+
+        option.onmouseover = () => option.style.backgroundColor = 'hsl(var(--accent))';
+        option.onmouseout = () => option.style.backgroundColor = 'transparent';
+
+        option.innerHTML = `${iconSvg} <span>${text}</span>`;
+        option.onclick = (e) => {
+            e.stopPropagation();
+            if (hideWebviewsAfter) {
+                keepWebviewsHidden = true;
+            }
+            document.removeEventListener('click', closeMenuHandler);
+            menu.remove();
+            if (!hideWebviewsAfter) {
+                window.electronAPI.setServiceVisibility(true);
+            }
+            handler();
+        };
+        return option;
+    };
+
+    // Rename Option - use inline editing (restore webviews after)
+    menu.appendChild(createOption(
+        'Rename',
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>',
+        () => {
+            // Find the history item and enable inline editing
+            const historyItem = document.querySelector(`.history-item[data-session-id="${session.id}"]`) ||
+                Array.from(document.querySelectorAll('.history-item')).find(item => {
+                    const titleEl = item.querySelector('.history-title');
+                    return titleEl && titleEl.textContent === session.title;
+                });
+
+            if (historyItem) {
+                const titleEl = historyItem.querySelector('.history-title');
+                if (titleEl) {
+                    const originalTitle = titleEl.textContent;
+                    titleEl.contentEditable = 'true';
+                    titleEl.style.outline = '1px solid hsl(var(--primary))';
+                    titleEl.style.backgroundColor = 'hsl(var(--background))';
+                    titleEl.style.padding = '2px 4px';
+                    titleEl.style.borderRadius = '4px';
+                    titleEl.focus();
+
+                    // Select all text
+                    const range = document.createRange();
+                    range.selectNodeContents(titleEl);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+
+                    const saveRename = async () => {
+                        const newTitle = titleEl.textContent.trim();
+                        titleEl.contentEditable = 'false';
+                        titleEl.style.outline = '';
+                        titleEl.style.backgroundColor = '';
+                        titleEl.style.padding = '';
+
+                        if (newTitle && newTitle !== originalTitle) {
+                            session.title = newTitle;
+                            session.updatedAt = new Date().toISOString();
+                            await historyManager.saveSession(session);
+                            loadHistoryList();
+                        } else {
+                            titleEl.textContent = originalTitle;
+                        }
+                    };
+
+                    titleEl.onblur = saveRename;
+                    titleEl.onkeydown = (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            titleEl.blur();
+                        } else if (e.key === 'Escape') {
+                            titleEl.textContent = originalTitle;
+                            titleEl.blur();
+                        }
+                    };
+                }
+            }
+        },
+        false // Restore webviews after rename
+    ));
+
+    // Delete Option - use custom modal instead of confirm() (keep webviews hidden for modal)
+    menu.appendChild(createOption(
+        'Delete',
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d32f2f" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+        () => {
+            showHistoryDeleteModal(session);
+        },
+        true // Keep webviews hidden for delete modal
+    ));
+
+    document.body.appendChild(menu);
+
+    // Close menu on click outside
+    const closeMenu = () => {
+        menu.remove();
+        document.removeEventListener('click', closeMenuHandler);
+        // Only restore webviews if not opening another modal
+        if (!keepWebviewsHidden) {
+            window.electronAPI.setServiceVisibility(true);
+        }
+    };
+    const closeMenuHandler = () => closeMenu();
+    // Delay slightly to prevent immediate trigger
+    setTimeout(() => document.addEventListener('click', closeMenuHandler), 0);
+}
+
+// History Delete Modal Handler
+let pendingDeleteSession = null;
+
+function showHistoryDeleteModal(session) {
+    const modal = document.getElementById('history-delete-modal');
+    const nameEl = document.getElementById('history-delete-name');
+
+    if (!modal) {
+        // Fallback if modal doesn't exist
+        if (confirm(`Delete session "${session.title}"?`)) {
+            performHistoryDelete(session);
+        }
+        return;
+    }
+
+    pendingDeleteSession = session;
+    if (nameEl) {
+        nameEl.textContent = session.title || 'Untitled Session';
+    }
+
+    // Hide webviews so modal is visible
+    window.electronAPI.setServiceVisibility(false);
+    modal.classList.add('visible');
+
+    // Add ESC key handler
+    document.addEventListener('keydown', handleHistoryModalEsc);
+}
+
+function handleHistoryModalEsc(e) {
+    if (e.key === 'Escape') {
+        closeHistoryDeleteModal();
+    }
+}
+
+function closeHistoryDeleteModal() {
+    const modal = document.getElementById('history-delete-modal');
+    if (modal) {
+        modal.classList.remove('visible');
+    }
+    pendingDeleteSession = null;
+
+    // Show webviews again
+    window.electronAPI.setServiceVisibility(true);
+
+    // Remove ESC handler
+    document.removeEventListener('keydown', handleHistoryModalEsc);
+}
+
+async function performHistoryDelete(session) {
+    try {
+        const wasCurrentSession = (session.id === currentSessionId);
+
+        await historyManager.deleteSession(session.id);
+
+        // If deleted session is the current one, trigger New Chat behavior
+        if (wasCurrentSession) {
+            const idKey = 'multi_chat_current_session_id';
+            sessionStorage.removeItem(idKey);
+
+            // Create a new session like New Chat
+            const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
+            const currentUrls = {};
+            activeServices.forEach(service => {
+                const urlEl = document.getElementById(`url-text-${service}`);
+                if (urlEl && urlEl.dataset && urlEl.dataset.url) {
+                    currentUrls[service] = urlEl.dataset.url;
+                }
+            });
+
+            currentSessionId = generateId();
+            const newSessionData = {
+                id: currentSessionId,
+                title: `Chat ${new Date().toLocaleTimeString()}`,
+                layout: currentLayout,
+                activeServices: activeServices,
+                prompt: '',
+                isAnonymousMode: isAnonymousMode,
+                isScrollSyncEnabled: isScrollSyncEnabled,
+                urls: currentUrls,
+                createdAt: new Date().toISOString(),
+            };
+            await historyManager.saveSession(newSessionData);
+
+            // Reset webviews
+            window.electronAPI.newChat();
+        }
+
+        loadHistoryList();
+    } catch (err) {
+        console.error('Failed to delete session:', err);
+    }
+}
+
+// Setup History Delete Modal Event Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    const closeBtn = document.getElementById('close-history-delete-btn');
+    const cancelBtn = document.getElementById('btn-cancel-history-delete');
+    const confirmBtn = document.getElementById('btn-confirm-history-delete');
+
+    if (closeBtn) closeBtn.onclick = closeHistoryDeleteModal;
+    if (cancelBtn) cancelBtn.onclick = closeHistoryDeleteModal;
+    if (confirmBtn) {
+        confirmBtn.onclick = async () => {
+            if (pendingDeleteSession) {
+                await performHistoryDelete(pendingDeleteSession);
+                closeHistoryDeleteModal();
+            }
+        };
+    }
+
+    // Clear All Modal Event Listeners
+    const closeClearAllBtn = document.getElementById('close-clear-all-btn');
+    const cancelClearAllBtn = document.getElementById('btn-cancel-clear-all');
+    const confirmClearAllBtn = document.getElementById('btn-confirm-clear-all');
+
+    if (closeClearAllBtn) closeClearAllBtn.onclick = closeClearAllModal;
+    if (cancelClearAllBtn) cancelClearAllBtn.onclick = closeClearAllModal;
+    if (confirmClearAllBtn) {
+        confirmClearAllBtn.onclick = async () => {
+            await performClearAll();
+            closeClearAllModal();
+        };
+    }
+});
+
+// Clear All Modal Handler
+function showClearAllModal() {
+    const modal = document.getElementById('history-clear-all-modal');
+    if (!modal) {
+        // Fallback if modal doesn't exist
+        if (confirm('Are you sure you want to delete all chat history? This cannot be undone.')) {
+            performClearAll();
+        }
+        return;
+    }
+
+    // Hide webviews so modal is visible
+    window.electronAPI.setServiceVisibility(false);
+    modal.classList.add('visible');
+
+    // Add ESC key handler
+    document.addEventListener('keydown', handleClearAllModalEsc);
+}
+
+function handleClearAllModalEsc(e) {
+    if (e.key === 'Escape') {
+        closeClearAllModal();
+    }
+}
+
+function closeClearAllModal() {
+    const modal = document.getElementById('history-clear-all-modal');
+    if (modal) {
+        modal.classList.remove('visible');
+    }
+
+    // Show webviews again
+    window.electronAPI.setServiceVisibility(true);
+
+    // Remove ESC handler
+    document.removeEventListener('keydown', handleClearAllModalEsc);
+}
+
+async function performClearAll() {
+    try {
+        await historyManager.clearAll();
+        const idKey = 'multi_chat_current_session_id';
+        sessionStorage.removeItem(idKey);
+
+        // Create a new session like New Chat
+        const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
+        const currentUrls = {};
+        activeServices.forEach(service => {
+            const urlEl = document.getElementById(`url-text-${service}`);
+            if (urlEl && urlEl.dataset && urlEl.dataset.url) {
+                currentUrls[service] = urlEl.dataset.url;
+            }
+        });
+
+        currentSessionId = generateId();
+        const newSessionData = {
+            id: currentSessionId,
+            title: `Chat ${new Date().toLocaleTimeString()}`,
+            layout: currentLayout,
+            activeServices: activeServices,
+            prompt: '',
+            isAnonymousMode: isAnonymousMode,
+            isScrollSyncEnabled: isScrollSyncEnabled,
+            urls: currentUrls,
+            createdAt: new Date().toISOString(),
+        };
+        await historyManager.saveSession(newSessionData);
+
+        // Reset webviews
+        window.electronAPI.newChat();
+
+        loadHistoryList();
+    } catch (err) {
+        console.error('Failed to clear history:', err);
+    }
+}
+
+// Global variable to track current session ID
+let currentSessionId = null;
+// Generate a simple UUID-like string
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+async function saveCurrentSession() {
+    try {
+        if (!currentSessionId) {
+            currentSessionId = generateId();
+        }
+
+        // Gather state
+        const activeServices = Object.entries(toggles)
+            .filter(([_, toggle]) => toggle.checked)
+            .map(([service, _]) => service);
+
+        // Collect current URLs from url-text elements (populated by onWebviewUrlChanged)
+        const urls = {};
+        activeServices.forEach(service => {
+            const urlEl = document.getElementById(`url-text-${service}`);
+            if (urlEl && urlEl.dataset && urlEl.dataset.url) {
+                urls[service] = urlEl.dataset.url;
+            }
+        });
+
+        // Check if session already exists to preserve its title
+        let existingSession = null;
+        try {
+            existingSession = await historyManager.getSession(currentSessionId);
+        } catch (e) {
+            // Session doesn't exist yet, that's fine
+        }
+
+        // Use existing title if available, otherwise generate from prompt or timestamp
+        let title;
+        if (existingSession && existingSession.title) {
+            title = existingSession.title; // Preserve existing title (including renamed ones)
+        } else {
+            title = masterInput.value.trim().substring(0, 50) || `Chat ${new Date().toLocaleTimeString()}`;
+        }
+
+        const sessionData = {
+            id: currentSessionId,
+            title: title,
+            layout: currentLayout,
+            activeServices: activeServices,
+            prompt: masterInput.value,
+            isAnonymousMode: isAnonymousMode,
+            isScrollSyncEnabled: isScrollSyncEnabled,
+            urls: urls,
+            createdAt: existingSession?.createdAt || new Date().toISOString(),
+        };
+
+        await historyManager.saveSession(sessionData);
+        // Refresh list if open
+        const sidebar = document.getElementById('history-sidebar');
+        if (sidebar && !sidebar.classList.contains('collapsed')) {
+            loadHistoryList();
+        }
+    } catch (e) {
+        console.error('Error saving session:', e);
+    }
+}
+
+function loadSession(session) {
+    if (!session) return;
+
+    console.log('[History] Switching to session:', session.id);
+
+    // Update currentSessionId and persist it
+    currentSessionId = session.id;
+    localStorage.setItem(currentSessionIdKey, currentSessionId);
+
+    // Refresh history list to show updated active state
+    loadHistoryList();
+
+    // Restore Prompt
+    if (session.prompt !== undefined) {
+        masterInput.value = session.prompt;
+        // Trigger input event to resize if needed
+        masterInput.dispatchEvent(new Event('input'));
+    }
+
+    // Restore Layout
+    if (session.layout && layoutBtns[session.layout]) {
+        setLayout(session.layout);
+    }
+
+    // Restore Services
+    if (session.activeServices) {
+        // First turn off all
+        ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity'].forEach(s => {
+            if (toggles[s]) toggles[s].checked = false;
+            window.electronAPI.toggleService(s, false);
+        });
+
+        // Then turn on saved
+        session.activeServices.forEach(s => {
+            if (toggles[s]) toggles[s].checked = true;
+            window.electronAPI.toggleService(s, true);
+        });
+    }
+
+    // Restore Modes
+    if (session.isAnonymousMode !== undefined && session.isAnonymousMode !== isAnonymousMode) {
+        toggleAnonymousMode();
+    }
+
+    if (session.isScrollSyncEnabled !== undefined && session.isScrollSyncEnabled !== isScrollSyncEnabled) {
+        const syncToggle = document.getElementById('scroll-sync-toggle');
+        if (syncToggle) {
+            syncToggle.checked = session.isScrollSyncEnabled;
+            toggleScrollSync(session.isScrollSyncEnabled);
+        }
+    }
+
+    updateLayoutState();
+
+    // Navigate webviews to saved URLs (with delay for service initialization)
+    if (session.urls && Object.keys(session.urls).length > 0) {
+        setTimeout(() => {
+            Object.entries(session.urls).forEach(([service, url]) => {
+                if (url && session.activeServices && session.activeServices.includes(service)) {
+                    console.log(`[History] Navigating ${service} to saved URL: ${url}`);
+                    window.electronAPI.navigateToUrl(service, url);
+                }
+            });
+        }, 500); // Delay to allow services to initialize
+    }
+
+    // Close sidebar on mobile/small screens? Optional.
+}
+
+// Hook into Send Action to save session
+// Save immediately for state, then again after delay for updated URLs
+if (sendBtn) {
+    sendBtn.addEventListener('click', () => {
+        saveCurrentSession();
+        // Save again after delay to capture URL changes
+        setTimeout(() => saveCurrentSession(), 2000);
+    });
+}
+// Also catch Ctrl+Enter on masterInput
+if (masterInput) {
+    masterInput.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            saveCurrentSession();
+            // Save again after delay to capture URL changes
+            setTimeout(() => saveCurrentSession(), 2000);
+        }
+    });
+}
+
+// ==========================================
+// Resize Handle Logic
+// ==========================================
+let initialControlsHeight = null; // Track initial height to use as minimum
+
+function setupResizeHandle() {
+    const handle = document.getElementById('prompt-resize-handle');
+    const inputContainer = document.getElementById('controls-container');
+
+    if (!handle || !inputContainer) return;
+
+    // Capture initial height on first load (this is the "default" minimum)
+    if (initialControlsHeight === null) {
+        initialControlsHeight = inputContainer.offsetHeight;
+    }
+
+    let startY, startHeight;
+
+    handle.addEventListener('mousedown', initDrag);
+
+    function initDrag(e) {
+        startY = e.clientY;
+        startHeight = inputContainer.offsetHeight;
+        document.documentElement.addEventListener('mousemove', doDrag, false);
+        document.documentElement.addEventListener('mouseup', stopDrag, false);
+        handle.classList.add('dragging');
+
+        // Prevent iframe captures
+        const webviews = document.getElementById('views-placeholder');
+        if (webviews) webviews.style.pointerEvents = 'none';
+    }
+
+    function doDrag(e) {
+        const deltaY = startY - e.clientY;
+        const newHeight = startHeight + deltaY;
+
+        // Use initial height as minimum (prevents scrollbar), max 60% of viewport
+        const minHeight = initialControlsHeight || 200;
+        const maxHeight = window.innerHeight * 0.6;
+        if (newHeight >= minHeight && newHeight < maxHeight) {
+            inputContainer.style.height = `${newHeight}px`;
+            userPreferredHeight = `${newHeight}px`;
+        }
+    }
+
+    function stopDrag(e) {
+        document.documentElement.removeEventListener('mousemove', doDrag, false);
+        document.documentElement.removeEventListener('mouseup', stopDrag, false);
+        handle.classList.remove('dragging');
+
+        const webviews = document.getElementById('views-placeholder');
+        if (webviews) webviews.style.pointerEvents = '';
+
+        updateBounds();
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    setupHistory();
+    setupResizeHandle();
+});

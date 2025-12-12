@@ -55,7 +55,7 @@ This application is distributed as a portable executable for Windows (`.exe`). N
 
 ---
 
-## ?? Installation & Getting Started
+## üì¶ Installation & Getting Started
 
 ### Prerequisites
 -   [Node.js](https://nodejs.org/) (v16 or higher recommended)
@@ -97,7 +97,7 @@ This application is distributed as a portable executable for Windows (`.exe`). N
 
 ---
 
-## ?ìñ Usage Guide
+## üìñ Usage Guide
 
 1.  **Initial Setup**: When you launch the app for the first time, you will see the login screens for ChatGPT, Claude, and Gemini in their respective panels. Please **log in** to each service manually.
 2.  **Broadcasting Prompts**:
@@ -110,12 +110,16 @@ This application is distributed as a portable executable for Windows (`.exe`). N
     -   **Copy Last Response**: Click the **Copy Last Response** button to copy only the last AI response from each active service.
     -   **Cross Check**: Click the **Cross Check** button to have each AI review the answers provided by the other AIs.
     -   **Per-Service Header**: Each panel has a header bar with the service name and quick-access buttons:
-        -   ?îÑ **Reload**: Refresh only that specific service panel.
-        -   ?ìã **Copy**: Copy that service's full chat thread with Markdown formatting.
+        -   üîÑ **Reload**: Refresh only that specific service panel.
+        -   üìã **Copy**: Copy that service's full chat thread with Markdown formatting.
 4.  **File Upload**:
     -   **Attach Files**: Click the **Clip** icon or **Drag & Drop** files into the input area.
     -   **Paste Images**: Paste images directly from your clipboard.
     -   **Two-Step Send**: When files are attached, pressing Enter initiates the upload. Wait for the confirmation modal, then press **Ctrl+Enter** again to send the prompt with files.
+
+## Roadmap
+
+### Phase 1 (Complete)
 -   [x] Basic multi-view architecture
 -   [x] Prompt broadcasting
 -   [x] Copy Chat Thread
@@ -138,7 +142,7 @@ This application is distributed as a portable executable for Windows (`.exe`). N
 
 ---
 
-## ?§ù Contributing
+## ü§ù Contributing
 
 Contributions are welcome! Please follow these steps:
 
@@ -150,7 +154,7 @@ Contributions are welcome! Please follow these steps:
 
 ---
 
-## ?ìÑ License
+## üìÑ License
 
 This project is licensed under the **Polyform Noncommercial License 1.0.0**. See the [LICENSE](LICENSE) file for details.
 

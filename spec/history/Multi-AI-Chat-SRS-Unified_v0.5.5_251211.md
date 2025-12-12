@@ -10,8 +10,6 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **Prompt Input**: The unified text entry area at the bottom of the application.
 - **Cross Check**: The feature allowing users to send the same prompt to multiple services or compare their responses.
 - **Anonymous Mode**: A mode where service names are masked (e.g., "(A)", "(B)") to reduce bias.
-- **Session**: A specific state of the application including active services, layouts, URLs, and prompt history.
-- **History Sidebar**: The UI component displaying the list of saved sessions.
 
 ## 3. Functional Requirements
 
@@ -54,18 +52,13 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **REQ-CROSS-007**: The system shall display Saved Custom Prompts in a sortable table (by Title, Created Date, Last Used).
 - **REQ-CROSS-008**: When a Custom Prompt is selected, the system shall populate the prompt input with the saved content.
 
-### 3.5 Conversation History & Sidebar
-- **REQ-HIST-001 (Persistence)**: The system shall automatically save the current session details (Active Services, Layout, URLs, Prompt Input State) to the local database upon significant interactions (e.g., sending a prompt) or application exit.
-- **REQ-HIST-002 (Sidebar Toggle)**: The system shall provide a "Hamburger Menu" button to toggle the visibility of the Conversation History Sidebar.
-- **REQ-HIST-003 (Sidebar State)**: When the application restarts, the system shall restore the sidebar to its last state (collapsed or expanded).
-- **REQ-HIST-004 (History List)**: The system shall display a list of past conversation sessions in the sidebar, sorted by "Last Updated" timestamp (newest first).
-- **REQ-HIST-005 (Lazy Loading)**: When scrolling through a large number of history items, the system shall load additional items dynamically (infinite scroll or pagination) to maintain performance.
-- **REQ-HIST-006 (History Item Display)**: The system shall display each history item with a Title (defaulting to "YYYY-MM-DD HH:mm:ss" of creation/update) and a Context Menu trigger ("..." button).
-- **REQ-HIST-007 (Item Interaction)**: When a history item is clicked, the system shall restore the full state of that session (URLs, Prompt, Layout) and collapse the sidebar (if configured to do so).
-- **REQ-HIST-008 (Context Menu)**: When the user hovers over a history item or clicks the context menu trigger, the system shall provide options to "Rename" and "Delete" the session.
-- **REQ-HIST-009 (Rename)**: When "Rename" is selected, the system shall allow the user to modify the title of the history item inline or via a modal.
-- **REQ-HIST-010 (Delete)**: When "Delete" is selected, the system shall require confirmation before permanently removing the session from the database.
-- **REQ-HIST-011 (New Chat)**: When the "New Chat" button is clicked, the system shall save the current session state (ensuring the latest changes are persisted) and then reset the workspace to a fresh, default state (New Session ID).
+### 3.5 Conversation History & Session Persistence
+- **REQ-HIST-001**: The system shall automatically save the current session state (Active Services, Layout, URLs, Prompt Draft) to persistent storage (IndexedDB/Electron Store) upon application exit.
+- **REQ-HIST-002**: The system shall provide a collapsible "History" sidebar displaying a list of past conversation sessions.
+- **REQ-HIST-003**: When "New Chat" is clicked, the system shall save the current session to History and reset the workspace to a default fresh state.
+- **REQ-HIST-004**: When a History Item is clicked, the system shall restore the full state of that session, including navigating all Webviews to their stored URLs.
+- **REQ-HIST-005**: The system shall allow users to Rename and Delete history items.
+- **REQ-HIST-006**: The system shall sort history items by "Last Updated" or "Created" timestamp descending.
 
 ### 3.6 External Interaction
 - **REQ-EXT-001 (URL Bar)**: The system shall display the current URL of each Webview in a dedicated bar.
@@ -75,24 +68,26 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 ## 4. Technical Architecture
 
 ### 4.1 Data Persistence
-- **Session Store**: `electron-store` for lightweight configuration (toggles, window bounds, last active session ID).
-- **History Database**: `IndexedDB` (via **idb** or similar wrapper) for storing robust conversation records.
-  - **Store Name**: `conversations`
-  - **Schema**: Includes `id` (UUID), `title`, `createdAt`, `updatedAt`, `webViews` (array of service/url/active state), and `promptState` (text, files, options).
+- **Session Store**: `electron-store` for lightweight configuration (toggles, window bounds) and current active session metadata.
+- **Conversation DB**: `IndexedDB` (via Renderer) for storing detailed history records, including complex JSON objects for each session state.
 
 ### 4.2 Inter-Process Communication (IPC)
 - **Renderer-to-Main**:
-  - `set-layout`, `send-prompt-with-files`, `save-temp-file`, `cross-check`, `get-all-webview-urls`, `open-external-link`.
-  - **New IPCs**: `history-get-all`, `history-save`, `history-delete`, `history-rename`. (Implied by functionality, though implementation choice may vary).
+  - `set-layout`: Request layout change.
+  - `send-prompt-with-files`: Initiate file upload functionality via Chrome DevTools Protocol (CDP).
+  - `save-temp-file`: Request creation of temporary files from buffers/blobs.
+  - `cross-check`: Trigger cross-check logic.
+  - `get-all-webview-urls`: Fetch current state for saving history.
 - **Main-to-Renderer**:
-  - `file-upload-complete`, `url-changed`.
+  - `file-upload-complete`: Notify renderer that files are injected.
+  - `url-changed`: Notify renderer to update URL bar.
 
 ### 4.3 External Login Implementation
-- Uses **Puppeteer** with `puppeteer-extra-plugin-stealth` for resilient external login flows.
-- Cookie synchronization from Puppeteer Chrome instance to Electron BrowserViews.
+- Uses **Puppeteer** with `puppeteer-extra-plugin-stealth` to launch a non-automated Chrome instance for user login.
+- Extracts cookies after successful login and injects them into the Electron BrowserView sessions.
 
 ## 5. Non-Functional Requirements
-- **NFR-001 (Performance)**: The application shall not freeze during file uploads or large history loading; database operations shall be asynchronous.
-- **NFR-002 (Encoding)**: All persisted text files and database entries shall be **UTF-8** encoded to support international characters.
-- **NFR-003 (Privacy)**: No user data shall be transmitted to third parties other than the direct AI service providers.
-- **NFR-004 (UX)**: The UI shall follow modern design principles with responsive animations (e.g., Sidebar transitions) and intuitive interactions.
+- **NFR-001 (Performance)**: The application shall not freeze or become unresponsive during file uploads; large uploads shall be handled asynchronously.
+- **NFR-002 (Encoding)**: All persisted text files and history data shall be encoded in **UTF-8** to support multi-language characters (specifically Korean) without corruption.
+- **NFR-003 (Privacy)**: No data shall be sent to any external server other than the direct AI service providers (OpenAI, Anthropic, Google, X.com, Perplexity). All history is stored locally.
+- **NFR-004 (UX)**: The UI shall adhere to "Modern" aesthetics (shadcn/ui inspired), utilizing subtle animations, clear distinct buttons, and consistent spacing.

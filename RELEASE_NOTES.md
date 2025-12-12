@@ -2,7 +2,7 @@
 
 ## v0.5.4 (2025-12-09)
 
-### ?? New Features
+### ‚ú® New Features
 *   **Session Persistence (Full State)**:
     *   Automatically saves and restores: **active services**, **layout mode**, **anonymous mode**, **scroll sync state**, and **current URLs** for each service.
     *   Continue exactly where you left off on app restart.
@@ -21,27 +21,27 @@
     *   New layout option for viewing 3 services stacked vertically.
     *   Layout buttons dynamically enable/disable based on active service count.
 
-### ?îß Fixes & Improvements
+### üîß Fixes & Improvements
 *   **Button Click Feedback**:
     *   **Reload**: Arrow spins for 0.5s when clicked.
-    *   **Copy buttons**: Show green checkmark (?? for 2 seconds before returning to original icon.
+    *   **Copy buttons**: Show green checkmark (‚úì) for 2 seconds before returning to original icon.
 *   **Splitter Improvements**:
     *   **Real-time Sync**: Header, URL bar, and content now move together smoothly during resize.
     *   **Thinner Splitters**: Reduced from 8px to 4px hit area for a cleaner look.
     *   **Hover Visual**: Splitter line thickens to 3px with dark gray (#555) color on hover.
 *   **Toggle Button Fix**: Fixed bug where the 4th checked toggle was incorrectly disabled on app startup.
 *   **Header Title Fix**: Service names now display correctly (e.g., "ChatGPT (A)" instead of "Chatgpt") based on anonymous mode state.
-*   **URL Update on Layout Change**: URL bars now correctly update when switching between layouts (e.g., 1x3 ??3x1).
+*   **URL Update on Layout Change**: URL bars now correctly update when switching between layouts (e.g., 1x3 ‚Üî 3x1).
 *   **Unified UI Padding**: Header and URL bar now use consistent padding (8px) for cleaner alignment.
 
 ---
 
 ## v0.5.3 (2025-12-05)
 
-### ?? New Features
+### ‚ú® New Features
 *   **Enhanced Copy Chat Thread**:
     *   **Full Conversation Extraction**: Now extracts the complete conversation thread (all user prompts and all AI responses) from all 5 services.
-    *   **Role Distinction**: User messages are prefixed with `## ?ë§ User` and AI responses with `## ?§ñ [Service Name]` for clear visual separation.
+    *   **Role Distinction**: User messages are prefixed with `## üë§ User` and AI responses with `## ü§ñ [Service Name]` for clear visual separation.
     *   **Service-Specific DOM Traversal**: Implemented tailored extraction logic for each AI service to accurately capture conversation content:
         - **ChatGPT**: Uses `article[data-testid^="conversation-turn"]` with role detection
         - **Claude**: Uses `[data-testid="user-message"]` and `[data-is-streaming]` with fallback selectors
@@ -56,11 +56,11 @@
 *   **Per-Service Header Bar with Buttons**:
     *   Each AI service panel now has a **dedicated header bar** (28px) above the BrowserView.
     *   The header displays the **service name** on the left side.
-    *   **Reload (?îÑ)** and **Copy (?ìã)** buttons are positioned on the right side of the header.
+    *   **Reload (üîÑ)** and **Copy (üìã)** buttons are positioned on the right side of the header.
     *   The Copy button extracts the full chat thread using the same enhanced Markdown formatting as the main "Copy Chat Thread" button.
     *   Removed old overlay-style floating buttons that were injected into the BrowserView.
 
-### ?îß Fixes & Improvements
+### üîß Fixes & Improvements
 *   **Grok Cross Check Fix**: Updated `lastResponseSelector` to correctly extract the last AI response from Grok using `div[id^='response-'].items-start:last-of-type .response-content-markdown`.
 *   **Markdown Formatting**: Fixed Turndown processing to only convert HTML parts while preserving the markdown structure (headings and separators).
 *   **Claude Extraction Stability**: Added fallback selectors for Claude to handle dynamic DOM structure changes.
@@ -69,7 +69,7 @@
 
 ## v0.5.2 (2025-12-04)
 
-### ?? New Features
+### ‚ú® New Features
 *   **Enhanced Cross Check - User Prompt Management**:
     *   **Editable Predefined Prompt**: Hover over "Compare AI Responses" to see a preview tooltip. Click the edit icon to customize the default comparison prompt. Changes are persisted across sessions.
     *   **Custom Prompt Management**: Create, save, and manage up to 10 custom prompts with required Title and Content fields.
@@ -80,7 +80,7 @@
         - "Add Custom Prompt" button: Save without sending
         - "Send Cross Check" with "Save this prompt" checkbox: Optionally save while sending
 
-### ?îß Fixes & Improvements
+### üîß Fixes & Improvements
 *   **Robust Input State Management**: 
     *   Implemented MutationObserver to prevent input fields from becoming disabled unexpectedly.
     *   Multiple re-enablement strategies ensure Title and Content fields remain editable after all operations (deletion, clearing, modal interactions).
@@ -95,7 +95,7 @@
 
 ## v0.5.1 (2025-12-03)
 
-### ?? New Features
+### ‚ú® New Features
 *   **Anonymous Cross Check**:
     *   Added an "Anonymous" toggle button to the Cross Check controls.
     *   When enabled, service names are replaced with aliases (e.g., ChatGPT -> (A), Claude -> (B)) in the prompts sent to other AIs.
@@ -110,7 +110,7 @@
 
 ## v0.5.0 (2025-12-02)
 
-### ?? New Features
+### ‚ú® New Features
 *   **File Upload Support**:
     *   **Multi-Service Broadcasting**: Upload files (images, text) to ChatGPT, Claude, Gemini, and Perplexity simultaneously. (Grok is temporarily excluded due to Cloudflare issues).
     *   **Two-Step Verification**: Implemented a safe "Upload -> Confirm -> Send" workflow to ensure files are fully attached before sending the prompt.
@@ -120,7 +120,7 @@
     *   Added file preview chips with remove capability.
     *   Added a confirmation modal to guide users during the file upload process.
 
-### ?îß Fixes & Improvements
+### üîß Fixes & Improvements
 *   **Gemini File Upload**: Implemented advanced logic to handle Gemini's dynamic UI, including simulating clicks to reveal the file input and searching within Shadow DOMs.
 *   **Grok Cloudflare Issue**: File upload for Grok is temporarily disabled due to persistent Cloudflare verification challenges. We are investigating a workaround.
 *   **Prompt Reliability**: Fixed an issue where prompts might not send if the file upload took too long, by separating the upload and send actions.
@@ -129,7 +129,7 @@
 
 ## v0.4.2 (2025-12-02)
 
-### ?îß Fixes
+### üîß Fixes
 *   **Gemini Login on Windows**: Resolved the "Couldn't sign you in" error by standardizing stealth mode configuration.
     *   Reverted Windows-specific evasion overrides that were triggering Google's automation detection.
     *   Applied consistent `puppeteer-extra-plugin-stealth` settings and `--disable-blink-features=AutomationControlled` flag across all platforms (Windows/Mac).
@@ -138,7 +138,7 @@
 
 ## v0.4.1 (2025-12-01)
 
-### ?îß Fixes & Improvements
+### üîß Fixes & Improvements
 *   **Robust External Login**:
     *   **Cloudflare Bypass**: Implemented `puppeteer-extra-plugin-stealth` to successfully bypass "Verify you are human" checks on ChatGPT.
     *   **Cookie Synchronization**: Added logic to capture session cookies from the external Chrome login window and inject them into the Electron app, ensuring persistent login state.
@@ -152,7 +152,7 @@
 
 ## v0.4.0 (2025-11-28)
 
-### ?? New Features
+### ‚ú® New Features
 *   **New AI Services**: Added support for **Grok** and **Perplexity**. You can now broadcast prompts to 5 major AI services (ChatGPT, Claude, Gemini, Grok, Perplexity) simultaneously.
 *   **Advanced Layout Options**:
     *   **2x2 Grid Layout**: Perfect for viewing 4 services at once in a balanced grid.
@@ -163,15 +163,15 @@
     *   Supports both vertical resizing (width adjustment) and horizontal resizing (height adjustment in 2x2 mode).
     *   Layout remains stable during resizing with minimum width constraints.
 
-### ??Improvements
+### ‚¨ÜÔ∏è Improvements
 *   **Perplexity Stability**: Implemented robust input injection logic (Retry & Click-to-Activate) to ensure prompts are delivered reliably, even if the service loads slowly.
 *   **UI Enhancements**:
     *   **Copy Chat Thread Button**: Updated with a distinct Teal color (#2b5c5c) for better visibility.
     *   **Splitter Design**: Thinner (3px) and cleaner splitters for a modern look.
-*   **Isolated Reload**: Clicking the reload button (?îÑ) on a service panel now refreshes **only** that specific panel, preventing unnecessary reloads of other active services.
+*   **Isolated Reload**: Clicking the reload button (üîÑ) on a service panel now refreshes **only** that specific panel, preventing unnecessary reloads of other active services.
 *   **Grok Integration**: Improved content extraction logic to correctly copy chat history from Grok.
 
-### ?êõ Bug Fixes
+### üêõ Bug Fixes
 *   Fixed an issue where the first prompt sent to Perplexity (Ctrl+Enter) would be ignored.
 *   Fixed "Copy Chat Thread" returning empty content for Grok.
 *   Fixed layout breaking or panels disappearing when dragging splitters.

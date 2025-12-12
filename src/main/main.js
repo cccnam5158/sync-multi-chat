@@ -689,6 +689,14 @@ ipcMain.on('reload-service', (event, service) => {
     }
 });
 
+// Navigate a specific service to a URL (for session restoration)
+ipcMain.on('navigate-to-url', (event, service, url) => {
+    if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
+        console.log(`Navigating ${service} to ${url}`);
+        views[service].view.webContents.loadURL(url);
+    }
+});
+
 // Open URL in external browser (URLBAR-005)
 ipcMain.on('open-url-in-chrome', (event, url) => {
     if (url) {
