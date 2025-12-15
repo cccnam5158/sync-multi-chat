@@ -1170,6 +1170,86 @@ async function extractLastResponseFromService(service, options = {}) {
     let method = 'none';
     const wc = views[service].view.webContents;
 
+    // Service-specific overrides
+    if (service === 'claude') {
+        try {
+            const script = `
+                (function() {
+                    // Get all AI responses
+                    const aiResponses = document.querySelectorAll('[data-is-streaming], .font-claude-message');
+                    
+                    if (aiResponses.length === 0) {
+                        // Backup check for just standard markdown blocks in deep structure
+                        const deepMarkdown = document.querySelectorAll('.font-claude-response .standard-markdown');
+                        if (deepMarkdown.length > 0) {
+                            // This is harder to isolate to "last response" without a container, 
+                            // so we'll rely on the main selectors first.
+                            return null;
+                        }
+                        return null;
+                    }
+                    
+                    // Get the last one
+                    const lastResponse = aiResponses[aiResponses.length - 1];
+                    
+                    // Extract content similar to the full thread extraction
+                    // 1. Get container
+                    const container = lastResponse.closest('.font-claude-response') || lastResponse;
+                    
+                    // 2. Get markdown sections
+                    const markdownSections = container.querySelectorAll('.standard-markdown');
+                    
+                    // 3. Get artifact blocks
+                    const artifactBlocks = container.querySelectorAll('.artifact-block-cell, [class*="artifact"]');
+                    
+                    let combinedContent = '';
+                    
+                    if (markdownSections.length > 0) {
+                        markdownSections.forEach(section => {
+                            combinedContent += section.innerHTML + '\\n\\n';
+                        });
+                    } else {
+                        // Fallback
+                        const fallbackEl = lastResponse.querySelector('.font-claude-response') || lastResponse;
+                        combinedContent = fallbackEl.innerHTML;
+                    }
+                    
+                    // Add artifacts
+                    artifactBlocks.forEach(artifact => {
+                        const title = artifact.querySelector('.line-clamp-1, [class*="title"]');
+                        const type = artifact.querySelector('.text-text-400, [class*="type"]');
+                        if (title) {
+                            combinedContent += '\\n\\n**[Artifact: ' + (title.textContent || 'Untitled').trim() + ']**';
+                            if (type) {
+                                combinedContent += ' (' + type.textContent.trim() + ')';
+                            }
+                        }
+                    });
+                    
+                    return combinedContent.trim() || null;
+                })();
+            `;
+
+            const html = await wc.executeJavaScript(script);
+
+            if (html) {
+                const turndownService = new TurndownService({
+                    headingStyle: 'atx',
+                    codeBlockStyle: 'fenced'
+                });
+                turndownService.use(gfm);
+                turndownService.remove('button');
+                turndownService.remove('style');
+                turndownService.remove('script');
+
+                content = turndownService.turndown(html);
+                return { service, content, method: 'claude-custom' };
+            }
+        } catch (e) {
+            console.warn('Claude specific extraction failed, falling back to generic:', e);
+        }
+    }
+
     // Try lastResponseSelector first
     const lastResponseSelectors = config.lastResponseSelector || [];
 

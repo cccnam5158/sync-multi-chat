@@ -468,7 +468,7 @@ document.addEventListener('paste', async (e) => {
 
         if (textContent) {
             const lineCount = textContent.split('\n').length;
-            const MULTI_LINE_THRESHOLD = 100; // Convert to file if 100+ lines
+            const MULTI_LINE_THRESHOLD = 200; // Convert to file if 200+ lines
 
             // If text has many lines, convert to file
             if (lineCount >= MULTI_LINE_THRESHOLD) {
