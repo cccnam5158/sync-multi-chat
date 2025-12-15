@@ -1007,6 +1007,8 @@ for (const [service, toggle] of Object.entries(toggles)) {
 // URL Bar: Listen for URL changes from main process (URLBAR-003)
 // Also save session on URL changes for history persistence
 let urlChangeDebounceTimer = null;
+let isSessionLoading = false; // Flag to prevent URL saves during session loading
+
 if (window.electronAPI.onWebviewUrlChanged) {
     window.electronAPI.onWebviewUrlChanged(({ service, url }) => {
         const urlTextEl = document.getElementById(`url-text-${service}`);
@@ -1016,6 +1018,12 @@ if (window.electronAPI.onWebviewUrlChanged) {
             urlTextEl.textContent = displayUrl;
             urlTextEl.dataset.url = url; // Store full URL for copy/chrome buttons
             urlTextEl.title = url; // Show full URL on hover
+
+            // Skip saving during session loading to prevent race conditions
+            if (isSessionLoading) {
+                console.log('[History] Skipping URL save during session loading');
+                return;
+            }
 
             // Debounced save on URL change (only if session exists)
             if (typeof currentSessionId !== 'undefined' && currentSessionId) {
@@ -2343,10 +2351,25 @@ async function saveCurrentSession() {
     }
 }
 
-function loadSession(session) {
+async function loadSession(session) {
     if (!session) return;
 
     console.log('[History] Switching to session:', session.id);
+
+    // Set loading flag to prevent URL change saves during transition
+    isSessionLoading = true;
+
+    // Save current session before switching (if different session)
+    if (currentSessionId && currentSessionId !== session.id) {
+        // Cancel any pending debounce timer to prevent race conditions
+        if (urlChangeDebounceTimer) {
+            clearTimeout(urlChangeDebounceTimer);
+            urlChangeDebounceTimer = null;
+        }
+        // Synchronously save current session before switching
+        await saveCurrentSession();
+        console.log('[History] Saved previous session before switching');
+    }
 
     // Update currentSessionId and persist it
     currentSessionId = session.id;
@@ -2406,7 +2429,12 @@ function loadSession(session) {
                     window.electronAPI.navigateToUrl(service, url);
                 }
             });
+            // Clear loading flag after navigation completes
+            isSessionLoading = false;
         }, 500); // Delay to allow services to initialize
+    } else {
+        // Clear loading flag if no URLs to navigate
+        isSessionLoading = false;
     }
 
     // Close sidebar on mobile/small screens? Optional.
@@ -2453,6 +2481,11 @@ function setupResizeHandle() {
     handle.addEventListener('mousedown', initDrag);
 
     function initDrag(e) {
+        // If currently collapsed, expand first so input form becomes visible
+        if (isPromptCollapsed) {
+            setPromptCollapsed(false);
+        }
+
         startY = e.clientY;
         startHeight = inputContainer.offsetHeight;
         document.documentElement.addEventListener('mousemove', doDrag, false);

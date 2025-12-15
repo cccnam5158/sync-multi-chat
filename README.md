@@ -11,7 +11,8 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 -   **Multi-Pane Interface**: View and interact with up to 4 AI services (ChatGPT, Claude, Gemini, Grok, Perplexity) simultaneously in a grid layout.
 -   **Simultaneous Prompting**: Send a message from a central "Master Input" to all active AI services instantly.
 -   **Broad Service Support**: Supports ChatGPT, Claude, Gemini, Grok (xAI), and Perplexity.
--   **Chat History Management**: "New Chat" button to reset sessions across all services at once.
+-   **Chat History Management**: Save and restore entire chat sessions including active services, layouts, and URLs.
+-   **Conversation History**: Access past sessions from the sidebar and restore them instantly.
 -   **Zoom & Layout Controls**: Adjust text size and switch between 2x2, 1x3, 1x4, and Maximize layouts.
 -   **Prompt History**: Save and reuse frequently used prompts.
 -   **Cross Check**: Iterate on your prompts by sending an AI's response as a new prompt to others.
@@ -24,13 +25,13 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 ## Version
 
--   **Current Version**: v0.5.4
+-   **Current Version**: v0.5.5
 
 ## Installation
 
 This application is distributed as a portable executable for Windows (`.exe`). No complex installation is required.
 
-1.  Download the latest release zip file (e.g., `Sync Multi Chat-win32-x64-v0.5.4.zip`).
+1.  Download the latest release zip file (e.g., `Sync Multi Chat-win32-x64-v0.5.5.zip`).
 2.  Extract the zip file to a location of your choice.
 3.  Run `Sync Multi Chat.exe` inside the extracted folder.
 
@@ -131,13 +132,13 @@ This application is distributed as a portable executable for Windows (`.exe`). N
 -   [x] Support for additional services (Grok, Perplexity)
 -   [x] Advanced Layouts (2x2, Resizable)
 -   [x] File Upload (Drag & Drop, Paste, Multi-service) *Grok temporarily disabled*
+-   [x] Local conversation history
 -   Support for DeepSeek, Copilot
 -   Response comparison tools (Diff view)
 -   Response copying/saving features (Enhanced)
 
 ### Phase 3 (Future)
 -   Prompt templates
--   Local conversation history
 -   Response quality analytics
 
 ---

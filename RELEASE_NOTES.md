@@ -1,5 +1,20 @@
 # Release Notes
 
+## v0.5.5 (2025-12-15)
+
+### ✨ New Features
+*   **Conversation History**:
+    *   **Sidebar Interface**: New collapsible sidebar on the left for easy history access.
+    *   **Auto-Save**: Automatically saves your chat session including active services, layouts, and URLs.
+    *   **Session Restore**: Click any history item to instantly restore your exact working environment.
+    *   **History Management**: Delete individual sessions or clear all history with a single click.
+
+### ⬆️ Improvements
+*   **Performance**: Optimized session loading and saving with asynchronous IndexedDB operations.
+*   **Responsiveness**: Improved sidebar animation and layout handling when toggling history view.
+
+---
+
 ## v0.5.4 (2025-12-09)
 
 ### ✨ New Features
