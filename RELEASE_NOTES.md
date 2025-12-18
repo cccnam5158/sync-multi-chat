@@ -1,5 +1,17 @@
 # Release Notes
 
+## v0.5.6 (2025-12-18)
+
+### ✨ New Features
+*   **New AI Service: Genspark**:
+    *   **Genspark Integration**: Added support for **Genspark** (https://www.genspark.ai/agents?type=ai_chat).
+    *   **Placement**: Positioned after Perplexity in the service list.
+    *   **Anonymous Mode**: Maps to alias "(F)" when Anonymous Mode is active.
+    *   **Full Feature Support**: Supports all core features including Layouts, Scroll Sync, and File Uploads.
+
+### ⬆️ Improvements
+*   **Documentation**: Updated README and requirements specifications to reflect the new service addition.
+
 ## v0.5.5 (2025-12-15)
 
 ### ✨ New Features

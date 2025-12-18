@@ -60,7 +60,7 @@ body {
 
 /* Sidebar Styles */
 #history-sidebar {
-    width: 200px;
+    width: 250px;
     background-color: hsl(220 15% 18%);
     border-right: 1px solid hsl(var(--border));
     display: flex;
@@ -119,6 +119,24 @@ body {
     opacity: 0;
     pointer-events: none;
     display: none;
+}
+
+/* Modern Scrollbar for Chat History */
+#history-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+#history-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#history-list::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 4px;
+}
+
+#history-list::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
 }
 
 .history-item {
@@ -1665,4 +1683,33 @@ input:checked~.switch-label {
 
 .empty-state.hidden {
     display: none;
+}
+
+/* Service Icons */
+.service-icon-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.service-icon-wrapper svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+}
+
+/* Adjustments for labels containing icons */
+.service-toggle-label .label-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.view-header .service-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }

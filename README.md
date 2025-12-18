@@ -10,7 +10,7 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 -   **Multi-Pane Interface**: View and interact with up to 4 AI services (ChatGPT, Claude, Gemini, Grok, Perplexity) simultaneously in a grid layout.
 -   **Simultaneous Prompting**: Send a message from a central "Master Input" to all active AI services instantly.
--   **Broad Service Support**: Supports ChatGPT, Claude, Gemini, Grok (xAI), and Perplexity.
+-   **Broad Service Support**: Supports ChatGPT, Claude, Gemini, Grok (xAI), Perplexity, and **Genspark**.
 -   **Chat History Management**: Save and restore entire chat sessions including active services, layouts, and URLs.
 -   **Conversation History**: Access past sessions from the sidebar and restore them instantly.
 -   **Zoom & Layout Controls**: Adjust text size and switch between 2x2, 1x3, 1x4, and Maximize layouts.

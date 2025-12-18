@@ -16,7 +16,7 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 ## 3. Functional Requirements
 
 ### 3.1 Core Multi-Service Management
-- **REQ-CORE-001**: The system shall support the following AI services: ChatGPT, Claude, Gemini, Grok, and Perplexity.
+- **REQ-CORE-001**: The system shall support the following AI services: ChatGPT, Claude, Gemini, Grok, Perplexity, and Genspark.
 - **REQ-CORE-002**: When the application launches, the system shall restore the previously active services and their last visited URLs (Session Persistence).
 - **REQ-CORE-003**: While a service requires authentication, if the user cannot log in via the embedded view, the system shall provide an "Open in Chrome" or "External Login" option to facilitate authentication using a separate browser instance.
 

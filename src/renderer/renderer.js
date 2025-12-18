@@ -184,7 +184,17 @@ const SERVICE_ALIASES = {
     'claude': '(B)',
     'gemini': '(C)',
     'grok': '(D)',
-    'perplexity': '(E)'
+    'perplexity': '(E)',
+    'genspark': '(F)'
+};
+
+const SERVICE_ICONS = {
+    chatgpt: '<svg fill="#FFFFFF" fill-rule="evenodd" height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><title>OpenAI</title><path d="M21.55 10.004a5.416 5.416 0 00-.478-4.501c-1.217-2.09-3.662-3.166-6.05-2.66A5.59 5.59 0 0010.831 1C8.39.995 6.224 2.546 5.473 4.838A5.553 5.553 0 001.76 7.496a5.487 5.487 0 00.691 6.5 5.416 5.416 0 00.477 4.502c1.217 2.09 3.662 3.165 6.05 2.66A5.586 5.586 0 0013.168 23c2.443.006 4.61-1.546 5.361-3.84a5.553 5.553 0 003.715-2.66 5.488 5.488 0 00-.693-6.497v.001zm-8.381 11.558a4.199 4.199 0 01-2.675-.954c.034-.018.093-.05.132-.074l4.44-2.53a.71.71 0 00.364-.623v-6.176l1.877 1.069c.02.01.033.029.036.05v5.115c-.003 2.274-1.87 4.118-4.174 4.123zM4.192 17.78a4.059 4.059 0 01-.498-2.763c.032.02.09.055.131.078l4.44 2.53c.225.13.504.13.73 0l5.42-3.088v2.138a.068.068 0 01-.027.057L9.9 19.288c-1.999 1.136-4.552.46-5.707-1.51h-.001zM3.023 8.216A4.15 4.15 0 015.198 6.41l-.002.151v5.06a.711.711 0 00.364.624l5.42 3.087-1.876 1.07a.067.067 0 01-.063.005l-4.489-2.559c-1.995-1.14-2.679-3.658-1.53-5.63h.001zm15.417 3.54l-5.42-3.088L14.896 7.6a.067.067 0 01.063-.006l4.489 2.557c1.998 1.14 2.683 3.662 1.529 5.633a4.163 4.163 0 01-2.174 1.807V12.38a.71.71 0 00-.363-.623zm1.867-2.773a6.04 6.04 0 00-.132-.078l-4.44-2.53a.731.731 0 00-.729 0l-5.42 3.088V7.325a.068.068 0 01.027-.057L14.1 4.713c2-1.137 4.555-.46 5.707 1.513.487.833.664 1.809.499 2.757h.001zm-11.741 3.81l-1.877-1.068a.065.065 0 01-.036-.051V6.559c.001-2.277 1.873-4.122 4.181-4.12.976 0 1.92.338 2.671.954-.034.018-.092.05-.131.073l-4.44 2.53a.71.71 0 00-.365.623l-.003 6.173v.002zm1.02-2.168L12 9.25l2.414 1.375v2.75L12 14.75l-2.415-1.375v-2.75z"></path></svg>',
+    claude: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="#D77655" d="M4.709 15.955l4.71-2.644.08-.23-.08-.128-.23-.001-.787-.048-2.693-.073-2.336-.097-2.263-.121-.57-.121-.534-.704.055-.351.479-.322.686.06 1.516.103 2.275.157 1.65.097 2.444.254h.388l.055-.157-.133-.097-.103-.097-2.354-1.595-2.549-1.686-1.334-.971-.722-.492-.364-.461-.157-1.006.655-.721.88.06.225.06.891.686 1.904 1.474 2.487 1.831.364.302.146-.103.018-.073-.163-.273-1.353-2.444-1.443-2.487-.642-1.031-.17-.618c-.06-.254-.103-.467-.103-.728l.746-1.013.412-.133.995.133.42.364.618 1.414 1.001 2.227 1.553 3.026.455.898.243.832.09.254.157-.001v-.146l.128-1.705.236-2.094.23-2.693.079-.759.375-.909.746-.492.582.278.479.686-.066.443-.285 1.85-.558 2.9-.364 1.941h.212l.243-.243.982-1.304 1.65-2.064.728-.819.849-.905.545-.43 1.031-.001.758 1.128-.34 1.165-1.062 1.346-.88 1.14-1.262 1.699-.788 1.359.073.108.188-.018 2.851-.607 1.54-.278 1.838-.315.832.388.09.395-.327.807-1.966.486-2.306.461-3.433.812-.042.031.048.06 1.547.146.662.035h1.62l3.016.225.788.521.472.637-.08.486-1.213.618-1.638-.388-3.82-.909-1.31-.327-.181-.001v.108l1.092 1.068 2.001 1.807 2.506 2.33.128.576-.322.455-.34-.048-2.202-1.656-.849-.746-1.924-1.62-.128-.001v.17l.443.649 2.34 3.519.121 1.08-.17.351-.607.212-.667-.121-1.37-1.924-1.414-2.166-1.14-1.941-.139.079-.673 7.249-.315.37-.728.278-.607-.461-.322-.746.322-1.474.388-1.924.315-1.529.285-1.899.17-.631-.011-.042-.139.018-1.432 1.966-2.178 2.943-1.723 1.844-.412.164-.715-.37.066-.662.4-.588 2.385-3.033 1.438-1.88.929-1.086-.006-.157h-.055l-6.335 4.113-1.128.146-.486-.455.06-.746.23-.243 1.904-1.31-.006.006.001.007z"/></svg>',
+    gemini: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 24c0-6.627-5.373-12-12-12 6.627 0 12-5.373 12-12 0 6.627 5.373 12 12 12-6.627 0-12 5.373-12 12z" fill="#4285F4"/></svg>',
+    grok: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M7.5 12.5l7.5-5.5c.367-.273.893-.166 1.07.256.92 2.226.51 4.9-1.326 6.74-1.834 1.838-4.387 2.24-6.72 1.322l-2.548 1.182c3.655 2.501 8.094 1.882 10.868-.896 2.2-2.203 2.882-5.205 2.244-7.913l.006.007c-.924-3.977.227-5.57 2.584-8.82.056-.077.113-.154.168-.233l-3.102 3.107v-.009L7.5 12.5zm-1.545 1.345c-2.624-2.51-2.171-6.392.067-8.632 1.655-1.657 4.367-2.334 6.735-1.34l2.542-1.174a7.34 7.34 0 0 0-1.719-.94A8.437 8.437 0 0 0 4.41 3.607c-2.38 2.383-3.13 6.048-1.843 9.176.96 2.338-.614 3.991-2.199 5.66C.154 18.65-.045 19.24 0 19.866l7.163-6.404-.708.383z"/></svg>',
+    perplexity: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.785 0v7.272H22.5V17.62h-2.935V24l-7.037-6.194v6.145h-1.091v-6.152L4.392 24v-6.465H1.5V7.188h2.884V0l7.053 6.494V.19h1.09v6.49L19.786 0zm-7.257 9.044v7.319l5.946 5.234V14.44l-5.946-5.397zm-1.099-.08l-5.946 5.398v7.235l5.946-5.234V8.965zm8.136 7.58h1.844V8.349H13.46l6.105 5.54v2.655zm-8.982-8.28H2.59v8.195h1.8v-2.576l6.192-5.62zM5.475 2.476v4.71h5.115l-5.115-4.71zm13.219 0l-5.115 4.71h5.115v-4.71z" fill="#22B8CD" fill-rule="nonzero"/></svg>',
+    genspark: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="4" fill="#1a1a2e"/><path fill="#fff" d="M19.8 18H4.1c-.33 0-.6.27-.6.6v1.27c0 .33.27.6.6.6h15.7c.33 0 .6-.27.6-.6V18.6c0-.33-.27-.6-.6-.6zM8.7 15.4c-.1 0-.18-.07-.19-.17-.62-4.1-1.07-4.46-5.14-5.08a.26.26 0 0 1 0-.51c4.05-.61 4.41-.97 5.02-5.02a.26.26 0 0 1 .51 0c.61 4.05.97 4.41 5.02 5.02.12.02.22.13.22.25 0 .13-.09.24-.22.25-4.07.61-4.42.98-5.03 5.08-.01.09-.1.17-.19.17zM16.5 10.1a.12.12 0 0 1-.12-.1c-.39-2.56-.67-2.79-3.21-3.17-.08-.01-.14-.08-.14-.16 0-.08.06-.15.14-.16 2.53-.38 2.76-.61 3.14-3.14.01-.08.08-.14.16-.14.08 0 .15.06.16.14.38 2.53.61 2.76 3.14 3.14.08.01.14.08.14.16 0 .08-.06.15-.14.16-2.54.38-2.76.61-3.15 3.17-.01.06-.05.1-.12.1zM16.48 16.5c-.04 0-.07-.03-.08-.07-.25-1.63-.43-1.77-2.04-2.02-.05-.01-.09-.05-.09-.1s.04-.09.09-.1c1.61-.24 1.75-.39 2-2a.1.1 0 0 1 .1-.09c.05 0 .09.04.1.09.24 1.61.39 1.75 2 2 .04.01.09.05.09.1s-.04.09-.09.1c-1.62.24-1.76.39-2 2-.01.04-.04.07-.08.07z"/></svg>'
 };
 
 if (anonymousBtn) {
@@ -214,23 +224,37 @@ function updateServiceToggles() {
         'claude': 'Claude',
         'gemini': 'Gemini',
         'grok': 'Grok',
-        'perplexity': 'Perplexity'
+        'perplexity': 'Perplexity',
+        'genspark': 'Genspark'
     };
 
     for (const [service, toggle] of Object.entries(toggles)) {
         // The label text is now in a span with class 'label-text'
         const labelText = toggle.parentElement.querySelector('.label-text');
         const name = names[service] || service;
-        const displayName = isAnonymousMode ? `${name} ${SERVICE_ALIASES[service] || ''}` : name;
+        const icon = SERVICE_ICONS[service] || '';
 
-        if (labelText) {
-            labelText.innerText = displayName;
+        // Chat Input Prompt Area Logic
+        // Improvement: "Service Icon" + "Anonymous (e.g. (A)) Identifier"
+        // This implies Name is removed and replaced by Icon.
+        let checkboxContent = `<span class="service-icon-wrapper" title="${name}">${icon}</span>`;
+        if (isAnonymousMode && SERVICE_ALIASES[service]) {
+            checkboxContent += ` <span class="service-alias">${SERVICE_ALIASES[service]}</span>`;
         }
 
-        // Also update webview header name
+        if (labelText) {
+            labelText.innerHTML = checkboxContent;
+        }
+
+        // Web View Title Logic
+        // Improvement: "Service Icon" + "Service Name" + "Anonymous (e.g. (A)) Identifier"
         const headerName = document.querySelector(`#slot-${service} .service-name`);
         if (headerName) {
-            headerName.textContent = displayName;
+            let headerContent = `<span class="service-icon-wrapper header-icon">${icon}</span> ${name}`;
+            if (isAnonymousMode && SERVICE_ALIASES[service]) {
+                headerContent += ` <span class="service-alias">${SERVICE_ALIASES[service]}</span>`;
+            }
+            headerName.innerHTML = headerContent;
         }
     }
 }
@@ -250,7 +274,8 @@ const toggles = {
     claude: document.getElementById('toggle-claude'),
     gemini: document.getElementById('toggle-gemini'),
     grok: document.getElementById('toggle-grok'),
-    perplexity: document.getElementById('toggle-perplexity')
+    perplexity: document.getElementById('toggle-perplexity'),
+    genspark: document.getElementById('toggle-genspark')
 };
 
 // Handle Send Button Click
@@ -363,7 +388,8 @@ async function sendPrompt() {
         claude: toggles.claude.checked,
         gemini: toggles.gemini.checked,
         grok: toggles.grok.checked,
-        perplexity: toggles.perplexity.checked
+        perplexity: toggles.perplexity.checked,
+        genspark: toggles.genspark.checked
     };
 
     // Get file paths
@@ -733,14 +759,21 @@ function createSlot(container, service) {
         'claude': 'Claude',
         'gemini': 'Gemini',
         'grok': 'Grok',
-        'perplexity': 'Perplexity'
+        'perplexity': 'Perplexity',
+        'genspark': 'Genspark'
     };
     const baseDisplayName = serviceNames[service] || service;
-    const displayName = isAnonymousMode ? `${baseDisplayName} ${SERVICE_ALIASES[service] || ''}` : baseDisplayName;
+    const name = baseDisplayName;
+    const icon = SERVICE_ICONS[service] || '';
 
     const serviceName = document.createElement('span');
     serviceName.className = 'service-name';
-    serviceName.textContent = displayName;
+
+    let headerContent = `<span class="service-icon-wrapper header-icon">${icon}</span> ${name}`;
+    if (isAnonymousMode && SERVICE_ALIASES[service]) {
+        headerContent += ` <span class="service-alias">${SERVICE_ALIASES[service]}</span>`;
+    }
+    serviceName.innerHTML = headerContent;
 
     // Header only contains service name (buttons moved to URL bar)
     header.appendChild(serviceName);
@@ -1697,6 +1730,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Update layout state based on initial toggles
     updateLayoutState();
+    updateServiceToggles();
 });
 
 // Session Persistence: Listen for saved state restoration (SESS-003)
@@ -1943,34 +1977,45 @@ async function loadHistoryList() {
 function showCustomContextMenu(event, session) {
     // Remove existing menus
     const existing = document.querySelector('.custom-context-menu');
-    if (existing) existing.remove();
+    if (existing) {
+        const isSameSession = existing.dataset.sessionId === session.id;
+        existing.remove();
+        // If clicking the same button that opened the menu, just close it (toggle)
+        if (isSameSession) return;
+    }
+
+    const target = event.currentTarget || event.target;
+    // Get the button rect to position relative to it
+    const rect = target.getBoundingClientRect();
 
     const menu = document.createElement('div');
     menu.className = 'custom-context-menu';
+    menu.dataset.sessionId = session.id; // Store ID for toggle logic
     menu.style.position = 'fixed';
-    menu.style.top = `${event.clientY}px`;
-    menu.style.left = `${event.clientX}px`;
+
+    // Position menu: Below the button, right-aligned
+    menu.style.top = `${rect.bottom + 3}px`; // 3px gap
     menu.style.backgroundColor = 'hsl(var(--popover))';
     menu.style.border = '1px solid hsl(var(--border))';
     menu.style.borderRadius = 'var(--radius)';
     menu.style.padding = '4px';
     menu.style.zIndex = '100000';
-    menu.style.minWidth = '120px';
+    menu.style.minWidth = '140px';
     menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)';
 
-    // Hide webviews so context menu is visible above them
-    window.electronAPI.setServiceVisibility(false);
+    // DO NOT hide webviews (User request)
+    // window.electronAPI.setServiceVisibility(false);
 
     // Track if we should restore webviews on close
     let keepWebviewsHidden = false;
 
     const createOption = (text, iconSvg, handler, hideWebviewsAfter = false) => {
         const option = document.createElement('div');
-        option.style.padding = '6px 12px';
+        option.style.padding = '8px 12px';
         option.style.cursor = 'pointer';
         option.style.display = 'flex';
         option.style.alignItems = 'center';
-        option.style.gap = '8px';
+        option.style.gap = '10px';
         option.style.color = 'hsl(var(--popover-foreground))';
         option.style.fontSize = '0.9rem';
         option.style.borderRadius = 'var(--radius)';
@@ -1983,78 +2028,23 @@ function showCustomContextMenu(event, session) {
             e.stopPropagation();
             if (hideWebviewsAfter) {
                 keepWebviewsHidden = true;
+                // Temporarily hide webviews for modals
+                window.electronAPI.setServiceVisibility(false);
             }
-            document.removeEventListener('click', closeMenuHandler);
-            menu.remove();
-            if (!hideWebviewsAfter) {
-                window.electronAPI.setServiceVisibility(true);
-            }
+            closeMenu();
             handler();
         };
         return option;
     };
 
-    // Rename Option - use inline editing (restore webviews after)
+    // Rename Option - use custom modal (title in English)
     menu.appendChild(createOption(
         'Rename',
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>',
         () => {
-            // Find the history item and enable inline editing
-            const historyItem = document.querySelector(`.history-item[data-session-id="${session.id}"]`) ||
-                Array.from(document.querySelectorAll('.history-item')).find(item => {
-                    const titleEl = item.querySelector('.history-title');
-                    return titleEl && titleEl.textContent === session.title;
-                });
-
-            if (historyItem) {
-                const titleEl = historyItem.querySelector('.history-title');
-                if (titleEl) {
-                    const originalTitle = titleEl.textContent;
-                    titleEl.contentEditable = 'true';
-                    titleEl.style.outline = '1px solid hsl(var(--primary))';
-                    titleEl.style.backgroundColor = 'hsl(var(--background))';
-                    titleEl.style.padding = '2px 4px';
-                    titleEl.style.borderRadius = '4px';
-                    titleEl.focus();
-
-                    // Select all text
-                    const range = document.createRange();
-                    range.selectNodeContents(titleEl);
-                    const sel = window.getSelection();
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-
-                    const saveRename = async () => {
-                        const newTitle = titleEl.textContent.trim();
-                        titleEl.contentEditable = 'false';
-                        titleEl.style.outline = '';
-                        titleEl.style.backgroundColor = '';
-                        titleEl.style.padding = '';
-
-                        if (newTitle && newTitle !== originalTitle) {
-                            session.title = newTitle;
-                            session.updatedAt = new Date().toISOString();
-                            await historyManager.saveSession(session);
-                            loadHistoryList();
-                        } else {
-                            titleEl.textContent = originalTitle;
-                        }
-                    };
-
-                    titleEl.onblur = saveRename;
-                    titleEl.onkeydown = (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            titleEl.blur();
-                        } else if (e.key === 'Escape') {
-                            titleEl.textContent = originalTitle;
-                            titleEl.blur();
-                        }
-                    };
-                }
-            }
+            showRenameModal(session);
         },
-        false // Restore webviews after rename
+        true // Hide webviews for modal
     ));
 
     // Delete Option - use custom modal instead of confirm() (keep webviews hidden for modal)
@@ -2069,18 +2059,35 @@ function showCustomContextMenu(event, session) {
 
     document.body.appendChild(menu);
 
+    // Adjust position - anchor right edge to right edge of button
+    const menuRect = menu.getBoundingClientRect();
+    menu.style.left = `${rect.right - menuRect.width}px`;
+
     // Close menu on click outside
     const closeMenu = () => {
-        menu.remove();
+        if (document.body.contains(menu)) menu.remove();
         document.removeEventListener('click', closeMenuHandler);
-        // Only restore webviews if not opening another modal
-        if (!keepWebviewsHidden) {
-            window.electronAPI.setServiceVisibility(true);
-        }
+        document.removeEventListener('keydown', closeMenuEscHandler);
+        // Only if we are NOT opening a modal do we need to worry about visibility, 
+        // but here we never set it to false initially, so we don't need to restore it to true 
+        // unless we hit an option that set it false (handled in click).
     };
-    const closeMenuHandler = () => closeMenu();
+
+    const closeMenuHandler = (e) => {
+        if (menu.contains(e.target)) return;
+        closeMenu();
+    };
+
+    // Close on ESC
+    const closeMenuEscHandler = (e) => {
+        if (e.key === 'Escape') closeMenu();
+    };
+
     // Delay slightly to prevent immediate trigger
-    setTimeout(() => document.addEventListener('click', closeMenuHandler), 0);
+    setTimeout(() => {
+        document.addEventListener('click', closeMenuHandler);
+        document.addEventListener('keydown', closeMenuEscHandler);
+    }, 0);
 }
 
 // History Delete Modal Handler
@@ -2360,6 +2367,7 @@ async function loadSession(session) {
     isSessionLoading = true;
 
     // Save current session before switching (if different session)
+
     if (currentSessionId && currentSessionId !== session.id) {
         // Cancel any pending debounce timer to prevent race conditions
         if (urlChangeDebounceTimer) {
@@ -2370,6 +2378,28 @@ async function loadSession(session) {
         await saveCurrentSession();
         console.log('[History] Saved previous session before switching');
     }
+
+    // FIX: Reset maximized view state if active to prevent "black screen" on new session
+    const maximizedBtns = document.querySelectorAll('.maximized-btn');
+    if (maximizedBtns.length > 0) {
+        maximizedBtns.forEach(btn => btn.click());
+    }
+
+    // FIX: Pre-reset URLs to prevent stale data from overwriting new session
+    const allServices = ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity', 'genspark'];
+    allServices.forEach(service => {
+        const urlEl = document.getElementById(`url-text-${service}`);
+        if (urlEl) {
+            // Pre-fill with new session URL or clear
+            const storedUrls = session.urls || session.serviceUrls || {};
+            const newUrl = storedUrls[service] || '';
+            const displayUrl = newUrl.length > 80 ? newUrl.substring(0, 77) + '...' : newUrl;
+
+            urlEl.textContent = displayUrl;
+            urlEl.dataset.url = newUrl;
+            urlEl.title = newUrl;
+        }
+    });
 
     // Update currentSessionId and persist it
     currentSessionId = session.id;
@@ -2393,7 +2423,8 @@ async function loadSession(session) {
     // Restore Services
     if (session.activeServices) {
         // First turn off all
-        ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity'].forEach(s => {
+        // First turn off all
+        ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity', 'genspark'].forEach(s => {
             if (toggles[s]) toggles[s].checked = false;
             window.electronAPI.toggleService(s, false);
         });
@@ -2421,9 +2452,10 @@ async function loadSession(session) {
     updateLayoutState();
 
     // Navigate webviews to saved URLs (with delay for service initialization)
-    if (session.urls && Object.keys(session.urls).length > 0) {
+    const storedUrls = session.urls || session.serviceUrls;
+    if (storedUrls && Object.keys(storedUrls).length > 0) {
         setTimeout(() => {
-            Object.entries(session.urls).forEach(([service, url]) => {
+            Object.entries(storedUrls).forEach(([service, url]) => {
                 if (url && session.activeServices && session.activeServices.includes(service)) {
                     console.log(`[History] Navigating ${service} to saved URL: ${url}`);
                     window.electronAPI.navigateToUrl(service, url);
@@ -2464,6 +2496,64 @@ if (masterInput) {
 // Resize Handle Logic
 // ==========================================
 let initialControlsHeight = null; // Track initial height to use as minimum
+
+
+// ==========================================
+// Sidebar Resize Handle Logic
+// ==========================================
+function setupSidebarResizeHandle() {
+    const handle = document.getElementById('sidebar-resize-handle');
+    const sidebar = document.getElementById('history-sidebar');
+
+    if (!handle || !sidebar) return;
+
+    let startX, startWidth;
+
+    handle.addEventListener('mousedown', initDrag);
+
+    function initDrag(e) {
+        startX = e.clientX;
+        startWidth = sidebar.offsetWidth;
+        document.documentElement.addEventListener('mousemove', doDrag, false);
+        document.documentElement.addEventListener('mouseup', stopDrag, false);
+        handle.classList.add('dragging');
+
+        // Prevent iframe captures during drag
+        const webviews = document.getElementById('views-placeholder');
+        if (webviews) webviews.style.pointerEvents = 'none';
+    }
+
+    function doDrag(e) {
+        const deltaX = e.clientX - startX;
+        let newWidth = startWidth + deltaX;
+
+        // Constraints
+        const MIN_SIDEBAR_WIDTH = 150;
+        const MAX_SIDEBAR_WIDTH = 400;
+
+        if (newWidth < MIN_SIDEBAR_WIDTH) newWidth = MIN_SIDEBAR_WIDTH;
+        if (newWidth > MAX_SIDEBAR_WIDTH) newWidth = MAX_SIDEBAR_WIDTH;
+
+        sidebar.style.width = `${newWidth}px`;
+    }
+
+    function stopDrag(e) {
+        document.documentElement.removeEventListener('mousemove', doDrag, false);
+        document.documentElement.removeEventListener('mouseup', stopDrag, false);
+        handle.classList.remove('dragging');
+
+        const webviews = document.getElementById('views-placeholder');
+        if (webviews) webviews.style.pointerEvents = '';
+
+        // Update webview bounds after resize
+        if (window.electronAPI && window.electronAPI.setBounds) {
+            updateBounds();
+        }
+    }
+}
+
+// Initialize Sidebar Resize
+setupSidebarResizeHandle();
 
 function setupResizeHandle() {
     const handle = document.getElementById('prompt-resize-handle');
@@ -2522,8 +2612,119 @@ function setupResizeHandle() {
     }
 }
 
+// ==========================================
+// Rename Modal Logic
+// ==========================================
+let pendingRenameSession = null;
+
+function showRenameModal(session) {
+    pendingRenameSession = session;
+    const modal = document.getElementById('rename-session-modal');
+    const input = document.getElementById('rename-session-input');
+
+    if (modal && input) {
+        input.value = session.title || '';
+        window.electronAPI.setServiceVisibility(false);
+        modal.classList.add('visible');
+        input.focus();
+        input.select();
+
+        // Handle Enter key in input
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                performRename();
+            } else if (e.key === 'Escape') {
+                closeRenameModal();
+            }
+        };
+    }
+}
+
+function closeRenameModal() {
+    const modal = document.getElementById('rename-session-modal');
+    if (modal) {
+        modal.classList.remove('visible');
+    }
+    pendingRenameSession = null;
+    window.electronAPI.setServiceVisibility(true);
+}
+
+async function performRename() {
+    if (!pendingRenameSession) return;
+
+    const input = document.getElementById('rename-session-input');
+    const newTitle = input.value.trim();
+
+    if (newTitle && newTitle !== pendingRenameSession.title) {
+        pendingRenameSession.title = newTitle;
+        pendingRenameSession.updatedAt = new Date().toISOString();
+
+        try {
+            await historyManager.saveSession(pendingRenameSession);
+            loadHistoryList();
+        } catch (e) {
+            console.error('Failed to save rename:', e);
+        }
+    }
+
+    closeRenameModal();
+}
+
+// Rename Modal Event Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    const closeBtn = document.getElementById('close-rename-session-btn');
+    const cancelBtn = document.getElementById('btn-cancel-rename-session');
+    const saveBtn = document.getElementById('btn-save-rename-session');
+
+    if (closeBtn) closeBtn.onclick = closeRenameModal;
+    if (cancelBtn) cancelBtn.onclick = closeRenameModal;
+    if (saveBtn) saveBtn.onclick = performRename;
+});
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     setupHistory();
     setupResizeHandle();
+    setupSessionPersistence();
 });
+
+function setupSessionPersistence() {
+    // 1. Listen for Apply Saved State from Main Process (Startup)
+    if (window.electronAPI.onApplySavedState) {
+        window.electronAPI.onApplySavedState((state) => {
+            console.log('[Session] Applying saved state from Main:', state);
+            if (state) {
+                // Use loadSession logic but adapt for Main's state structure
+                // Main sends 'serviceUrls', renderer expects 'urls'. 
+                // We already patched loadSession to handle 'serviceUrls'.
+
+                // We construct a pseudo-session object
+                const restorationSession = {
+                    id: null, // No ID from Main state
+                    activeServices: state.activeServices,
+                    layout: state.layout,
+                    urls: state.serviceUrls,
+                    isAnonymousMode: state.isAnonymousMode,
+                    isScrollSyncEnabled: state.isScrollSyncEnabled
+                };
+
+                loadSession(restorationSession);
+            }
+        });
+    }
+
+    // 2. Listen for Toggle Changes to Save Session
+    // This ensures that when user toggles Genspark (or others), it saves to IndexedDB/History
+    for (const [service, toggle] of Object.entries(toggles)) {
+        if (toggle) {
+            toggle.addEventListener('change', () => {
+                // Update layout first (existing logic might be attached, but we ensure it runs)
+                updateLayoutState();
+                window.electronAPI.toggleService(service, toggle.checked);
+
+                // Save session state
+                saveCurrentSession();
+            });
+        }
+    }
+}

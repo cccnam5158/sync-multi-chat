@@ -248,5 +248,52 @@
             "div[class*='response']:last-child .prose"
         ],
         "copyStrategy": "turndown"
+    },
+    "genspark": {
+        "serviceName": "Genspark",
+        "url": "https://www.genspark.ai/agents?type=ai_chat",
+        "inputSelector": [
+            "textarea[name='query']",
+            "textarea.search-input"
+        ],
+        "sendButtonSelector": [
+            "div.enter-icon-wrapper",
+            "div.input-icon"
+        ],
+        "contentSelector": [
+            "div.conversation-statement.assistant.plain-text",
+            "div.model-response-wrapper"
+        ],
+        "loggedInSelector": [
+            "textarea[name='query']"
+        ],
+        "uploadIconSelector": [
+            "div.upload-trigger-button",
+            "div.upload-attachments svg g#Frame"
+        ],
+        "uploadMenuButtonSelector": [
+            "div.upload-option-item:first-child",
+            "div.option-label"
+        ],
+        "uploadedFileSelector": [
+            "div.file-item",
+            "div.uploaded-file"
+        ],
+        "fileInputSelector": [
+            "input[type='file'][multiple]",
+            "input[type='file']"
+        ],
+        "copyButtonSelector": [],
+        "conversationContainerSelector": [
+            "main"
+        ],
+        "messageSelector": [
+            "div.conversation-statement"
+        ],
+        "lastResponseSelector": [
+            "div.conversation-statement.assistant:last-of-type",
+            "div.model-response:last-of-type"
+        ],
+        "copyStrategy": "turndown"
     }
 }

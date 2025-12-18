@@ -111,6 +111,8 @@
                                 class="label-text">Grok</span></label>
                         <label class="service-toggle-label"><input type="checkbox" id="toggle-perplexity" checked> <span
                                 class="label-text">Perplexity</span></label>
+                        <label class="service-toggle-label"><input type="checkbox" id="toggle-genspark"> <span
+                                class="label-text">Genspark</span></label>
                     </div>
                     <button id="prompt-toggle-btn" class="prompt-toggle-btn" aria-expanded="true"
                         title="Collapse prompt panel">
@@ -279,6 +281,26 @@
                 <div class="prompt-delete-actions">
                     <button id="btn-cancel-history-delete" class="btn-ghost">Cancel</button>
                     <button id="btn-confirm-history-delete" class="btn-primary">Delete</button>
+                </div>
+            </div>
+        </div>
+        <!-- Rename Session Modal -->
+        <div id="rename-session-modal" class="modal">
+            <div class="modal-content prompt-delete-content history-modal-content">
+                <div class="modal-header">
+                    <h3>Rename Conversation</h3>
+                    <button id="close-rename-session-btn" class="close-btn" aria-label="Close">&times;</button>
+                </div>
+                <hr class="modal-divider">
+                <div class="modal-body">
+                    <div class="input-group">
+                        <input type="text" id="rename-session-input" class="input-field" placeholder="Enter new name"
+                            autocomplete="off">
+                    </div>
+                </div>
+                <div class="prompt-delete-actions">
+                    <button id="btn-cancel-rename-session" class="btn-ghost">Cancel</button>
+                    <button id="btn-save-rename-session" class="btn-primary">Save</button>
                 </div>
             </div>
         </div>

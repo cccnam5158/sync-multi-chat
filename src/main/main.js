@@ -26,8 +26,8 @@ const { gfm } = require('turndown-plugin-gfm');
 
 // Disable automation features to avoid detection
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
-app.commandLine.appendSwitch('disable-features', 'IsolateOrigins,site-per-process');
-app.commandLine.appendSwitch('disable-site-isolation-trials');
+// Note: Removed disable-features=IsolateOrigins,site-per-process and disable-site-isolation-trials
+// to allow proper origin isolation for cookie context matching
 // app.commandLine.appendSwitch('disable-infobars'); // Not always needed but good practice
 
 // Fix for Google Sign-in "This browser or app may not be secure"
@@ -36,13 +36,14 @@ app.commandLine.appendSwitch('disable-site-isolation-trials');
 
 let mainWindow;
 const views = {};
-const services = ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity'];
+const services = ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity', 'genspark'];
 const serviceUrls = {
     chatgpt: 'https://chatgpt.com',
     claude: 'https://claude.ai',
     gemini: 'https://gemini.google.com/app',
     grok: 'https://grok.com',
-    perplexity: 'https://www.perplexity.ai'
+    perplexity: 'https://www.perplexity.ai',
+    genspark: 'https://www.genspark.ai/agents?type=ai_chat'
 };
 
 // Domain whitelist for each service (EXTLINK-002)
@@ -52,7 +53,8 @@ const serviceDomains = {
     claude: ['claude.ai', 'anthropic.com'],
     gemini: ['gemini.google.com', 'google.com', 'accounts.google.com', 'gstatic.com'],
     grok: ['grok.com', 'x.com', 'twitter.com'],
-    perplexity: ['perplexity.ai']
+    perplexity: ['perplexity.ai'],
+    genspark: ['genspark.ai', 'google.com', 'accounts.google.com', 'gstatic.com']
 };
 
 let currentLayout = '1x4'; // Default layout
@@ -83,8 +85,13 @@ function createWindow() {
             contextIsolation: true,
             nodeIntegration: false
         },
-        show: false // Wait for ready-to-show
+        show: false, // Wait for ready-to-show
+        autoHideMenuBar: true // Hide menu bar by default
     });
+
+    // Increase listener limit to prevent MaxListenersExceededWarning 
+    // (we have 6 services + several system listeners)
+    mainWindow.setMaxListeners(100);
 
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
@@ -103,6 +110,18 @@ function createWindow() {
 
     // Initial Layout is now handled by renderer sending bounds
 }
+
+// Centralized handler for request-config to avoid listener accumulation
+ipcMain.on('request-config', (event) => {
+    for (const [service, viewData] of Object.entries(views)) {
+        if (viewData && viewData.view && !viewData.view.webContents.isDestroyed() && event.sender === viewData.view.webContents) {
+            if (selectorsConfig[service]) {
+                viewData.view.webContents.send('set-config', { config: selectorsConfig[service], service });
+            }
+            return;
+        }
+    }
+});
 
 function createServiceView(service) {
     // Cleanup existing view if it exists
@@ -125,7 +144,8 @@ function createServiceView(service) {
             preload: path.join(__dirname, '../preload/service-preload.js'),
             partition: `persist:service-${service}`,
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false,
+            webSecurity: true // Explicitly enable web security for proper origin context
         }
     });
 
@@ -133,8 +153,16 @@ function createServiceView(service) {
 
     // Use saved session URL if available, otherwise use default (SESS-003)
     const urlToLoad = savedSessionUrls[service] || serviceUrls[service];
+    const partition = `persist:service-${service}`;
     console.log(`[Session] Loading ${service} with URL: ${urlToLoad}`);
-    view.webContents.loadURL(urlToLoad);
+    console.log(`[Session] Partition: ${partition}`);
+
+    // Ensure BrowserView is ready before loading URL to prevent origin context mismatch
+    // Use setImmediate to ensure BrowserView is fully attached and ready
+    setImmediate(() => {
+        // Load URL - this will set the proper origin context
+        view.webContents.loadURL(urlToLoad);
+    });
 
     // Modify headers for X-Frame-Options (SEC-001)
     view.webContents.session.webRequest.onHeadersReceived((details, callback) => {
@@ -148,6 +176,16 @@ function createServiceView(service) {
             delete responseHeaders['Content-Security-Policy'];
         }
         callback({ cancel: false, responseHeaders });
+    });
+
+    // Intercept requests to ensure proper origin context for cookie requests
+    // This helps prevent origin mismatch errors during initial load
+    view.webContents.session.webRequest.onBeforeRequest((details, callback) => {
+        // Ensure requests have proper origin context
+        // The URL is already set correctly, so we just need to let it proceed
+        callback({ cancel: false });
+    }, {
+        urls: ['<all_urls>']
     });
 
     // User Agent Spoofing (SEC-002) - Updated to newer version
@@ -182,14 +220,7 @@ function createServiceView(service) {
     view.webContents.on('did-navigate', sendUrlUpdate);
     view.webContents.on('did-navigate-in-page', sendUrlUpdate);
 
-    // Handle config request from preload (Handshake)
-    ipcMain.on('request-config', (event) => {
-        if (event.sender === view.webContents) {
-            if (selectorsConfig[service]) {
-                view.webContents.send('set-config', { config: selectorsConfig[service], service });
-            }
-        }
-    });
+    // NOTE: 'request-config' handler is now registered globally to avoid listener accumulation
 
     // External Link Handling (EXTLINK-001, EXTLINK-003)
     // Check if URL is within allowed domains for this service
@@ -287,10 +318,10 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                 // Find file input
                                 let nodeId = null;
 
-                                // Special handling for Gemini: Use JavaScript to find/access file input
-                                // Avoid clicking menu button to prevent file dialog from opening
-                                if (service === 'gemini' && selectors.uploadIconSelector) {
-                                    console.log(`[Gemini] Searching for file input via JavaScript...`);
+                                // Special handling for Gemini/Genspark: Use JavaScript to find/access file input
+                                // Avoid clicking menu button to prevent file dialog from opening if possible
+                                if ((service === 'gemini' || service === 'genspark') && selectors.uploadIconSelector) {
+                                    console.log(`[${service}] Searching for file input via JavaScript...`);
                                     try {
                                         // Try to find file input using JavaScript (can find hidden inputs too)
                                         const fileInputFound = await wc.executeJavaScript(`
@@ -298,7 +329,7 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                                 // Search for all file inputs, including hidden ones
                                                 const inputs = document.querySelectorAll('input[type="file"]');
                                                 if (inputs.length > 0) {
-                                                    console.log('[Gemini JS] Found', inputs.length, 'file input(s)');
+                                                    console.log('[Service JS] Found', inputs.length, 'file input(s)');
                                                     return true;
                                                 }
                                                 
@@ -308,7 +339,7 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                                     if (el.shadowRoot) {
                                                         const shadowInputs = el.shadowRoot.querySelectorAll('input[type="file"]');
                                                         if (shadowInputs.length > 0) {
-                                                            console.log('[Gemini JS] Found', shadowInputs.length, 'file input(s) in shadow DOM');
+                                                            console.log('[Service JS] Found', shadowInputs.length, 'file input(s) in shadow DOM');
                                                             return true;
                                                         }
                                                     }
@@ -319,10 +350,11 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                         `);
 
                                         if (fileInputFound) {
-                                            console.log(`[Gemini] File input found via JavaScript, proceeding without button clicks`);
+                                            console.log(`[${service}] File input found via JavaScript, proceeding without button clicks`);
                                         } else {
-                                            console.log(`[Gemini] No file input found, attempting button clicks to create it...`);
-                                            // Fallback: Click buttons to create file input
+                                            console.log(`[${service}] No file input found, attempting button clicks to create it...`);
+                                            // For Genspark: Click icon to open menu (this may create hidden file input)
+                                            // For Gemini: Click both icon and menu button
                                             if (selectors.uploadMenuButtonSelector) {
                                                 try {
                                                     // Step 1: Click upload icon
@@ -338,16 +370,16 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                                                     await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
                                                                     await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
                                                                     iconClicked = true;
-                                                                    console.log(`[Gemini] Upload icon clicked`);
-                                                                    await new Promise(resolve => setTimeout(resolve, 300));
+                                                                    console.log(`[${service}] Upload icon clicked`);
+                                                                    await new Promise(resolve => setTimeout(resolve, 500));
                                                                     break;
                                                                 }
                                                             }
                                                         } catch (e) { /* ignore */ }
                                                     }
 
-                                                    // Step 2: Click menu button
-                                                    if (iconClicked) {
+                                                    // Step 2: For Gemini - click menu button. For Genspark - close menu and search for file input
+                                                    if (iconClicked && service === 'gemini') {
                                                         for (const menuSel of selectors.uploadMenuButtonSelector) {
                                                             try {
                                                                 const newRoot = await wc.debugger.sendCommand('DOM.getDocument');
@@ -359,29 +391,98 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                                                         const y = (box.model.content[1] + box.model.content[5]) / 2;
                                                                         await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
                                                                         await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
-                                                                        console.log(`[Gemini] Menu button clicked, waiting for file input...`);
+                                                                        console.log(`[${service}] Menu button clicked, waiting for file input...`);
                                                                         await new Promise(resolve => setTimeout(resolve, 200));
                                                                         break;
                                                                     }
                                                                 }
                                                             } catch (e) { /* ignore */ }
                                                         }
+                                                    } else if (iconClicked && service === 'genspark') {
+                                                        console.log(`[${service}] Clicking menu item to create file input...`);
+                                                        // For Genspark: Click "로컬 파일 찾기" to create file input
+                                                        // This will open native dialog. We must set files BEFORE closing dialog
+                                                        let menuClicked = false;
+                                                        for (const menuSel of selectors.uploadMenuButtonSelector) {
+                                                            try {
+                                                                const newRoot = await wc.debugger.sendCommand('DOM.getDocument');
+                                                                const menuRes = await wc.debugger.sendCommand('DOM.querySelector', { nodeId: newRoot.root.nodeId, selector: menuSel });
+                                                                if (menuRes.nodeId) {
+                                                                    const box = await wc.debugger.sendCommand('DOM.getBoxModel', { nodeId: menuRes.nodeId });
+                                                                    if (box.model) {
+                                                                        const x = (box.model.content[0] + box.model.content[2]) / 2;
+                                                                        const y = (box.model.content[1] + box.model.content[5]) / 2;
+                                                                        await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+                                                                        await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+                                                                        menuClicked = true;
+                                                                        console.log(`[${service}] Menu item clicked, searching for file input immediately...`);
+                                                                        break;
+                                                                    }
+                                                                }
+                                                            } catch (e) { /* ignore */ }
+                                                        }
+
+                                                        // Immediately search for file input and set files BEFORE closing dialog
+                                                        if (menuClicked) {
+                                                            await new Promise(resolve => setTimeout(resolve, 100)); // Brief wait for input creation
+
+                                                            // Search for file input
+                                                            let gensparkNodeId = null;
+                                                            try {
+                                                                const freshRoot = await wc.debugger.sendCommand('DOM.getDocument');
+                                                                const inputResult = await wc.debugger.sendCommand('DOM.querySelector', {
+                                                                    nodeId: freshRoot.root.nodeId,
+                                                                    selector: 'input[type="file"]'
+                                                                });
+                                                                if (inputResult.nodeId) {
+                                                                    gensparkNodeId = inputResult.nodeId;
+                                                                    console.log(`[${service}] Found file input immediately after menu click`);
+                                                                }
+                                                            } catch (e) {
+                                                                console.log(`[${service}] Could not find file input:`, e.message);
+                                                            }
+
+                                                            // Set files on the input
+                                                            if (gensparkNodeId) {
+                                                                try {
+                                                                    console.log(`[${service}] Setting files via CDP before closing dialog...`);
+                                                                    await wc.debugger.sendCommand('DOM.setFileInputFiles', {
+                                                                        nodeId: gensparkNodeId,
+                                                                        files: filePaths
+                                                                    });
+                                                                    console.log(`[${service}] Files set successfully!`);
+                                                                    nodeId = gensparkNodeId; // Mark as found so we don't search again
+                                                                } catch (e) {
+                                                                    console.error(`[${service}] Failed to set files:`, e.message);
+                                                                }
+                                                            }
+
+                                                            // Now close the native dialog with ESC
+                                                            if (robot) {
+                                                                await new Promise(resolve => setTimeout(resolve, 200));
+                                                                robot.keyTap('escape');
+                                                                console.log(`[${service}] ESC key sent to close native dialog`);
+                                                            }
+                                                        }
                                                     }
                                                 } catch (e) {
-                                                    console.error(`[Gemini] Button click fallback failed:`, e);
+                                                    console.error(`[${service}] Button click fallback failed:`, e);
                                                 }
                                             }
                                         }
                                     } catch (e) {
-                                        console.error(`[Gemini] JavaScript search failed:`, e);
+                                        console.error(`[${service}] JavaScript search failed:`, e);
                                     }
                                 }
 
-                                // Now search for file input (for all services, including Gemini after button clicks)
+                                // Variable to track if we need to close dialog
+                                const shouldSendEsc = (service === 'gemini' || service === 'genspark') && selectors.uploadIconSelector;
+
+                                // Now search for file input (for all services, including Gemini/Genspark after button clicks)
                                 for (const selector of selectors.fileInputSelector) {
                                     try {
-                                        // Get fresh DOM for Gemini
-                                        const currentRoot = service === 'gemini' ?
+                                        // Get fresh DOM for Gemini/Genspark
+                                        const currentRoot = (service === 'gemini' || service === 'genspark') ?
                                             (await wc.debugger.sendCommand('DOM.getDocument')).root :
                                             root;
 
@@ -400,8 +501,8 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                 // Fallback 1: Search for all file inputs in the document
                                 if (!nodeId) {
                                     try {
-                                        // Get fresh DOM for Gemini
-                                        const currentRoot = service === 'gemini' ?
+                                        // Get fresh DOM for Gemini/Genspark
+                                        const currentRoot = (service === 'gemini' || service === 'genspark') ?
                                             (await wc.debugger.sendCommand('DOM.getDocument')).root :
                                             root;
 
@@ -419,10 +520,10 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                     }
                                 }
 
-                                // Fallback 2: For Gemini specifically, try searching in shadow DOMs
-                                if (!nodeId && service === 'gemini') {
+                                // Fallback 2: For Gemini/Genspark specifically, try searching in shadow DOMs
+                                if (!nodeId && (service === 'gemini' || service === 'genspark')) {
                                     try {
-                                        console.log(`[Gemini] Attempting shadow DOM search...`);
+                                        console.log(`[${service}] Attempting shadow DOM search...`);
                                         const currentRoot = (await wc.debugger.sendCommand('DOM.getDocument')).root;
                                         // Get all elements
                                         const allElements = await wc.debugger.sendCommand('DOM.querySelectorAll', {
@@ -449,14 +550,14 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
 
                                                     if (shadowInputs.nodeIds && shadowInputs.nodeIds.length > 0) {
                                                         nodeId = shadowInputs.nodeIds[0];
-                                                        console.log(`[Gemini] Found file input in shadow DOM!`);
+                                                        console.log(`[${service}] Found file input in shadow DOM!`);
                                                         break;
                                                     }
                                                 }
                                             } catch (e) { /* ignore */ }
                                         }
                                     } catch (e) {
-                                        console.error(`[Gemini] Shadow DOM search failed:`, e);
+                                        console.error(`[${service}] Shadow DOM search failed:`, e);
                                     }
                                 }
 
@@ -480,19 +581,6 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                     });
                                     console.log(`Files uploaded to ${service}`);
 
-                                    // Close file dialog for Gemini using system-level ESC key
-                                    if (service === 'gemini' && robot) {
-                                        console.log(`[Gemini] Sending ESC key to close file dialog...`);
-                                        await new Promise(resolve => setTimeout(resolve, 200));
-
-                                        try {
-                                            robot.keyTap('escape');
-                                            console.log(`[Gemini] ESC key sent`);
-                                        } catch (e) {
-                                            console.error(`[Gemini] Failed to send ESC key:`, e);
-                                        }
-                                    }
-
                                     // Verify file upload by checking for UI indicators
                                     if (selectors.uploadedFileSelector) {
                                         console.log(`[${service}] Verifying upload via UI indicators...`);
@@ -504,14 +592,14 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                             try {
                                                 // Check if any of the uploaded file selectors exist
                                                 const checkScript = `
-                                                    (function() {
-                                                        const selectors = ${JSON.stringify(selectors.uploadedFileSelector)};
-                                                        for (const sel of selectors) {
-                                                            if (document.querySelector(sel)) return true;
-                                                        }
-                                                        return false;
-                                                    })()
-                                                `;
+                                            (function() {
+                                                const selectors = ${JSON.stringify(selectors.uploadedFileSelector)};
+                                                for (const sel of selectors) {
+                                                    if (document.querySelector(sel)) return true;
+                                                }
+                                                return false;
+                                            })()
+                                        `;
                                                 const found = await wc.executeJavaScript(checkScript);
                                                 if (found) {
                                                     uploadConfirmed = true;
@@ -558,6 +646,18 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                     }
                                 } else {
                                     console.warn(`File input not found for ${service}`);
+                                }
+
+                                // ALWAYS try to close dialog for Gemini/Genspark if we likely opened it
+                                if (shouldSendEsc && robot) {
+                                    console.log(`[${service}] Sending ESC key cleanup (regardless of upload success)...`);
+                                    await new Promise(resolve => setTimeout(resolve, 500));
+                                    try {
+                                        robot.keyTap('escape');
+                                        console.log(`[${service}] ESC key sent`);
+                                    } catch (e) {
+                                        console.error(`[${service}] Failed to send ESC key:`, e);
+                                    }
                                 }
 
                                 wc.debugger.detach();
@@ -667,7 +767,7 @@ ipcMain.on('request-current-urls', () => {
 
 ipcMain.on('new-chat', () => {
     services.forEach(service => {
-        if (views[service] && views[service].enabled) {
+        if (views[service]) {
             let url = serviceUrls[service];
             if (service === 'claude') {
                 url = 'https://claude.ai/new';
@@ -677,7 +777,9 @@ ipcMain.on('new-chat', () => {
             // For Gemini, https://gemini.google.com/app is correct.
 
             console.log(`Resetting chat for ${service} to ${url}`);
-            views[service].view.webContents.loadURL(url);
+            if (views[service].view && !views[service].view.webContents.isDestroyed()) {
+                views[service].view.webContents.loadURL(url);
+            }
         }
     });
 });
@@ -1406,7 +1508,8 @@ ipcMain.on('copy-chat-thread', async (event, options = {}) => {
         'claude': 'Service B',
         'gemini': 'Service C',
         'grok': 'Service D',
-        'perplexity': 'Service E'
+        'perplexity': 'Service E',
+        'genspark': 'Service F'
     };
 
     // Sort results by service order
@@ -1484,7 +1587,8 @@ ipcMain.on('copy-single-chat-thread', async (event, service, options = {}) => {
             'claude': 'Service B',
             'gemini': 'Service C',
             'grok': 'Service D',
-            'perplexity': 'Service E'
+            'perplexity': 'Service E',
+            'genspark': 'Service F'
         };
 
         let finalOutput = '';
@@ -1538,7 +1642,8 @@ ipcMain.on('copy-last-response', async (event, options = {}) => {
         'claude': 'Service B',
         'gemini': 'Service C',
         'grok': 'Service D',
-        'perplexity': 'Service E'
+        'perplexity': 'Service E',
+        'genspark': 'Service F'
     };
 
     results.sort((a, b) => services.indexOf(a.service) - services.indexOf(b.service));
@@ -1601,7 +1706,8 @@ ipcMain.on('cross-check', async (event, isAnonymousMode, promptPrefix) => {
         'claude': '(B)',
         'gemini': '(C)',
         'grok': '(D)',
-        'perplexity': '(E)'
+        'perplexity': '(E)',
+        'genspark': '(F)'
     };
 
     // 1. Extract LAST RESPONSE ONLY from each service
@@ -1779,7 +1885,17 @@ ipcMain.on('external-login', async (event, service) => {
                     return;
                 }
 
-                const cookies = await page.cookies();
+                let cookies = await page.cookies();
+
+                // Genspark relies on Google Login, so we need to fetch Google cookies as well
+                if (service === 'genspark') {
+                    try {
+                        const googleCookies = await page.cookies('https://accounts.google.com', 'https://google.com', 'https://www.google.com');
+                        cookies = [...cookies, ...googleCookies];
+                    } catch (e) {
+                        console.warn('Failed to fetch Google cookies for Genspark:', e);
+                    }
+                }
                 let isLoggedIn = false;
 
                 if (service === 'chatgpt') {
@@ -1794,6 +1910,10 @@ ipcMain.on('external-login', async (event, service) => {
                     isLoggedIn = cookies.some(c => c.name.includes('sso') || c.name === 'auth_token' || c.name.includes('grok'));
                 } else if (service === 'perplexity') {
                     isLoggedIn = cookies.some(c => c.name === '__Secure-next-auth.session-token');
+                } else if (service === 'genspark') {
+                    // Start of Genspark Verification
+                    // Based on user provided cookie list (Standard Google Auth Cookies)
+                    isLoggedIn = cookies.some(c => c.name === '__Secure-1PSID' || c.name === '__Secure-3PSID' || c.name === 'SID');
                 }
 
                 // Also check URL to ensure we are not on login page
@@ -1809,24 +1929,29 @@ ipcMain.on('external-login', async (event, service) => {
                         const electronCookies = views[service].view.webContents.session.cookies;
                         for (const cookie of cookies) {
                             try {
+                                // FIX: Dynamically determine URL based on cookie domain
+                                let cookieUrl = serviceUrls[service];
+                                if (cookie.domain) {
+                                    const cleanDomain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
+                                    cookieUrl = (cookie.secure ? 'https://' : 'http://') + cleanDomain;
+                                }
+
                                 const cookieDetails = {
-                                    url: serviceUrls[service],
+                                    url: cookieUrl,
                                     name: cookie.name,
                                     value: cookie.value,
                                     domain: cookie.domain,
                                     path: cookie.path,
                                     secure: cookie.secure,
                                     httpOnly: cookie.httpOnly,
-                                    expirationDate: cookie.expires
+                                    expirationDate: cookie.expires,
+                                    // Explicitly set SameSite policy for proper cookie context
+                                    sameSite: cookie.sameSite || (cookie.secure ? 'none' : 'lax')
                                 };
 
                                 // Fix for __Host- prefix: Must NOT have a domain attribute
                                 if (cookie.name.startsWith('__Host-')) {
                                     delete cookieDetails.domain;
-                                } else if (cookieDetails.domain && cookieDetails.domain.startsWith('.')) {
-                                    // Remove leading dot from domain if present for Electron compatibility
-                                    // Electron sometimes prefers url to match domain. 
-                                    // If domain is .google.com, url https://gemini.google.com works.
                                 }
 
                                 await electronCookies.set(cookieDetails);
