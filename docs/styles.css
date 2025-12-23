@@ -149,12 +149,14 @@ nav {
     display: flex;
     gap: 40px;
     margin: 0 auto;
+    white-space: nowrap;
 }
 
 .nav-links a {
     color: var(--text-secondary);
     font-weight: 500;
     font-size: 0.95rem;
+    white-space: nowrap;
 }
 
 .nav-links a:hover {
@@ -746,9 +748,10 @@ footer {
    ======================================== */
 
 /* Tablet */
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
     .nav-links {
         gap: 24px;
+        white-space: nowrap;
     }
 
     .footer-grid {
