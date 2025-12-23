@@ -215,7 +215,57 @@
         </div>
     </footer>
 
+    <!-- Scroll to Top Button -->
+    <button id="scroll-to-top-btn" title="Scroll to top" style="
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        color: white;
+        border: none;
+        cursor: pointer;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+        z-index: 1000;
+    ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+            <path d="M18 15l-6-6-6 6"></path>
+        </svg>
+    </button>
+
     <script src="script.js"></script>
+    <script>
+        // Scroll to Top Button
+        const scrollBtn = document.getElementById('scroll-to-top-btn');
+
+        window.addEventListener('scroll', function () {
+            if (window.scrollY > 300) {
+                scrollBtn.style.display = 'flex';
+            } else {
+                scrollBtn.style.display = 'none';
+            }
+        });
+
+        scrollBtn.addEventListener('click', function () {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        scrollBtn.addEventListener('mouseenter', function () {
+            this.style.transform = 'translateY(-3px)';
+            this.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
+        });
+
+        scrollBtn.addEventListener('mouseleave', function () {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+        });
+    </script>
 </body>
 
 </html>

@@ -9,6 +9,444 @@
         content="Discover real-world use cases for Sync Multi Chat. Learn how researchers, creators, and developers leverage multi-AI workflows.">
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* Use Cases Page - Enhanced Styles */
+
+        /* Hero adjustments */
+        .use-case-hero {
+            padding: 180px 0 60px;
+        }
+
+        /* Role Quick Jump */
+        .role-quick-jump {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+            padding: 0 1rem;
+        }
+
+        .role-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .role-btn:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: var(--icon-blue);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .role-btn.active {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(168, 85, 247, 0.2));
+            border-color: var(--icon-blue);
+            color: white;
+        }
+
+        /* Scenario Section */
+        .scenario-section {
+            padding: 60px 0;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .scenario-section:last-of-type {
+            border-bottom: none;
+        }
+
+        .scenario-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .scenario-icon-circle {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(168, 85, 247, 0.2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .scenario-icon-circle svg {
+            width: 28px;
+            height: 28px;
+            stroke: var(--icon-blue);
+        }
+
+        .scenario-header h2 {
+            text-align: left;
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .scenario-tagline {
+            color: var(--text-tertiary);
+            font-size: 1rem;
+            margin-bottom: 0;
+        }
+
+        /* Scenario Cards - 2x1 Stacked Layout */
+        .scenario-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .scenario-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .scenario-card:hover {
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        /* New Card Header Layout */
+        .scenario-card-header {
+            padding: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .scenario-card-header:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .scenario-card-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .scenario-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .scenario-card-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.4;
+            margin-bottom: 0;
+        }
+
+        /* Header Right Side - Metrics + Features */
+        .scenario-card-meta {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .header-metrics {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .header-metric {
+            text-align: center;
+            padding: 0.4rem 0.75rem;
+            background: rgba(34, 197, 94, 0.08);
+            border-radius: 8px;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .header-metric .value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #4ade80;
+            line-height: 1;
+        }
+
+        .header-metric .label {
+            font-size: 0.65rem;
+            color: var(--text-tertiary);
+            margin-top: 0.2rem;
+            white-space: nowrap;
+        }
+
+        .header-features {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+
+        .feature-pill {
+            background: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            padding: 0.3rem 0.65rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .scenario-toggle {
+            font-size: 1.1rem;
+            color: var(--text-tertiary);
+            transition: transform 0.3s;
+            flex-shrink: 0;
+            width: 24px;
+            text-align: center;
+        }
+
+        .scenario-card.open .scenario-toggle {
+            transform: rotate(180deg);
+        }
+
+        /* Scenario Detail (hidden by default) */
+        .scenario-detail {
+            display: none;
+            padding: 0 1.5rem 1.5rem;
+            border-top: 1px solid var(--card-border);
+        }
+
+        .scenario-card.open .scenario-detail {
+            display: block;
+        }
+
+        /* Enhanced Comparison Box with Arrow */
+        .comparison-box {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 1.5rem;
+            align-items: stretch;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin: 1.25rem 0;
+        }
+
+        .comparison-col {
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .comparison-col.before {
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.15);
+        }
+
+        .comparison-col.after {
+            background: rgba(34, 197, 94, 0.05);
+            border: 1px solid rgba(34, 197, 94, 0.15);
+        }
+
+        .comparison-col h4 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .comparison-col.before h4 {
+            color: #fca5a5;
+        }
+
+        .comparison-col.after h4 {
+            color: #4ade80;
+        }
+
+        .comparison-col ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .comparison-col li {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+            padding-left: 1.25rem;
+            position: relative;
+        }
+
+        .comparison-col.before li::before {
+            content: "×";
+            position: absolute;
+            left: 0;
+            color: #f87171;
+            font-weight: bold;
+        }
+
+        .comparison-col.after li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4ade80;
+            font-weight: bold;
+        }
+
+        .comparison-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: #4ade80;
+        }
+
+        /* Workflow Steps */
+        .workflow-steps {
+            margin-top: 1.25rem;
+        }
+
+        .workflow-steps h4 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .step-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            counter-reset: step;
+        }
+
+        .step-list li {
+            counter-increment: step;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.875rem 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .step-list li:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, var(--icon-blue), var(--icon-purple));
+            color: white;
+            min-width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+            line-height: 1.5;
+        }
+
+        .feature-tag {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* CTA Section */
+        .cta-section-enhanced {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%);
+            border-radius: 20px;
+            margin: 4rem 0;
+        }
+
+        .cta-section-enhanced h2 {
+            margin-bottom: 1rem;
+        }
+
+        .cta-section-enhanced p {
+            font-size: 1.15rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .scenario-card-header {
+                flex-wrap: wrap;
+            }
+
+            .scenario-card-meta {
+                width: 100%;
+                justify-content: flex-start;
+                margin-top: 0.75rem;
+            }
+
+            .comparison-box {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .comparison-arrow {
+                transform: rotate(90deg);
+                padding: 0.5rem 0;
+            }
+
+            .step-list {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .role-quick-jump {
+                justify-content: flex-start;
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                padding-bottom: 0.5rem;
+            }
+
+            .role-btn {
+                white-space: nowrap;
+            }
+
+            .scenario-header {
+                flex-direction: column;
+            }
+
+            .header-metrics {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -41,462 +479,787 @@
 
     <header class="hero use-case-hero">
         <div class="container">
-            <h1>Real-World <span class="gradient-text">Use Cases</span></h1>
-            <p class="hero-tagline">See how power users leverage multi-AI workflows to accelerate research, boost
-                creativity, and make better decisions.</p>
+            <h1>Which <span class="gradient-text">Workflow</span> Will You Transform?</h1>
+            <p class="hero-tagline">Explore proven scenarios from real users and accelerate your AI-powered
+                productivity.</p>
+
+            <div class="role-quick-jump">
+                <a href="#researcher" class="role-btn active">Research & Analysis</a>
+                <a href="#creator" class="role-btn">Content Creation</a>
+                <a href="#business" class="role-btn">Business Strategy</a>
+                <a href="#educator" class="role-btn">Education</a>
+                <a href="#developer" class="role-btn">Development</a>
+            </div>
         </div>
     </header>
 
     <main class="container">
 
-        <!-- Persona: Researcher -->
-        <section class="use-case-section" id="researcher">
-            <div class="persona-header">
-                <span class="persona-icon">📚</span>
+        <!-- Researcher & Analyst -->
+        <section class="scenario-section" id="researcher">
+            <div class="scenario-header">
+                <div class="scenario-icon-circle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                </div>
                 <div>
                     <h2>Researcher & Analyst</h2>
-                    <p class="persona-desc">Deep dive into complex topics with multi-perspective analysis</p>
+                    <p class="scenario-tagline">Deep dive into complex topics with multi-perspective analysis</p>
                 </div>
             </div>
 
-            <div class="scenario-grid">
+            <div class="scenario-cards">
                 <!-- Scenario A -->
-                <div class="scenario-card">
-                    <div class="scenario-header">
-                        <span class="scenario-tag">Scenario A</span>
-                        <h3>Multi-Angle Document Analysis</h3>
-                    </div>
-                    <div class="workflow-steps">
-                        <div class="step">
-                            <span class="step-num">1</span>
-                            <span>Upload 100-page report via <strong>File Upload</strong></span>
+                <div class="scenario-card" data-scenario="a">
+                    <div class="scenario-card-header">
+                        <div class="scenario-card-info">
+                            <h3>Multi-Angle Document Analysis</h3>
+                            <p class="scenario-card-desc">Analyze 100+ page reports from multiple perspectives
+                                simultaneously</p>
                         </div>
-                        <div class="step">
-                            <span class="step-num">2</span>
-                            <span>Ask 5 AIs simultaneously: "Analyze key arguments from 3 perspectives"</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">3</span>
-                            <span>Use <strong>Cross Check</strong> to compare each AI's analysis</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">4</span>
-                            <span>Collect all 5 responses with <strong>Copy Last Response</strong></span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">5</span>
-                            <span>Send follow-up questions via <strong>Master Input</strong></span>
-                        </div>
-                    </div>
-                    <div class="impact-box">
-                        <div class="impact-title">⚡ Impact</div>
-                        <div class="impact-stats">
-                            <div class="stat">
-                                <span class="stat-before">Before: 30 min</span>
-                                <span class="stat-arrow">→</span>
-                                <span class="stat-after">After: 5 min</span>
+                        <div class="scenario-card-meta">
+                            <div class="header-metrics">
+                                <div class="header-metric">
+                                    <div class="value">6X</div>
+                                    <div class="label">Time Saved</div>
+                                </div>
+                                <div class="header-metric">
+                                    <div class="value">60%</div>
+                                    <div class="label">Fewer Blind Spots</div>
+                                </div>
                             </div>
-                            <div class="stat-highlight">6x Time Savings</div>
+                            <div class="header-features">
+                                <span class="feature-pill">File Upload</span>
+                                <span class="feature-pill">Cross Check</span>
+                                <span class="feature-pill">Copy All</span>
+                            </div>
+                            <span class="scenario-toggle">▼</span>
                         </div>
-                        <p class="impact-note">Anonymous Cross Check enables unbiased mutual verification</p>
+                    </div>
+                    <div class="scenario-detail">
+                        <div class="comparison-box">
+                            <div class="comparison-col before">
+                                <h4>Traditional Method</h4>
+                                <ul>
+                                    <li>Switch between 5 service tabs</li>
+                                    <li>Copy/paste same question repeatedly</li>
+                                    <li>30+ minutes total</li>
+                                    <li>Inconsistent queries</li>
+                                </ul>
+                            </div>
+                            <div class="comparison-arrow">→</div>
+                            <div class="comparison-col after">
+                                <h4>With Sync Multi Chat</h4>
+                                <ul>
+                                    <li>View 6 AIs on one screen</li>
+                                    <li>Enter prompt just once</li>
+                                    <li>Complete in 5 minutes</li>
+                                    <li>Anonymous cross-verification</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="workflow-steps">
+                            <h4>Workflow</h4>
+                            <ol class="step-list">
+                                <li>
+                                    <span class="step-number">1</span>
+                                    <span class="step-content">Upload a 100+ page government report or technical
+                                        document using the attachment feature</span>
+                                    <span class="feature-tag">📎 File Upload</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">2</span>
+                                    <span class="step-content">Enter your analysis prompt: "Analyze the key arguments
+                                        from 3 different perspectives"</span>
+                                    <span class="feature-tag">Master Input</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">3</span>
+                                    <span class="step-content">Click Send to broadcast the same prompt to all 6 AIs
+                                        simultaneously</span>
+                                    <span class="feature-tag">Send</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">4</span>
+                                    <span class="step-content">Use Cross Check to have each AI compare and verify the
+                                        other responses</span>
+                                    <span class="feature-tag">Cross Check</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">5</span>
+                                    <span class="step-content">Collect all 6 AI responses at once with a single
+                                        click</span>
+                                    <span class="feature-tag">Copy Last Response</span>
+                                </li>
+                            </ol>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Scenario B -->
-                <div class="scenario-card">
-                    <div class="scenario-header">
-                        <span class="scenario-tag">Scenario B</span>
-                        <h3>Accelerated Learning Loop</h3>
-                    </div>
-                    <div class="workflow-steps">
-                        <div class="step">
-                            <span class="step-num">1</span>
-                            <span>Start with: "What are the current limits of quantum computing?"</span>
+                <div class="scenario-card" data-scenario="b">
+                    <div class="scenario-card-header">
+                        <div class="scenario-card-info">
+                            <h3>Accelerated Learning Loop</h3>
+                            <p class="scenario-card-desc">Chain questions to rapidly build knowledge structures</p>
                         </div>
-                        <div class="step">
-                            <span class="step-num">2</span>
-                            <span>Collect follow-up questions from each AI response</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">3</span>
-                            <span>Select best 3 from 20 suggested questions</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">4</span>
-                            <span>Broadcast selected questions simultaneously</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">5</span>
-                            <span>Compare patterns with <strong>2x2 Layout</strong></span>
+                        <div class="scenario-card-meta">
+                            <div class="header-metrics">
+                                <div class="header-metric">
+                                    <div class="value">3X</div>
+                                    <div class="label">Knowledge Speed</div>
+                                </div>
+                            </div>
+                            <div class="header-features">
+                                <span class="feature-pill">Layout</span>
+                                <span class="feature-pill">Broadcast</span>
+                            </div>
+                            <span class="scenario-toggle">▼</span>
                         </div>
                     </div>
-                    <div class="impact-box">
-                        <div class="impact-title">📈 Value</div>
-                        <p class="impact-note"><strong>Conversation History</strong> tracks your learning path. Save and
-                            restore entire research sessions.</p>
+                    <div class="scenario-detail">
+                        <div class="comparison-box">
+                            <div class="comparison-col before">
+                                <h4>Sequential Learning</h4>
+                                <ul>
+                                    <li>Ask AI → Wait → Read → Design next question</li>
+                                    <li>Linear knowledge path</li>
+                                    <li>Single perspective per question</li>
+                                </ul>
+                            </div>
+                            <div class="comparison-arrow">→</div>
+                            <div class="comparison-col after">
+                                <h4>Parallel Learning</h4>
+                                <ul>
+                                    <li>Ask 6 AIs → Compare → Extract best follow-ups</li>
+                                    <li>Multi-dimensional knowledge map</li>
+                                    <li>Pattern recognition across responses</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="workflow-steps">
+                            <h4>Workflow</h4>
+                            <ol class="step-list">
+                                <li>
+                                    <span class="step-number">1</span>
+                                    <span class="step-content">Start with an initial question like "What are the current
+                                        limits of quantum computing?"</span>
+                                    <span class="feature-tag">Master Input</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">2</span>
+                                    <span class="step-content">Review each AI's response and collect the follow-up
+                                        questions they suggest</span>
+                                    <span class="feature-tag">Scroll Sync</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">3</span>
+                                    <span class="step-content">Select the best 3 questions from the 20+ suggestions
+                                        across all AI responses</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">4</span>
+                                    <span class="step-content">Broadcast your selected questions to all AIs
+                                        simultaneously</span>
+                                    <span class="feature-tag">Send</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">5</span>
+                                    <span class="step-content">Switch to 2x2 Layout to compare response patterns
+                                        side-by-side</span>
+                                    <span class="feature-tag">2x2 Layout</span>
+                                </li>
+                            </ol>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Persona: Creator -->
-        <section class="use-case-section" id="creator">
-            <div class="persona-header">
-                <span class="persona-icon">✍️</span>
+        <!-- Content Creator -->
+        <section class="scenario-section" id="creator">
+            <div class="scenario-header">
+                <div class="scenario-icon-circle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+                        <path d="M2 2l7.586 7.586"></path>
+                    </svg>
+                </div>
                 <div>
                     <h2>Content Creator & Writer</h2>
-                    <p class="persona-desc">Master prompt engineering and optimize content quality</p>
+                    <p class="scenario-tagline">Master prompt engineering and optimize content quality</p>
                 </div>
             </div>
 
-            <div class="scenario-grid">
+            <div class="scenario-cards">
                 <!-- Scenario C -->
-                <div class="scenario-card">
-                    <div class="scenario-header">
-                        <span class="scenario-tag">Scenario C</span>
-                        <h3>Optimal Prompt Engineering</h3>
-                    </div>
-                    <div class="workflow-steps">
-                        <div class="step">
-                            <span class="step-num">1</span>
-                            <span>Write 5 variations of your draft prompt</span>
+                <div class="scenario-card" data-scenario="c">
+                    <div class="scenario-card-header">
+                        <div class="scenario-card-info">
+                            <h3>Optimal Prompt Engineering</h3>
+                            <p class="scenario-card-desc">Discover each AI's strengths and create hybrid prompts</p>
                         </div>
-                        <div class="step">
-                            <span class="step-num">2</span>
-                            <span>Test each across 5 AIs (25 total combinations)</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">3</span>
-                            <span>Use <strong>Copy Chat Thread</strong> to collect all results</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">4</span>
-                            <span>Identify each AI's strength patterns</span>
-                        </div>
-                    </div>
-                    <div class="ai-strengths">
-                        <div class="strength"><span class="ai-name">ChatGPT</span> Structured outlines</div>
-                        <div class="strength"><span class="ai-name">Claude</span> Logical flow</div>
-                        <div class="strength"><span class="ai-name">Gemini</span> Creative angles</div>
-                        <div class="strength"><span class="ai-name">Perplexity</span> Latest data citations</div>
-                        <div class="strength"><span class="ai-name">Grok</span> Critical perspective</div>
-                    </div>
-                    <div class="impact-box">
-                        <div class="impact-title">⚡ Impact</div>
-                        <div class="impact-stats">
-                            <div class="stat">
-                                <span class="stat-before">Iteration time: 2h</span>
-                                <span class="stat-arrow">→</span>
-                                <span class="stat-after">20 min</span>
+                        <div class="scenario-card-meta">
+                            <div class="header-metrics">
+                                <div class="header-metric">
+                                    <div class="value">40%</div>
+                                    <div class="label">Quality Boost</div>
+                                </div>
+                                <div class="header-metric">
+                                    <div class="value">6X</div>
+                                    <div class="label">Faster Iteration</div>
+                                </div>
                             </div>
-                            <div class="stat-highlight">40% Quality Improvement</div>
+                            <div class="header-features">
+                                <span class="feature-pill">Master Input</span>
+                                <span class="feature-pill">Layout</span>
+                            </div>
+                            <span class="scenario-toggle">▼</span>
+                        </div>
+                    </div>
+                    <div class="scenario-detail">
+                        <div class="comparison-box">
+                            <div class="comparison-col before">
+                                <h4>Single AI Approach</h4>
+                                <ul>
+                                    <li>Test one prompt at a time</li>
+                                    <li>Limited style options</li>
+                                    <li>2+ hours iteration</li>
+                                </ul>
+                            </div>
+                            <div class="comparison-arrow">→</div>
+                            <div class="comparison-col after">
+                                <h4>Multi-AI Approach</h4>
+                                <ul>
+                                    <li>Test 5 versions × 6 AIs = 30 results</li>
+                                    <li>Identify each AI's strength</li>
+                                    <li>20 min iteration</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="workflow-steps">
+                            <h4>AI Strength Pattern</h4>
+                            <ol class="step-list">
+                                <li>
+                                    <span class="step-number">1</span>
+                                    <span class="step-content">Write 5 different versions of your prompt and test them
+                                        across all AIs</span>
+                                    <span class="feature-tag">Master Input</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">2</span>
+                                    <span class="step-content">Use Copy Chat Thread to collect all 30 results (5 prompts
+                                        × 6 AIs)</span>
+                                    <span class="feature-tag">Copy Chat Thread</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">3</span>
+                                    <span class="step-content">Identify each AI's strengths: ChatGPT (outlines), Claude
+                                        (logic), Gemini (creativity)</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">4</span>
+                                    <span class="step-content">Create a hybrid prompt combining each AI's best
+                                        elements</span>
+                                    <span class="feature-tag">Master Input</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">5</span>
+                                    <span class="step-content">Generate your final optimized output with the perfected
+                                        prompt</span>
+                                    <span class="feature-tag">Send</span>
+                                </li>
+                            </ol>
                         </div>
                     </div>
                 </div>
 
                 <!-- Scenario D -->
-                <div class="scenario-card">
-                    <div class="scenario-header">
-                        <span class="scenario-tag">Scenario D</span>
-                        <h3>A/B Testing at Scale</h3>
-                    </div>
-                    <div class="workflow-steps">
-                        <div class="step">
-                            <span class="step-num">1</span>
-                            <span>Describe product to 5 AIs simultaneously</span>
+                <div class="scenario-card" data-scenario="d">
+                    <div class="scenario-card-header">
+                        <div class="scenario-card-info">
+                            <h3>A/B Testing at Scale</h3>
+                            <p class="scenario-card-desc">Compare marketing copy variations instantly</p>
                         </div>
-                        <div class="step">
-                            <span class="step-num">2</span>
-                            <span>Compare different tone & style outputs</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">3</span>
-                            <span>Cross Check: "Which version is most persuasive?"</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">4</span>
-                            <span>Combine winning elements into final copy</span>
+                        <div class="scenario-card-meta">
+                            <div class="header-metrics">
+                                <div class="header-metric">
+                                    <div class="value">$500</div>
+                                    <div class="label">Saved/Project</div>
+                                </div>
+                            </div>
+                            <div class="header-features">
+                                <span class="feature-pill">Cross Check</span>
+                                <span class="feature-pill">Copy All</span>
+                            </div>
+                            <span class="scenario-toggle">▼</span>
                         </div>
                     </div>
-                    <div class="impact-box">
-                        <div class="impact-title">💰 ROI</div>
-                        <div class="roi-compare">
-                            <div class="roi-item old">
-                                <span class="roi-label">Traditional: 5 versions</span>
-                                <span class="roi-value">$500 + 3 days</span>
+                    <div class="scenario-detail">
+                        <div class="comparison-box">
+                            <div class="comparison-col before">
+                                <h4>Traditional Copywriting</h4>
+                                <ul>
+                                    <li>External copywriter: $500</li>
+                                    <li>5 versions in 3 days</li>
+                                    <li>Limited style range</li>
+                                </ul>
                             </div>
-                            <div class="roi-item new">
-                                <span class="roi-label">Sync Multi Chat</span>
-                                <span class="roi-value">5 min, subscription only</span>
+                            <div class="comparison-arrow">→</div>
+                            <div class="comparison-col after">
+                                <h4>With Sync Multi Chat</h4>
+                                <ul>
+                                    <li>Subscription cost only</li>
+                                    <li>6 versions in 5 minutes</li>
+                                    <li>Cross Check picks winner</li>
+                                </ul>
                             </div>
+                        </div>
+                        <div class="workflow-steps">
+                            <h4>Workflow</h4>
+                            <ol class="step-list">
+                                <li>
+                                    <span class="step-number">1</span>
+                                    <span class="step-content">Describe your product/service to all 6 AIs simultaneously
+                                        in the Master Input</span>
+                                    <span class="feature-tag">Master Input</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">2</span>
+                                    <span class="step-content">Click Send to generate 6 different marketing copy
+                                        versions at once</span>
+                                    <span class="feature-tag">Send</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">3</span>
+                                    <span class="step-content">Compare the different tone and style outputs using Scroll
+                                        Sync</span>
+                                    <span class="feature-tag">Scroll Sync</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">4</span>
+                                    <span class="step-content">Use Cross Check to ask: "Which version is the most
+                                        persuasive and why?"</span>
+                                    <span class="feature-tag">Cross Check</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">5</span>
+                                    <span class="step-content">Combine the winning elements from different versions into
+                                        your final copy</span>
+                                    <span class="feature-tag">Copy Last Response</span>
+                                </li>
+                            </ol>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Persona: Business -->
-        <section class="use-case-section" id="business">
-            <div class="persona-header">
-                <span class="persona-icon">💼</span>
+        <!-- Business Decision Maker -->
+        <section class="scenario-section" id="business">
+            <div class="scenario-header">
+                <div class="scenario-icon-circle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M12 20V10"></path>
+                        <path d="M18 20V4"></path>
+                        <path d="M6 20v-4"></path>
+                    </svg>
+                </div>
                 <div>
                     <h2>Business Decision Maker</h2>
-                    <p class="persona-desc">Reduce blind spots and validate decisions with multi-AI perspectives</p>
+                    <p class="scenario-tagline">Reduce blind spots and validate decisions with multi-AI perspectives</p>
                 </div>
             </div>
 
-            <div class="scenario-grid">
+            <div class="scenario-cards">
                 <!-- Scenario E -->
-                <div class="scenario-card">
-                    <div class="scenario-header">
-                        <span class="scenario-tag">Scenario E</span>
-                        <h3>Risk Analysis & Devil's Advocate</h3>
-                    </div>
-                    <div class="workflow-steps">
-                        <div class="step">
-                            <span class="step-num">1</span>
-                            <span>Ask: "What are the risks of investing in this startup?"</span>
+                <div class="scenario-card" data-scenario="e">
+                    <div class="scenario-card-header">
+                        <div class="scenario-card-info">
+                            <h3>Risk Analysis & Devil's Advocate</h3>
+                            <p class="scenario-card-desc">Collect opposing viewpoints before major decisions</p>
                         </div>
-                        <div class="step">
-                            <span class="step-num">2</span>
-                            <span>Collect risk factors from 5 AIs</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">3</span>
-                            <span><strong>Anonymous Mode</strong> Cross Check removes bias</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">4</span>
-                            <span>Meta question: "What risks did each AI miss?"</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">5</span>
-                            <span>Generate comprehensive risk matrix</span>
+                        <div class="scenario-card-meta">
+                            <div class="header-metrics">
+                                <div class="header-metric">
+                                    <div class="value">5X</div>
+                                    <div class="label">More Counter-Args</div>
+                                </div>
+                            </div>
+                            <div class="header-features">
+                                <span class="feature-pill">Anonymous</span>
+                                <span class="feature-pill">Cross Check</span>
+                            </div>
+                            <span class="scenario-toggle">▼</span>
                         </div>
                     </div>
-                    <div class="impact-box">
-                        <div class="impact-title">🎯 Decision Quality</div>
-                        <div class="impact-stats">
-                            <div class="stat-highlight">5x More Counter-Arguments</div>
-                            <p class="impact-note">Blind testing reduces confirmation bias</p>
+                    <div class="scenario-detail">
+                        <div class="comparison-box">
+                            <div class="comparison-col before">
+                                <h4>Single Advisor</h4>
+                                <ul>
+                                    <li>Limited risk perspectives</li>
+                                    <li>Confirmation bias</li>
+                                    <li>Missed edge cases</li>
+                                </ul>
+                            </div>
+                            <div class="comparison-arrow">→</div>
+                            <div class="comparison-col after">
+                                <h4>Multi-AI Council</h4>
+                                <ul>
+                                    <li>6 independent risk analyses</li>
+                                    <li>Anonymous Mode removes bias</li>
+                                    <li>Meta-question: "What did others miss?"</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="workflow-steps">
+                            <h4>Workflow</h4>
+                            <ol class="step-list">
+                                <li>
+                                    <span class="step-number">1</span>
+                                    <span class="step-content">Enter your question: "What are the risks of investing in
+                                        this startup?"</span>
+                                    <span class="feature-tag">Master Input</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">2</span>
+                                    <span class="step-content">Click Send to broadcast the question and collect risk
+                                        factors from all 6 AIs</span>
+                                    <span class="feature-tag">Send</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">3</span>
+                                    <span class="step-content">Enable Anonymous Mode to hide AI names and remove brand
+                                        bias during comparison</span>
+                                    <span class="feature-tag">Anonymous</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">4</span>
+                                    <span class="step-content">Use Cross Check with meta question: "What risks did each
+                                        AI miss?"</span>
+                                    <span class="feature-tag">Cross Check</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">5</span>
+                                    <span class="step-content">Copy all responses to generate a comprehensive risk
+                                        matrix</span>
+                                    <span class="feature-tag">Copy Last Response</span>
+                                </li>
+                            </ol>
                         </div>
                     </div>
                 </div>
 
                 <!-- Scenario F -->
-                <div class="scenario-card">
-                    <div class="scenario-header">
-                        <span class="scenario-tag">Scenario F</span>
-                        <h3>Competitive Intelligence</h3>
-                    </div>
-                    <div class="workflow-steps">
-                        <div class="step">
-                            <span class="step-num">1</span>
-                            <span>Upload 5 competitor press releases via <strong>File Upload</strong></span>
+                <div class="scenario-card" data-scenario="f">
+                    <div class="scenario-card-header">
+                        <div class="scenario-card-info">
+                            <h3>Competitive Intelligence</h3>
+                            <p class="scenario-card-desc">Analyze competitor strategies in hours, not weeks</p>
                         </div>
-                        <div class="step">
-                            <span class="step-num">2</span>
-                            <span>Ask: "What is each company's strategic direction?"</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">3</span>
-                            <span>Compare chronologically with <strong>3x1 Layout</strong></span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">4</span>
-                            <span>Use <strong>Scroll Sync</strong> to review matching sections</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">5</span>
-                            <span>Identify patterns → Build your strategy</span>
+                        <div class="scenario-card-meta">
+                            <div class="header-metrics">
+                                <div class="header-metric">
+                                    <div class="value">1 Week</div>
+                                    <div class="label">Faster Insights</div>
+                                </div>
+                            </div>
+                            <div class="header-features">
+                                <span class="feature-pill">File Upload</span>
+                                <span class="feature-pill">Scroll Sync</span>
+                            </div>
+                            <span class="scenario-toggle">▼</span>
                         </div>
                     </div>
-                    <div class="impact-box">
-                        <div class="impact-title">⏱️ Processing Speed</div>
-                        <div class="roi-compare">
-                            <div class="roi-item old">
-                                <span class="roi-label">Traditional: 2 analysts × 1 week</span>
+                    <div class="scenario-detail">
+                        <div class="comparison-box">
+                            <div class="comparison-col before">
+                                <h4>Traditional Analysis</h4>
+                                <ul>
+                                    <li>2 analysts × 1 week</li>
+                                    <li>Manual document review</li>
+                                    <li>Siloed perspectives</li>
+                                </ul>
                             </div>
-                            <div class="roi-item new">
-                                <span class="roi-label">With Sync Multi Chat</span>
-                                <span class="roi-value">Draft in under 1 hour</span>
+                            <div class="comparison-arrow">→</div>
+                            <div class="comparison-col after">
+                                <h4>AI-Accelerated</h4>
+                                <ul>
+                                    <li>Draft in under 1 hour</li>
+                                    <li>Upload 5 competitor docs at once</li>
+                                    <li>Scroll Sync for section comparison</li>
+                                </ul>
                             </div>
+                        </div>
+                        <div class="workflow-steps">
+                            <h4>Workflow</h4>
+                            <ol class="step-list">
+                                <li>
+                                    <span class="step-number">1</span>
+                                    <span class="step-content">Upload 5 competitor press releases or strategy documents
+                                        simultaneously</span>
+                                    <span class="feature-tag">📎 File Upload</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">2</span>
+                                    <span class="step-content">Ask: "What is each company's strategic direction and key
+                                        initiatives?"</span>
+                                    <span class="feature-tag">Master Input</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">3</span>
+                                    <span class="step-content">Switch to 3x1 Layout to compare responses in a timeline
+                                        view</span>
+                                    <span class="feature-tag">3x1 Layout</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">4</span>
+                                    <span class="step-content">Enable Scroll Sync to review matching sections across all
+                                        AI responses together</span>
+                                    <span class="feature-tag">Scroll Sync</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">5</span>
+                                    <span class="step-content">Identify patterns across competitor analyses and build
+                                        your strategic response</span>
+                                    <span class="feature-tag">Copy Last Response</span>
+                                </li>
+                            </ol>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Persona: Educator -->
-        <section class="use-case-section" id="educator">
-            <div class="persona-header">
-                <span class="persona-icon">🎓</span>
+        <!-- Educator -->
+        <section class="scenario-section" id="educator">
+            <div class="scenario-header">
+                <div class="scenario-icon-circle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                    </svg>
+                </div>
                 <div>
                     <h2>Educator & Trainer</h2>
-                    <p class="persona-desc">Generate multi-level explanations for diverse audiences</p>
+                    <p class="scenario-tagline">Generate multi-level explanations for diverse audiences</p>
                 </div>
             </div>
 
-            <div class="scenario-grid single">
+            <div class="scenario-cards">
                 <!-- Scenario G -->
-                <div class="scenario-card wide">
-                    <div class="scenario-header">
-                        <span class="scenario-tag">Scenario G</span>
-                        <h3>Multi-Level Content Generation</h3>
-                    </div>
-                    <div class="workflow-steps">
-                        <div class="step">
-                            <span class="step-num">1</span>
-                            <span>Prompt: "Explain quantum entanglement for [elementary/middle/high/college/expert]
-                                level"</span>
+                <div class="scenario-card" data-scenario="g">
+                    <div class="scenario-card-header">
+                        <div class="scenario-card-info">
+                            <h3>Multi-Level Content Generation</h3>
+                            <p class="scenario-card-desc">Create explanations from elementary to expert level</p>
                         </div>
-                        <div class="step">
-                            <span class="step-num">2</span>
-                            <span>View responses in <strong>1x4 Layout</strong></span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">3</span>
-                            <span>Extract best expressions for each level</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">4</span>
-                            <span>Save custom Cross Check prompts: "Which explanation fits each age group best?"</span>
-                        </div>
-                    </div>
-                    <div class="impact-box">
-                        <div class="impact-title">📚 Educational Efficiency</div>
-                        <div class="impact-stats">
-                            <div class="stat">
-                                <span class="stat-after">1 concept → 5 level explanations in 10 min</span>
+                        <div class="scenario-card-meta">
+                            <div class="header-metrics">
+                                <div class="header-metric">
+                                    <div class="value">40%</div>
+                                    <div class="label">Comprehension+</div>
+                                </div>
+                                <div class="header-metric">
+                                    <div class="value">5</div>
+                                    <div class="label">Difficulty Levels</div>
+                                </div>
                             </div>
-                            <div class="stat-highlight">40% Better Student Comprehension</div>
-                            <p class="impact-note">Pilot test results from real classroom usage</p>
+                            <div class="header-features">
+                                <span class="feature-pill">Layout</span>
+                                <span class="feature-pill">Cross Check</span>
+                            </div>
+                            <span class="scenario-toggle">▼</span>
+                        </div>
+                    </div>
+                    <div class="scenario-detail">
+                        <div class="comparison-box">
+                            <div class="comparison-col before">
+                                <h4>Manual Adaptation</h4>
+                                <ul>
+                                    <li>Write each level separately</li>
+                                    <li>Hours per concept</li>
+                                    <li>Inconsistent quality</li>
+                                </ul>
+                            </div>
+                            <div class="comparison-arrow">→</div>
+                            <div class="comparison-col after">
+                                <h4>AI-Generated Levels</h4>
+                                <ul>
+                                    <li>1 prompt → 5 levels from 6 AIs</li>
+                                    <li>10 minutes per concept</li>
+                                    <li>Extract best expression per level</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="workflow-steps">
+                            <h4>Workflow</h4>
+                            <ol class="step-list">
+                                <li>
+                                    <span class="step-number">1</span>
+                                    <span class="step-content">Enter your prompt: "Explain quantum entanglement for
+                                        [elementary/middle/high/college/expert]"</span>
+                                    <span class="feature-tag">Master Input</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">2</span>
+                                    <span class="step-content">Click Send to get 6 different explanations at your chosen
+                                        difficulty level</span>
+                                    <span class="feature-tag">Send</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">3</span>
+                                    <span class="step-content">Switch to 1x4 Layout to view responses in a linear
+                                        comparison format</span>
+                                    <span class="feature-tag">1x4 Layout</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">4</span>
+                                    <span class="step-content">Extract the best expressions and metaphors from each AI
+                                        for each level</span>
+                                    <span class="feature-tag">Copy Last Response</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">5</span>
+                                    <span class="step-content">Save your custom Cross Check prompt for future use:
+                                        "Which explanation is best for this age group?"</span>
+                                    <span class="feature-tag">Cross Check</span>
+                                </li>
+                            </ol>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Persona: Developer -->
-        <section class="use-case-section" id="developer">
-            <div class="persona-header">
-                <span class="persona-icon">💻</span>
+        <!-- Developer -->
+        <section class="scenario-section" id="developer">
+            <div class="scenario-header">
+                <div class="scenario-icon-circle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <polyline points="16 18 22 12 16 6"></polyline>
+                        <polyline points="8 6 2 12 8 18"></polyline>
+                    </svg>
+                </div>
                 <div>
                     <h2>Developer & Engineer</h2>
-                    <p class="persona-desc">Democratize code review with multi-AI analysis</p>
+                    <p class="scenario-tagline">Democratize code review with multi-AI analysis</p>
                 </div>
             </div>
 
-            <div class="scenario-grid single">
+            <div class="scenario-cards">
                 <!-- Scenario H -->
-                <div class="scenario-card wide">
-                    <div class="scenario-header">
-                        <span class="scenario-tag">Scenario H</span>
-                        <h3>Multi-AI Code Review</h3>
-                    </div>
-                    <div class="workflow-steps">
-                        <div class="step">
-                            <span class="step-num">1</span>
-                            <span>Paste complex algorithm code</span>
+                <div class="scenario-card" data-scenario="h">
+                    <div class="scenario-card-header">
+                        <div class="scenario-card-info">
+                            <h3>Multi-AI Code Review</h3>
+                            <p class="scenario-card-desc">Find more bugs with collective AI intelligence</p>
                         </div>
-                        <div class="step">
-                            <span class="step-num">2</span>
-                            <span>Ask: "What are potential bugs in this code?"</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">3</span>
-                            <span>Collect 12 issues found by 5 AIs</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">4</span>
-                            <span>Cross Check: "What issues did each AI miss?"</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-num">5</span>
-                            <span>Discover 2 additional issues → Total: 14 issues</span>
-                        </div>
-                    </div>
-                    <div class="impact-box">
-                        <div class="impact-title">🔍 Quality Assurance</div>
-                        <div class="impact-stats">
-                            <div class="roi-compare">
-                                <div class="roi-item old">
-                                    <span class="roi-label">Single AI</span>
-                                    <span class="roi-value">Avg. 6 issues found</span>
+                        <div class="scenario-card-meta">
+                            <div class="header-metrics">
+                                <div class="header-metric">
+                                    <div class="value">233%</div>
+                                    <div class="label">More Bugs Found</div>
                                 </div>
-                                <div class="roi-item new">
-                                    <span class="roi-label">Sync Multi Chat</span>
-                                    <span class="roi-value">Avg. 14 issues found</span>
+                                <div class="header-metric">
+                                    <div class="value">14</div>
+                                    <div class="label">Avg Issues vs 6</div>
                                 </div>
                             </div>
-                            <div class="stat-highlight">233% Improvement</div>
+                            <div class="header-features">
+                                <span class="feature-pill">Cross Check</span>
+                                <span class="feature-pill">Copy All</span>
+                            </div>
+                            <span class="scenario-toggle">▼</span>
                         </div>
                     </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Arbitrage Section -->
-        <section class="arbitrage-section" id="value">
-            <h2>The Multi-AI Advantage</h2>
-            <p class="section-tagline">Unique value creation through simultaneous AI orchestration</p>
-
-            <div class="arbitrage-grid">
-                <div class="arbitrage-card">
-                    <div class="arbitrage-icon">⏱️</div>
-                    <h3>Time Arbitrage</h3>
-                    <div class="arbitrage-compare">
-                        <div class="arb-old">Traditional: 5 services × 5 min = 25 min</div>
-                        <div class="arb-new">Sync Multi Chat: 1 input = 5 min</div>
+                    <div class="scenario-detail">
+                        <div class="comparison-box">
+                            <div class="comparison-col before">
+                                <h4>Single AI Review</h4>
+                                <ul>
+                                    <li>Average 6 issues found</li>
+                                    <li>Model-specific blind spots</li>
+                                    <li>No cross-verification</li>
+                                </ul>
+                            </div>
+                            <div class="comparison-arrow">→</div>
+                            <div class="comparison-col after">
+                                <h4>Multi-AI Review</h4>
+                                <ul>
+                                    <li>Average 14 issues found</li>
+                                    <li>Cross Check finds missed issues</li>
+                                    <li>233% improvement</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="workflow-steps">
+                            <h4>Workflow</h4>
+                            <ol class="step-list">
+                                <li>
+                                    <span class="step-number">1</span>
+                                    <span class="step-content">Paste your complex algorithm or code snippet into the
+                                        Master Input area</span>
+                                    <span class="feature-tag">Master Input</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">2</span>
+                                    <span class="step-content">Ask: "What are the potential bugs or issues in this
+                                        code?"</span>
+                                    <span class="feature-tag">Send</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">3</span>
+                                    <span class="step-content">Review issues found by all 6 AIs using Scroll Sync for
+                                        easy comparison</span>
+                                    <span class="feature-tag">Scroll Sync</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">4</span>
+                                    <span class="step-content">Use Cross Check with meta question: "What issues did each
+                                        AI miss?"</span>
+                                    <span class="feature-tag">Cross Check</span>
+                                </li>
+                                <li>
+                                    <span class="step-number">5</span>
+                                    <span class="step-content">Collect all discovered issues (average 14 vs 6 with
+                                        single AI)</span>
+                                    <span class="feature-tag">Copy Last Response</span>
+                                </li>
+                            </ol>
+                        </div>
                     </div>
-                    <div class="arb-result">80% Time Saved</div>
-                </div>
-
-                <div class="arbitrage-card">
-                    <div class="arbitrage-icon">💎</div>
-                    <h3>Quality Arbitrage</h3>
-                    <div class="arbitrage-compare">
-                        <div class="arb-old">Single AI: 1 biased perspective</div>
-                        <div class="arb-new">Multi-AI: 5 views → Cross-verify → Unified insight</div>
-                    </div>
-                    <div class="arb-result">60% Fewer Blind Spots</div>
-                </div>
-
-                <div class="arbitrage-card">
-                    <div class="arbitrage-icon">💰</div>
-                    <h3>Cost Arbitrage</h3>
-                    <div class="arbitrage-compare">
-                        <div class="arb-old">Subscriptions: ChatGPT + Claude + Gemini + Grok + Perplexity = $96/mo</div>
-                        <div class="arb-new">Tab switching: 10% utilization → Sync Multi Chat: 70% utilization</div>
-                    </div>
-                    <div class="arb-result">7x Cost Efficiency</div>
-                </div>
-
-                <div class="arbitrage-card">
-                    <div class="arbitrage-icon">🧠</div>
-                    <h3>Learning Arbitrage</h3>
-                    <div class="arbitrage-compare">
-                        <div class="arb-old">Sequential: Question A → Answer → Design Question B → Repeat</div>
-                        <div class="arb-new">Parallel: Ask A-E → Pattern recognition → Meta-insights</div>
-                    </div>
-                    <div class="arb-result">3x Knowledge Acquisition Speed</div>
                 </div>
             </div>
         </section>
 
         <!-- CTA Section -->
-        <section class="cta-section">
-            <h2>Ready to Amplify Your AI Workflow?</h2>
+        <section class="cta-section-enhanced">
+            <h2>Ready to Transform Your Workflow?</h2>
             <p>Download Sync Multi Chat and experience the power of multi-AI orchestration.</p>
-            <a href="index.html#downloads" class="btn btn-white">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                Download Now
-            </a>
+            <div class="btn-group" style="justify-content: center;">
+                <a href="index.html#downloads" class="btn btn-white">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download Free
+                </a>
+                <a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank" class="btn btn-outline">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+                    </svg>
+                    View on GitHub
+                </a>
+            </div>
         </section>
 
     </main>
@@ -540,7 +1303,103 @@
         </div>
     </footer>
 
-    <script src="script.js"></script>
+    <!-- Scroll to Top Button -->
+    <button id="scroll-to-top-btn" title="Scroll to top" style="
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        color: white;
+        border: none;
+        cursor: pointer;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+        z-index: 1000;
+    ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+            <path d="M18 15l-6-6-6 6"></path>
+        </svg>
+    </button>
+
+    <script>
+        // Role button smooth scroll
+        document.querySelectorAll('.role-btn').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                const targetId = this.getAttribute('href');
+                const targetSection = document.querySelector(targetId);
+                if (targetSection) {
+                    const navHeight = 80;
+                    const targetPosition = targetSection.offsetTop - navHeight;
+                    window.scrollTo({ top: targetPosition, behavior: 'smooth' });
+                }
+            });
+        });
+
+        // Scenario card expand/collapse
+        document.querySelectorAll('.scenario-card-header').forEach(header => {
+            header.addEventListener('click', function () {
+                const card = this.closest('.scenario-card');
+                card.classList.toggle('open');
+            });
+        });
+
+        // Update active role button on scroll
+        const sections = document.querySelectorAll('.scenario-section');
+        const roleButtons = document.querySelectorAll('.role-btn');
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const id = entry.target.id;
+                    roleButtons.forEach(btn => {
+                        btn.classList.remove('active');
+                        if (btn.getAttribute('href') === `#${id}`) {
+                            btn.classList.add('active');
+                        }
+                    });
+                }
+            });
+        }, { threshold: 0.2, rootMargin: '-80px 0px 0px 0px' });
+
+        sections.forEach(section => observer.observe(section));
+
+        // Scroll to Top Button
+        const scrollBtn = document.getElementById('scroll-to-top-btn');
+
+        window.addEventListener('scroll', function () {
+            if (window.scrollY > 300) {
+                scrollBtn.style.display = 'flex';
+            } else {
+                scrollBtn.style.display = 'none';
+            }
+        });
+
+        scrollBtn.addEventListener('click', function () {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        scrollBtn.addEventListener('mouseenter', function () {
+            this.style.transform = 'translateY(-3px)';
+            this.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4)';
+        });
+
+        scrollBtn.addEventListener('mouseleave', function () {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+        });
+    </script>
+
 </body>
 
 </html>
