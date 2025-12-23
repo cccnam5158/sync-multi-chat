@@ -161,6 +161,13 @@ nav {
     color: white;
 }
 
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
 /* Hero Section */
 .hero {
     padding: 180px 0 100px;
@@ -565,10 +572,203 @@ footer {
     color: #e2e8f0;
 }
 
-/* Responsive */
+/* ========================================
+   HAMBURGER MENU
+   ======================================== */
+.hamburger-menu {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    z-index: 1001;
+}
+
+.hamburger-menu span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: white;
+    margin: 3px 0;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+}
+
+.hamburger-menu.active span:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+}
+
+.hamburger-menu.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger-menu.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(6px, -6px);
+}
+
+/* Mobile Navigation Overlay */
+.mobile-nav {
+    display: none;
+    position: fixed;
+    top: 80px;
+    left: 0;
+    right: 0;
+    background: var(--nav-bg);
+    backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid var(--card-border);
+    padding: 20px 24px;
+    z-index: 999;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.mobile-nav.active {
+    display: flex;
+}
+
+.mobile-nav a {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 1rem;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.mobile-nav a:last-child {
+    border-bottom: none;
+}
+
+.mobile-nav a:hover,
+.mobile-nav a.active {
+    color: white;
+}
+
+/* ========================================
+   LANGUAGE SELECTOR
+   ======================================== */
+.lang-selector {
+    position: relative;
+}
+
+.lang-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.lang-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.lang-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.lang-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    overflow: hidden;
+    min-width: 120px;
+    z-index: 1002;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.lang-dropdown.active {
+    display: block;
+}
+
+.lang-option {
+    display: block;
+    padding: 10px 16px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+}
+
+.lang-option:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+}
+
+.lang-option.active {
+    color: var(--icon-blue);
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.github-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.github-link:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.github-link svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+/* Tablet */
+@media (max-width: 1024px) {
+    .nav-links {
+        gap: 24px;
+    }
+
+    .footer-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+    }
+
+    .comparison-layout {
+        gap: 40px;
+    }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
     h1 {
         font-size: 2.5rem;
+    }
+
+    h2 {
+        font-size: 1.75rem;
     }
 
     .features-grid,
@@ -577,10 +777,122 @@ footer {
         grid-template-columns: 1fr;
     }
 
+    /* Navigation */
     .nav-links {
         display: none;
     }
 
+    .nav-actions .btn {
+        display: none;
+    }
+
+    .hamburger-menu {
+        display: flex;
+    }
+
+    .nav-wrapper {
+        position: relative;
+    }
+
+    .nav-logo span {
+        display: none;
+    }
+
+    /* Nav actions in mobile */
+    .nav-actions {
+        margin-left: auto;
+        gap: 8px;
+    }
+
+    .lang-btn {
+        padding: 6px 10px;
+    }
+
+    .github-link {
+        width: 32px;
+        height: 32px;
+    }
+
+    .github-link svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    /* Hero */
+    .hero {
+        padding: 140px 0 60px;
+    }
+
+    .hero p.hero-tagline {
+        font-size: 1rem;
+    }
+
+    .btn-group {
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .btn-group .btn {
+        width: 100%;
+        max-width: 300px;
+        justify-content: center;
+    }
+
+    /* Features */
+    .features-section {
+        padding: 60px 0;
+    }
+
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .feature-card {
+        padding: 28px 24px;
+    }
+
+    /* Comparison */
+    .comparison-section {
+        padding: 60px 0;
+    }
+
+    .comparison-visual {
+        aspect-ratio: 4 / 3;
+    }
+
+    /* Download */
+    .download-section {
+        padding: 60px 0;
+    }
+
+    .download-card {
+        padding: 32px 24px;
+    }
+
+    /* Footer */
+    .footer-grid {
+        grid-template-columns: 1fr;
+        gap: 32px;
+        text-align: center;
+    }
+
+    .footer-brand {
+        text-align: center;
+    }
+
+    .footer-brand p {
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+    }
+
+    /* Timeline */
     .timeline {
         padding-left: 40px;
     }
@@ -591,6 +903,57 @@ footer {
 
     .timeline-dot {
         left: -32px;
+    }
+
+    .version-header {
+        flex-wrap: wrap;
+    }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+    .container {
+        padding: 0 16px;
+    }
+
+    h1 {
+        font-size: 2rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    .hero-badge {
+        font-size: 0.8rem;
+        padding: 4px 12px;
+    }
+
+    .btn {
+        padding: 14px 24px;
+        font-size: 0.9rem;
+    }
+
+    .feature-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .download-card img {
+        width: 48px;
+        height: 48px;
+    }
+
+    .nav-logo {
+        font-size: 1.1rem;
+    }
+
+    .release-card-content {
+        padding: 20px;
+    }
+
+    .version-number {
+        font-size: 1.15rem;
     }
 }
 

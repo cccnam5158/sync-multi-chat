@@ -23,26 +23,65 @@
                         style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;">v0.5.6</span>
                 </a>
                 <div class="nav-links">
-                    <a href="index.html#features">Features</a>
-                    <a href="use_cases.html">Use Cases</a>
-                    <a href="index.html#comparison">How it Works</a>
-                    <a href="index.html#downloads">Downloads</a>
-                    <a href="release_notes.html" class="active" style="color: white;">Release Notes</a>
+                    <a href="index.html#features" data-i18n="nav.features">Features</a>
+                    <a href="use_cases.html" data-i18n="nav.useCases">Use Cases</a>
+                    <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
+                    <a href="index.html#downloads" data-i18n="nav.getStarted">Downloads</a>
+                    <a href="release_notes.html" class="active" style="color: white;"
+                        data-i18n="nav.releaseNotes">Release Notes</a>
                 </div>
                 <div class="nav-actions">
-                    <a href="index.html#downloads" class="btn btn-primary"
-                        style="background: #3b82f6; padding: 10px 20px; color: white;">Get Started</a>
+                    <!-- Language Selector -->
+                    <div class="lang-selector">
+                        <button class="lang-btn">
+                            <span>🇺🇸 English</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                style="width:12px;height:12px;">
+                                <path d="M6 9l6 6 6-6"></path>
+                            </svg>
+                        </button>
+                        <div class="lang-dropdown">
+                            <button class="lang-option active" data-lang="en">🇺🇸 English</button>
+                            <button class="lang-option" data-lang="ko">🇰🇷 한국어</button>
+                            <button class="lang-option" data-lang="ja">🇯🇵 日本語</button>
+                        </div>
+                    </div>
+                    <!-- GitHub Link -->
+                    <a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank" class="github-link"
+                        aria-label="GitHub">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path
+                                d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22">
+                            </path>
+                        </svg>
+                    </a>
+                    <!-- Hamburger Menu -->
+                    <div class="hamburger-menu">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
                 </div>
             </div>
         </div>
     </nav>
 
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav">
+        <a href="index.html#features" data-i18n="nav.features">Features</a>
+        <a href="use_cases.html" data-i18n="nav.useCases">Use Cases</a>
+        <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
+        <a href="index.html#downloads" data-i18n="nav.getStarted">Downloads</a>
+        <a href="release_notes.html" class="active" data-i18n="nav.releaseNotes">Release Notes</a>
+    </div>
+
     <main class="container" style="padding-top: 140px; padding-bottom: 100px;">
 
         <div
             style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 60px; max-width: 900px; margin-left: auto; margin-right: auto; padding-left: 20px;">
-            <h2 style="margin-bottom: 0;">Release History</h2>
-            <span style="color: var(--text-tertiary); font-size: 0.9rem;">Last updated: Dec 18, 2025</span>
+            <h2 style="margin-bottom: 0;" data-i18n="releaseNotes.title">Release History</h2>
+            <span style="color: var(--text-tertiary); font-size: 0.9rem;" data-i18n="releaseNotes.lastUpdated">Last
+                updated: Dec 18, 2025</span>
         </div>
 
         <div class="timeline">
@@ -53,14 +92,16 @@
 
                 <div class="version-header">
                     <span class="version-number">v0.5.6</span>
-                    <span class="badge-current">Current</span>
+                    <span class="badge-current" data-i18n="releaseNotes.current">Current</span>
                 </div>
 
                 <div class="release-card-content">
-                    <h3>✨ New Features</h3>
+                    <h3>✨ <span data-i18n="releaseNotes.newFeatures">New Features</span></h3>
                     <ul>
-                        <li><strong>Genspark Integration</strong>: Full support for search-driven AI chat.</li>
-                        <li><strong>Anonymous Mapping</strong>: Maps Genspark to alias "(F)".</li>
+                        <li data-i18n="releaseNotes.v056.feature1"><strong>Genspark Integration</strong>: Full support
+                            for search-driven AI chat.</li>
+                        <li data-i18n="releaseNotes.v056.feature2"><strong>Anonymous Mapping</strong>: Maps Genspark to
+                            alias "(F)".</li>
                     </ul>
                 </div>
             </div>
@@ -74,11 +115,14 @@
                 </div>
 
                 <div class="release-card-content">
-                    <h3>✨ Conversation History</h3>
+                    <h3>✨ <span data-i18n="releaseNotes.v055.title">Conversation History</span></h3>
                     <ul>
-                        <li><strong>New collapsible sidebar</strong> for easy history access.</li>
-                        <li><strong>Auto-Save functionality</strong> for sessions, layouts, and URLs.</li>
-                        <li><strong>Optimized asynchronous IndexedDB</strong> operations.</li>
+                        <li data-i18n="releaseNotes.v055.feature1"><strong>New collapsible sidebar</strong> for easy
+                            history access.</li>
+                        <li data-i18n="releaseNotes.v055.feature2"><strong>Auto-Save functionality</strong> for
+                            sessions, layouts, and URLs.</li>
+                        <li data-i18n="releaseNotes.v055.feature3"><strong>Optimized asynchronous IndexedDB</strong>
+                            operations.</li>
                     </ul>
                 </div>
             </div>
@@ -92,12 +136,15 @@
                 </div>
 
                 <div class="release-card-content">
-                    <h3>✨ Session Persistence</h3>
+                    <h3>✨ <span data-i18n="releaseNotes.v054.title">Session Persistence</span></h3>
                     <ul>
-                        <li><strong>Saves active services</strong>, layout, scroll sync, and URLs on close.</li>
-                        <li><strong>WebView URL Bar</strong>: Dedicated URL bar with Reload, Copy, and Open in Browser
+                        <li data-i18n="releaseNotes.v054.feature1"><strong>Saves active services</strong>, layout,
+                            scroll sync, and URLs on close.</li>
+                        <li data-i18n="releaseNotes.v054.feature2"><strong>WebView URL Bar</strong>: Dedicated URL bar
+                            with Reload, Copy, and Open in Browser
                             buttons.</li>
-                        <li><strong>3x1 Vertical Layout</strong>: New layout option for vertically stacked services.
+                        <li data-i18n="releaseNotes.v054.feature3"><strong>3x1 Vertical Layout</strong>: New layout
+                            option for vertically stacked services.
                         </li>
                     </ul>
                 </div>
@@ -112,11 +159,14 @@
                 </div>
 
                 <div class="release-card-content">
-                    <h3>✨ Enhanced Copy</h3>
+                    <h3>✨ <span data-i18n="releaseNotes.v053.title">Enhanced Copy</span></h3>
                     <ul>
-                        <li><strong>Extracts full conversation</strong> with role distinction (User/AI).</li>
-                        <li><strong>Copy Last Response</strong>: Button to copy only the last AI response.</li>
-                        <li><strong>Per-Service Header</strong>: Dedicated header for each service panel.</li>
+                        <li data-i18n="releaseNotes.v053.feature1"><strong>Extracts full conversation</strong> with role
+                            distinction (User/AI).</li>
+                        <li data-i18n="releaseNotes.v053.feature2"><strong>Copy Last Response</strong>: Button to copy
+                            only the last AI response.</li>
+                        <li data-i18n="releaseNotes.v053.feature3"><strong>Per-Service Header</strong>: Dedicated header
+                            for each service panel.</li>
                     </ul>
                 </div>
             </div>
@@ -130,10 +180,12 @@
                 </div>
 
                 <div class="release-card-content">
-                    <h3>✨ Cross Check Enhancements</h3>
+                    <h3>✨ <span data-i18n="releaseNotes.v052.title">Cross Check Enhancements</span></h3>
                     <ul>
-                        <li><strong>Editable predefined prompts</strong> and custom prompt management.</li>
-                        <li><strong>Robust Input State</strong>: Fixed issues with input fields becoming disabled.</li>
+                        <li data-i18n="releaseNotes.v052.feature1"><strong>Editable predefined prompts</strong> and
+                            custom prompt management.</li>
+                        <li data-i18n="releaseNotes.v052.feature2"><strong>Robust Input State</strong>: Fixed issues
+                            with input fields becoming disabled.</li>
                     </ul>
                 </div>
             </div>
@@ -147,10 +199,12 @@
                 </div>
 
                 <div class="release-card-content">
-                    <h3>✨ Anonymous Cross Check</h3>
+                    <h3>✨ <span data-i18n="releaseNotes.v051.title">Anonymous Cross Check</span></h3>
                     <ul>
-                        <li><strong>Replace service names</strong> with aliases.</li>
-                        <li><strong>Modern UI</strong>: Scroll sync toggle, layout icons, and refined styling.</li>
+                        <li data-i18n="releaseNotes.v051.feature1"><strong>Replace service names</strong> with aliases.
+                        </li>
+                        <li data-i18n="releaseNotes.v051.feature2"><strong>Modern UI</strong>: Scroll sync toggle,
+                            layout icons, and refined styling.</li>
                     </ul>
                 </div>
             </div>
@@ -164,10 +218,12 @@
                 </div>
 
                 <div class="release-card-content">
-                    <h3>✨ File Upload Support</h3>
+                    <h3>✨ <span data-i18n="releaseNotes.v050.title">File Upload Support</span></h3>
                     <ul>
-                        <li><strong>Multi-service broadcasting</strong> for files and images.</li>
-                        <li><strong>Drag & Drop</strong>: Direct file attachment support.</li>
+                        <li data-i18n="releaseNotes.v050.feature1"><strong>Multi-service broadcasting</strong> for files
+                            and images.</li>
+                        <li data-i18n="releaseNotes.v050.feature2"><strong>Drag & Drop</strong>: Direct file attachment
+                            support.</li>
                     </ul>
                 </div>
             </div>
@@ -181,36 +237,40 @@
             <div class="footer-grid">
                 <div class="footer-brand">
                     <div class="nav-logo" style="margin-bottom: 0;">Sync Multi Chat</div>
-                    <p style="color: #6b7280; font-size: 0.9rem; margin-top: 10px;">The ultimate browser for AI power
+                    <p style="color: #6b7280; font-size: 0.9rem; margin-top: 10px;" data-i18n="footer.tagline">The
+                        ultimate browser for AI power
                         users.</p>
                 </div>
                 <div class="footer-col">
-                    <h4>Product</h4>
+                    <h4 data-i18n="footer.product">Product</h4>
                     <ul>
-                        <li><a href="index.html#features">Features</a></li>
-                        <li><a href="use_cases.html">Use Cases</a></li>
-                        <li><a href="release_notes.html">Updates</a></li>
-                        <li><a href="index.html#downloads">Download</a></li>
+                        <li><a href="index.html#features" data-i18n="nav.features">Features</a></li>
+                        <li><a href="use_cases.html" data-i18n="nav.useCases">Use Cases</a></li>
+                        <li><a href="release_notes.html" data-i18n="footer.updates">Updates</a></li>
+                        <li><a href="index.html#downloads" data-i18n="nav.downloads">Download</a></li>
                     </ul>
                 </div>
                 <div class="footer-col">
-                    <h4>Resources</h4>
+                    <h4 data-i18n="footer.resources">Resources</h4>
                     <ul>
-                        <li><a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank">Documentation</a>
+                        <li><a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank"
+                                data-i18n="footer.documentation">Documentation</a>
                         </li>
-                        <li><a href="https://github.com/cccnam5158/sync-multi-chat/issues" target="_blank">Report
+                        <li><a href="https://github.com/cccnam5158/sync-multi-chat/issues" target="_blank"
+                                data-i18n="footer.reportIssue">Report
                                 Issue</a></li>
                     </ul>
                 </div>
                 <div class="footer-col">
-                    <h4>Community</h4>
+                    <h4 data-i18n="footer.community">Community</h4>
                     <ul>
                         <li><a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank">GitHub</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
-                <span>&copy; 2025 Joseph Nam. Polyform Noncommercial License 1.0.0.</span>
+                <span>&copy; <span data-i18n="footer.copyright">2025 Joseph Nam. Polyform Noncommercial License
+                        1.0.0.</span></span>
             </div>
         </div>
     </footer>
@@ -239,6 +299,7 @@
         </svg>
     </button>
 
+    <script src="i18n.js"></script>
     <script src="script.js"></script>
     <script>
         // Scroll to Top Button

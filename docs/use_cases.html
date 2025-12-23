@@ -463,32 +463,73 @@
                         style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;">v0.5.6</span>
                 </a>
                 <div class="nav-links">
-                    <a href="index.html#features">Features</a>
-                    <a href="use_cases.html" class="active">Use Cases</a>
-                    <a href="index.html#comparison">How it Works</a>
-                    <a href="index.html#downloads">Downloads</a>
-                    <a href="release_notes.html">Release Notes</a>
+                    <a href="index.html#features" data-i18n="nav.features">Features</a>
+                    <a href="use_cases.html" class="active" data-i18n="nav.useCases">Use Cases</a>
+                    <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
+                    <a href="index.html#downloads" data-i18n="nav.getStarted">Downloads</a>
+                    <a href="release_notes.html" data-i18n="nav.releaseNotes">Release Notes</a>
                 </div>
                 <div class="nav-actions">
-                    <a href="index.html#downloads" class="btn btn-primary"
-                        style="background: #3b82f6; padding: 10px 20px; color: white;">Get Started</a>
+                    <!-- Language Selector -->
+                    <div class="lang-selector">
+                        <button class="lang-btn">
+                            <span>🇺🇸 English</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                style="width:12px;height:12px;">
+                                <path d="M6 9l6 6 6-6"></path>
+                            </svg>
+                        </button>
+                        <div class="lang-dropdown">
+                            <button class="lang-option active" data-lang="en">🇺🇸 English</button>
+                            <button class="lang-option" data-lang="ko">🇰🇷 한국어</button>
+                            <button class="lang-option" data-lang="ja">🇯🇵 日本語</button>
+                        </div>
+                    </div>
+                    <!-- GitHub Link -->
+                    <a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank" class="github-link"
+                        aria-label="GitHub">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path
+                                d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22">
+                            </path>
+                        </svg>
+                    </a>
+                    <!-- Hamburger Menu -->
+                    <div class="hamburger-menu">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
                 </div>
             </div>
         </div>
     </nav>
 
+    <!-- Mobile Navigation -->
+    <div class="mobile-nav">
+        <a href="index.html#features" data-i18n="nav.features">Features</a>
+        <a href="use_cases.html" class="active" data-i18n="nav.useCases">Use Cases</a>
+        <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
+        <a href="index.html#downloads" data-i18n="nav.getStarted">Downloads</a>
+        <a href="release_notes.html" data-i18n="nav.releaseNotes">Release Notes</a>
+    </div>
+
     <header class="hero use-case-hero">
         <div class="container">
-            <h1>Which <span class="gradient-text">Workflow</span> Will You Transform?</h1>
-            <p class="hero-tagline">Explore proven scenarios from real users and accelerate your AI-powered
+            <h1><span data-i18n="useCases.hero.title1">Which</span> <span class="gradient-text"
+                    data-i18n="useCases.hero.title2">Workflow</span> <span data-i18n="useCases.hero.title3">Will You
+                    Transform?</span></h1>
+            <p class="hero-tagline" data-i18n="useCases.hero.tagline">Explore proven scenarios from real users and
+                accelerate your AI-powered
                 productivity.</p>
 
             <div class="role-quick-jump">
-                <a href="#researcher" class="role-btn active">Research & Analysis</a>
-                <a href="#creator" class="role-btn">Content Creation</a>
-                <a href="#business" class="role-btn">Business Strategy</a>
-                <a href="#educator" class="role-btn">Education</a>
-                <a href="#developer" class="role-btn">Development</a>
+                <a href="#researcher" class="role-btn active" data-i18n="useCases.roles.research">Research &
+                    Analysis</a>
+                <a href="#creator" class="role-btn" data-i18n="useCases.roles.creator">Content Creation</a>
+                <a href="#business" class="role-btn" data-i18n="useCases.roles.business">Business Strategy</a>
+                <a href="#educator" class="role-btn" data-i18n="useCases.roles.educator">Education</a>
+                <a href="#developer" class="role-btn" data-i18n="useCases.roles.developer">Development</a>
             </div>
         </div>
     </header>
@@ -1239,8 +1280,8 @@
 
         <!-- CTA Section -->
         <section class="cta-section-enhanced">
-            <h2>Ready to Transform Your Workflow?</h2>
-            <p>Download Sync Multi Chat and experience the power of multi-AI orchestration.</p>
+            <h2 data-i18n="cta.title">Ready to Transform Your Workflow?</h2>
+            <p data-i18n="cta.tagline">Download Sync Multi Chat and experience the power of multi-AI orchestration.</p>
             <div class="btn-group" style="justify-content: center;">
                 <a href="index.html#downloads" class="btn btn-white">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -1249,7 +1290,7 @@
                         <polyline points="7 10 12 15 17 10" />
                         <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
-                    Download Free
+                    <span data-i18n="cta.downloadBtn">Download Free</span>
                 </a>
                 <a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank" class="btn btn-outline">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -1257,7 +1298,7 @@
                         <path
                             d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
                     </svg>
-                    View on GitHub
+                    <span data-i18n="hero.githubBtn">View on GitHub</span>
                 </a>
             </div>
         </section>
@@ -1269,36 +1310,40 @@
             <div class="footer-grid">
                 <div class="footer-brand">
                     <div class="nav-logo" style="margin-bottom: 0;">Sync Multi Chat</div>
-                    <p style="color: #6b7280; font-size: 0.9rem; margin-top: 10px;">The ultimate browser for AI power
+                    <p style="color: #6b7280; font-size: 0.9rem; margin-top: 10px;" data-i18n="footer.tagline">The
+                        ultimate browser for AI power
                         users.</p>
                 </div>
                 <div class="footer-col">
-                    <h4>Product</h4>
+                    <h4 data-i18n="footer.product">Product</h4>
                     <ul>
-                        <li><a href="index.html#features">Features</a></li>
-                        <li><a href="use_cases.html">Use Cases</a></li>
-                        <li><a href="release_notes.html">Updates</a></li>
-                        <li><a href="index.html#downloads">Download</a></li>
+                        <li><a href="index.html#features" data-i18n="nav.features">Features</a></li>
+                        <li><a href="use_cases.html" data-i18n="nav.useCases">Use Cases</a></li>
+                        <li><a href="release_notes.html" data-i18n="footer.updates">Updates</a></li>
+                        <li><a href="index.html#downloads" data-i18n="nav.downloads">Download</a></li>
                     </ul>
                 </div>
                 <div class="footer-col">
-                    <h4>Resources</h4>
+                    <h4 data-i18n="footer.resources">Resources</h4>
                     <ul>
-                        <li><a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank">Documentation</a>
+                        <li><a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank"
+                                data-i18n="footer.documentation">Documentation</a>
                         </li>
-                        <li><a href="https://github.com/cccnam5158/sync-multi-chat/issues" target="_blank">Report
+                        <li><a href="https://github.com/cccnam5158/sync-multi-chat/issues" target="_blank"
+                                data-i18n="footer.reportIssue">Report
                                 Issue</a></li>
                     </ul>
                 </div>
                 <div class="footer-col">
-                    <h4>Community</h4>
+                    <h4 data-i18n="footer.community">Community</h4>
                     <ul>
                         <li><a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank">GitHub</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
-                <span>&copy; 2025 Joseph Nam. Polyform Noncommercial License 1.0.0.</span>
+                <span>&copy; <span data-i18n="footer.copyright">2025 Joseph Nam. Polyform Noncommercial License
+                        1.0.0.</span></span>
             </div>
         </div>
     </footer>
@@ -1327,6 +1372,7 @@
         </svg>
     </button>
 
+    <script src="i18n.js"></script>
     <script>
         // Role button smooth scroll
         document.querySelectorAll('.role-btn').forEach(btn => {
