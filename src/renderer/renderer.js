@@ -1855,48 +1855,54 @@ async function setupHistory() {
         // Restore saved session ID from localStorage
         const savedSessionId = localStorage.getItem(currentSessionIdKey);
 
-        if (sessions.length === 0) {
-            // No sessions in DB - create initial session
-            console.log('[History] No sessions found, creating initial session');
-            const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
-            const initialUrls = {};
-            activeServices.forEach(service => {
-                const urlEl = document.getElementById(`url-text-${service}`);
-                if (urlEl && urlEl.dataset && urlEl.dataset.url) {
-                    initialUrls[service] = urlEl.dataset.url;
-                }
-            });
+        // If main process already applied state via onApplySavedState, don't overwrite currentSessionId
+        // Just ensure loadHistoryList shows the correct active item
+        if (!hasAppliedMainState) {
+            if (sessions.length === 0) {
+                // No sessions in DB - create initial session
+                console.log('[History] No sessions found, creating initial session');
+                const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
+                const initialUrls = {};
+                activeServices.forEach(service => {
+                    const urlEl = document.getElementById(`url-text-${service}`);
+                    if (urlEl && urlEl.dataset && urlEl.dataset.url) {
+                        initialUrls[service] = urlEl.dataset.url;
+                    }
+                });
 
-            currentSessionId = generateId();
-            const initialSession = {
-                id: currentSessionId,
-                title: `Chat ${new Date().toLocaleTimeString()}`,
-                layout: currentLayout,
-                activeServices: activeServices,
-                prompt: '',
-                isAnonymousMode: isAnonymousMode,
-                isScrollSyncEnabled: isScrollSyncEnabled,
-                urls: initialUrls,
-                createdAt: new Date().toISOString(),
-            };
-            await historyManager.saveSession(initialSession);
-            localStorage.setItem(currentSessionIdKey, currentSessionId);
-        } else if (savedSessionId) {
-            // Restore saved session ID
-            const savedSession = await historyManager.getSession(savedSessionId);
-            if (savedSession) {
-                console.log('[History] Restoring saved session:', savedSessionId);
-                currentSessionId = savedSessionId;
-                // Don't call loadSession here - let main.js handle URL restoration
+                currentSessionId = generateId();
+                const initialSession = {
+                    id: currentSessionId,
+                    title: `Chat ${new Date().toLocaleTimeString()}`,
+                    layout: currentLayout,
+                    activeServices: activeServices,
+                    prompt: '',
+                    isAnonymousMode: isAnonymousMode,
+                    isScrollSyncEnabled: isScrollSyncEnabled,
+                    urls: initialUrls,
+                    createdAt: new Date().toISOString(),
+                };
+                await historyManager.saveSession(initialSession);
+                localStorage.setItem(currentSessionIdKey, currentSessionId);
+            } else if (savedSessionId) {
+                // Restore saved session ID
+                const savedSession = await historyManager.getSession(savedSessionId);
+                if (savedSession) {
+                    console.log('[History] Restoring saved session:', savedSessionId);
+                    currentSessionId = savedSessionId;
+                    // Don't call loadSession here - let main.js handle URL restoration
+                } else {
+                    // Saved session doesn't exist anymore, use first available
+                    currentSessionId = sessions[0].id;
+                    localStorage.setItem(currentSessionIdKey, currentSessionId);
+                }
             } else {
-                // Saved session doesn't exist anymore, use first available
+                // Use first session
                 currentSessionId = sessions[0].id;
                 localStorage.setItem(currentSessionIdKey, currentSessionId);
             }
         } else {
-            // Use first session
-            currentSessionId = sessions[0].id;
-            localStorage.setItem(currentSessionIdKey, currentSessionId);
+            console.log('[History] Main state already applied, skipping session ID assignment');
         }
 
         loadHistoryList();
@@ -2294,6 +2300,8 @@ async function performClearAll() {
 
 // Global variable to track current session ID
 let currentSessionId = null;
+// Flag to track if main process state has been applied (prevents race condition)
+let hasAppliedMainState = false;
 // Generate a simple UUID-like string
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -2401,9 +2409,11 @@ async function loadSession(session) {
         }
     });
 
-    // Update currentSessionId and persist it
-    currentSessionId = session.id;
-    localStorage.setItem(currentSessionIdKey, currentSessionId);
+    // Update currentSessionId and persist it ONLY if session.id is present
+    if (session.id) {
+        currentSessionId = session.id;
+        localStorage.setItem(currentSessionIdKey, currentSessionId);
+    }
 
     // Refresh history list to show updated active state
     loadHistoryList();
@@ -2445,7 +2455,8 @@ async function loadSession(session) {
         const syncToggle = document.getElementById('scroll-sync-toggle');
         if (syncToggle) {
             syncToggle.checked = session.isScrollSyncEnabled;
-            toggleScrollSync(session.isScrollSyncEnabled);
+            isScrollSyncEnabled = session.isScrollSyncEnabled;
+            window.electronAPI.toggleScrollSync(session.isScrollSyncEnabled);
         }
     }
 
@@ -2700,13 +2711,16 @@ function setupSessionPersistence() {
 
                 // We construct a pseudo-session object
                 const restorationSession = {
-                    id: null, // No ID from Main state
+                    id: currentSessionId || localStorage.getItem(currentSessionIdKey), // Use existing ID if available
                     activeServices: state.activeServices,
                     layout: state.layout,
                     urls: state.serviceUrls,
                     isAnonymousMode: state.isAnonymousMode,
                     isScrollSyncEnabled: state.isScrollSyncEnabled
                 };
+
+                // Set flag to prevent setupHistory from overwriting
+                hasAppliedMainState = true;
 
                 loadSession(restorationSession);
             }

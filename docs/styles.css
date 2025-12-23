@@ -593,3 +593,384 @@ footer {
         left: -32px;
     }
 }
+
+/* ========================================
+   USE CASES PAGE STYLES
+   ======================================== */
+
+.use-case-hero {
+    padding: 160px 0 60px;
+}
+
+.use-case-hero h1 {
+    font-size: 3.5rem;
+}
+
+/* Persona Sections */
+.use-case-section {
+    padding: 80px 0;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.use-case-section:last-of-type {
+    border-bottom: none;
+}
+
+.persona-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.persona-icon {
+    font-size: 3rem;
+    line-height: 1;
+}
+
+.persona-header h2 {
+    text-align: left;
+    margin-bottom: 8px;
+    font-size: 2rem;
+}
+
+.persona-desc {
+    color: var(--text-tertiary);
+    margin-bottom: 0;
+    font-size: 1.1rem;
+}
+
+/* Scenario Grid */
+.scenario-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 30px;
+}
+
+.scenario-grid.single {
+    grid-template-columns: 1fr;
+}
+
+/* Scenario Cards */
+.scenario-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 32px;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.scenario-card:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-3px);
+}
+
+.scenario-card.wide {
+    max-width: 800px;
+}
+
+.scenario-header {
+    margin-bottom: 24px;
+}
+
+.scenario-tag {
+    display: inline-block;
+    background: rgba(59, 130, 246, 0.1);
+    color: #60a5fa;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.scenario-header h3 {
+    font-size: 1.3rem;
+    margin-bottom: 0;
+}
+
+/* Workflow Steps */
+.workflow-steps {
+    margin-bottom: 24px;
+}
+
+.step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.step:last-child {
+    margin-bottom: 0;
+}
+
+.step-num {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.step strong {
+    color: #e2e8f0;
+}
+
+/* AI Strengths */
+.ai-strengths {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.strength {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.strength:last-child {
+    border-bottom: none;
+}
+
+.ai-name {
+    background: rgba(168, 85, 247, 0.15);
+    color: #c084fc;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    min-width: 85px;
+    text-align: center;
+}
+
+/* Impact Box */
+.impact-box {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(168, 85, 247, 0.05));
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.impact-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #60a5fa;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.impact-stats {
+    margin-bottom: 8px;
+}
+
+.stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.stat-before {
+    color: var(--text-tertiary);
+    font-size: 0.9rem;
+}
+
+.stat-arrow {
+    color: var(--icon-blue);
+}
+
+.stat-after {
+    color: #22c55e;
+    font-weight: 600;
+}
+
+.stat-highlight {
+    display: inline-block;
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-top: 8px;
+}
+
+.impact-note {
+    color: var(--text-tertiary);
+    font-size: 0.85rem;
+    margin-bottom: 0;
+    margin-top: 12px;
+}
+
+/* ROI Compare */
+.roi-compare {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.roi-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.roi-item.old {
+    background: rgba(239, 68, 68, 0.08);
+    color: #fca5a5;
+}
+
+.roi-item.new {
+    background: rgba(34, 197, 94, 0.08);
+    color: #86efac;
+}
+
+.roi-label {
+    color: var(--text-secondary);
+}
+
+.roi-value {
+    font-weight: 600;
+}
+
+/* Arbitrage Section */
+.arbitrage-section {
+    padding: 100px 0;
+    background: linear-gradient(180deg, var(--bg-color) 0%, rgba(59, 130, 246, 0.03) 50%, var(--bg-color) 100%);
+}
+
+.arbitrage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-top: 50px;
+}
+
+.arbitrage-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 28px;
+    text-align: center;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.arbitrage-card:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-3px);
+}
+
+.arbitrage-icon {
+    font-size: 2.5rem;
+    margin-bottom: 16px;
+}
+
+.arbitrage-card h3 {
+    margin-bottom: 20px;
+    font-size: 1.15rem;
+}
+
+.arbitrage-compare {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.arb-old {
+    color: var(--text-tertiary);
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    padding-left: 12px;
+    border-left: 2px solid rgba(239, 68, 68, 0.4);
+}
+
+.arb-new {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding-left: 12px;
+    border-left: 2px solid rgba(34, 197, 94, 0.6);
+}
+
+.arb-result {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(168, 85, 247, 0.2));
+    color: #a5b4fc;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+/* CTA Section */
+.cta-section {
+    text-align: center;
+    padding: 80px 0 100px;
+}
+
+.cta-section h2 {
+    margin-bottom: 16px;
+}
+
+.cta-section p {
+    margin-bottom: 32px;
+}
+
+/* Nav active state */
+.nav-links a.active {
+    color: white;
+}
+
+/* Responsive - Use Cases */
+@media (max-width: 768px) {
+    .use-case-hero h1 {
+        font-size: 2.5rem;
+    }
+
+    .persona-header {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .persona-icon {
+        font-size: 2.5rem;
+    }
+
+    .persona-header h2 {
+        font-size: 1.5rem;
+    }
+
+    .scenario-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .scenario-card {
+        padding: 24px;
+    }
+
+    .arbitrage-grid {
+        grid-template-columns: 1fr;
+    }
+}
