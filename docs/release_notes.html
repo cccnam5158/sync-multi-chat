@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Release Notes - Sync Multi Chat</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <nav>
+        <div class="container nav-container">
+            <div class="nav-wrapper">
+                <a href="index.html" class="nav-logo">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#3b82f6"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Sync Multi Chat <span
+                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;">v0.5.6</span>
+                </a>
+                <div class="nav-links">
+                    <a href="index.html#features">Features</a>
+                    <a href="index.html#comparison">How it Works</a>
+                    <a href="index.html#downloads">Downloads</a>
+                    <a href="release_notes.html" class="active" style="color: white;">Release Notes</a>
+                </div>
+                <div class="nav-actions">
+                    <a href="index.html#downloads" class="btn btn-primary"
+                        style="background: #3b82f6; padding: 10px 20px; color: white;">Get Started</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container" style="padding-top: 140px; padding-bottom: 100px;">
+
+        <div
+            style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 60px; max-width: 900px; margin-left: auto; margin-right: auto; padding-left: 20px;">
+            <h2 style="margin-bottom: 0;">Release History</h2>
+            <span style="color: var(--text-tertiary); font-size: 0.9rem;">Last updated: Dec 18, 2025</span>
+        </div>
+
+        <div class="timeline">
+
+            <!-- v0.5.6 (Active) -->
+            <div class="timeline-item active">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.5.6</span>
+                    <span class="badge-current">Current</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ New Features</h3>
+                    <ul>
+                        <li><strong>Genspark Integration</strong>: Full support for search-driven AI chat.</li>
+                        <li><strong>Anonymous Mapping</strong>: Maps Genspark to alias "(F)".</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.5.5 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.5.5</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ Conversation History</h3>
+                    <ul>
+                        <li><strong>New collapsible sidebar</strong> for easy history access.</li>
+                        <li><strong>Auto-Save functionality</strong> for sessions, layouts, and URLs.</li>
+                        <li><strong>Optimized asynchronous IndexedDB</strong> operations.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.5.4 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.5.4</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ Session Persistence</h3>
+                    <ul>
+                        <li><strong>Saves active services</strong>, layout, scroll sync, and URLs on close.</li>
+                        <li><strong>WebView URL Bar</strong>: Dedicated URL bar with Reload, Copy, and Open in Browser
+                            buttons.</li>
+                        <li><strong>3x1 Vertical Layout</strong>: New layout option for vertically stacked services.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.5.3 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.5.3</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ Enhanced Copy</h3>
+                    <ul>
+                        <li><strong>Extracts full conversation</strong> with role distinction (User/AI).</li>
+                        <li><strong>Copy Last Response</strong>: Button to copy only the last AI response.</li>
+                        <li><strong>Per-Service Header</strong>: Dedicated header for each service panel.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.5.2 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.5.2</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ Cross Check Enhancements</h3>
+                    <ul>
+                        <li><strong>Editable predefined prompts</strong> and custom prompt management.</li>
+                        <li><strong>Robust Input State</strong>: Fixed issues with input fields becoming disabled.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.5.1 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.5.1</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ Anonymous Cross Check</h3>
+                    <ul>
+                        <li><strong>Replace service names</strong> with aliases.</li>
+                        <li><strong>Modern UI</strong>: Scroll sync toggle, layout icons, and refined styling.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.5.0 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.5.0</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ File Upload Support</h3>
+                    <ul>
+                        <li><strong>Multi-service broadcasting</strong> for files and images.</li>
+                        <li><strong>Drag & Drop</strong>: Direct file attachment support.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <div class="nav-logo" style="margin-bottom: 0;">Sync Multi Chat</div>
+                    <p style="color: #6b7280; font-size: 0.9rem; margin-top: 10px;">The ultimate browser for AI power
+                        users.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Product</h4>
+                    <ul>
+                        <li><a href="index.html#features">Features</a></li>
+                        <li><a href="release_notes.html">Updates</a></li>
+                        <li><a href="index.html#downloads">downloads</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank">Documentation</a>
+                        </li>
+                        <li><a href="https://github.com/cccnam5158/sync-multi-chat/issues" target="_blank">Report
+                                Issue</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Community</h4>
+                    <ul>
+                        <li><a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank">GitHub</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>&copy; 2025 Joseph Nam. Polyform Noncommercial License 1.0.0.</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

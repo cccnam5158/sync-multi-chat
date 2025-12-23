@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sync Multi Chat - One Prompt, Six Minds.</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <nav>
+        <div class="container nav-container">
+            <div class="nav-wrapper">
+                <a href="index.html" class="nav-logo">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#3b82f6"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Sync Multi Chat <span
+                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;">v0.5.6</span>
+                </a>
+                <div class="nav-links">
+                    <a href="#features">Features</a>
+                    <a href="#comparison">How it Works</a>
+                    <a href="#downloads">Downloads</a>
+                    <a href="release_notes.html">Release Notes</a>
+                </div>
+                <div class="nav-actions">
+                    <a href="#downloads" class="btn btn-primary"
+                        style="background: #3b82f6; padding: 10px 20px; color: white;">Get Started</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container">
+            <div class="hero-badge">
+                <span class="dot"></span> New: Genspark Integration Added
+            </div>
+
+            <h1>One Prompt.<br><span class="gradient-text">Six Minds Simultaneously.</span></h1>
+
+            <p class="hero-tagline">Stop switching tabs. Broadcast your prompts to ChatGPT, Claude, Gemini, Grok,
+                Perplexity, and Genspark at once. Compare, cross-check, and iterate faster.</p>
+
+            <div class="btn-group">
+                <a href="#downloads" class="btn btn-white">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download for Desktop
+                </a>
+                <a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank" class="btn btn-outline">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+                    </svg>
+                    View on GitHub
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <section class="features-section" id="features">
+            <h2>Powerful Features for Power Users</h2>
+            <p class="section-tagline">Everything you need to orchestrate the world's most capable AI models.</p>
+
+            <div class="features-grid">
+                <!-- Feature 1: Multi-Pane -->
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--icon-blue)"
+                        stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <h3>Flexible Multi-Pane UI</h3>
+                    <p>Interact with up to 4 services at once. Choose from 2x2, 1x3, 1x4, or specialized vertical
+                        layouts that sync with your workflow.</p>
+                </div>
+                <!-- Feature 2: Master Input -->
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--icon-purple)"
+                        stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <h3>Simultaneous Prompting</h3>
+                    <p>Type once, send everywhere. A central input bar allows you to broadcast messages to all active
+                        services instantly.</p>
+                </div>
+                <!-- Feature 3: Cross Check -->
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--icon-pink)"
+                        stroke-width="2">
+                        <polyline points="9 11 12 14 22 4"></polyline>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                    <h3>AI Cross-Check</h3>
+                    <p>Let the AIs review each other. One click to have each service analyze and compare the responses
+                        provided by the others.</p>
+                </div>
+                <!-- Feature 4: Session -->
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--icon-green)"
+                        stroke-width="2">
+                        <path d="M12 2v10l4.24 4.24"></path>
+                        <circle cx="12" cy="12" r="10"></circle>
+                    </svg>
+                    <h3>Session Persistence</h3>
+                    <p>Your environment is saved automatically. Restore layouts, active services, and specific URLs
+                        exactly where you left off.</p>
+                </div>
+                <!-- Feature 5: Privacy -->
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--icon-yellow)"
+                        stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <h3>Privacy First</h3>
+                    <p>Direct login to official services. No middleman, no credential storage. Your sessions run in
+                        isolated sandboxed environments.</p>
+                </div>
+                <!-- Feature 6: File Upload -->
+                <div class="feature-card">
+                    <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="var(--icon-cyan)"
+                        stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12" />
+                        <line x1="9" y1="15" x2="15" y2="15" />
+                    </svg>
+                    <h3>Universal File Support</h3>
+                    <p>Drag & drop or paste images and text. Upload to multiple AIs simultaneously with a verified
+                        two-step workflow.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="comparison-section" id="comparison">
+            <div class="comparison-layout">
+                <div class="comparison-content">
+                    <h2>Designed for Seamless Comparison</h2>
+                    <ul>
+                        <li>
+                            <svg viewBox="0 0 24 24">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                                <polyline points="22 4 12 14.01 9 11.01" />
+                            </svg>
+                            <span><strong>Scroll Sync</strong>: Scroll one panel, and all others follow.</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                                <polyline points="22 4 12 14.01 9 11.01" />
+                            </svg>
+                            <span><strong>Anonymous Mode</strong>: Hide AI names during comparisons to reduce
+                                bias.</span>
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                                <polyline points="22 4 12 14.01 9 11.01" />
+                            </svg>
+                            <span><strong>Markdown Copy</strong>: Copy entire threads or just last responses with one
+                                click.</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="comparison-visual">
+                    <div class="visual-pane">ChatGPT</div>
+                    <div class="visual-pane">Claude</div>
+                    <div class="visual-pane">Gemini</div>
+                    <div class="visual-pane">Grok</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="download-section" id="downloads">
+            <h2>Start Broadcasting Today</h2>
+            <p style="margin-bottom: 40px;">Download for your preferred platform. Open-source and non-commercial.</p>
+
+            <div class="download-grid">
+                <!-- Windows -->
+                <div class="download-card">
+                    <img src="https://cdn-icons-png.flaticon.com/512/732/732225.png" alt="Windows">
+                    <!-- Placeholder or use SVG -->
+                    <h3>Windows</h3>
+                    <p>v0.5.6 | Portable EXE & Installer</p>
+                    <a href="https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.6/Sync.Multi.Chat.Setup.0.5.6.exe"
+                        class="btn btn-primary-block">Download .exe</a>
+                </div>
+                <!-- macOS -->
+                <div class="download-card">
+                    <img src="https://cdn-icons-png.flaticon.com/512/2/2235.png" alt="macOS" style="filter: invert(1);">
+                    <h3>macOS</h3>
+                    <p>v0.5.6 | Apple Silicon & Intel</p>
+                    <a href="#" class="btn btn-secondary-block">Download .dmg</a>
+                </div>
+                <!-- Chrome (Coming Soon) -->
+                <div class="download-card" style="opacity: 0.7;">
+                    <img src="https://cdn-icons-png.flaticon.com/512/888/888846.png" alt="Chrome">
+                    <h3>Chrome Extension</h3>
+                    <p>Coming Soon to Web Store</p>
+                    <button class="btn btn-secondary-block" disabled>Coming Soon</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <div class="nav-logo" style="margin-bottom: 0;">Sync Multi Chat</div>
+                    <p style="color: #6b7280; font-size: 0.9rem; margin-top: 10px;">The ultimate browser for AI power
+                        users.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Product</h4>
+                    <ul>
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="release_notes.html">Updates</a></li>
+                        <li><a href="#downloads">Download</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank">Documentation</a>
+                        </li>
+                        <li><a href="https://github.com/cccnam5158/sync-multi-chat/issues" target="_blank">Report
+                                Issue</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Community</h4>
+                    <ul>
+                        <li><a href="https://github.com/cccnam5158/sync-multi-chat" target="_blank">GitHub</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>&copy; 2025 Joseph Nam. Polyform Noncommercial License 1.0.0.</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
