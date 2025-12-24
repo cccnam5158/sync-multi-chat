@@ -45,12 +45,14 @@ const translations = {
         "comparison.anonymousDesc": "Hide AI names during comparisons to reduce bias.",
         "comparison.markdown": "Markdown Copy",
         "comparison.markdownDesc": "Copy entire threads or just last responses with one click.",
+        "comparison.videoCaption": "Watch the app in action (demo).",
+        "comparison.videoOpenYoutube": "Open on YouTube",
 
         // Download Section
         "download.title": "Start Broadcasting Today",
         "download.tagline": "Download for your preferred platform. Open-source and non-commercial.",
         "download.windows": "Windows",
-        "download.windowsDesc": "v0.5.6 | Portable EXE & Installer",
+        "download.windowsDesc": "Portable EXE",
         "download.downloadExe": "Download .exe",
         "download.macos": "macOS",
         "download.comingSoon": "Coming Soon",
@@ -202,12 +204,14 @@ const translations = {
         "comparison.anonymousDesc": "비교 중 AI 이름을 숨겨 편견을 줄입니다.",
         "comparison.markdown": "마크다운 복사",
         "comparison.markdownDesc": "클릭 한 번으로 전체 스레드 또는 마지막 응답만 복사합니다.",
+        "comparison.videoCaption": "데모 영상으로 앱 동작을 확인하세요.",
+        "comparison.videoOpenYoutube": "YouTube에서 열기",
 
         // Download Section
         "download.title": "오늘 브로드캐스팅을 시작하세요",
         "download.tagline": "원하는 플랫폼용으로 다운로드하세요. 오픈소스 및 비상업적.",
         "download.windows": "Windows",
-        "download.windowsDesc": "v0.5.6 | 포터블 EXE & 설치 프로그램",
+        "download.windowsDesc": "포터블 EXE",
         "download.downloadExe": ".exe 다운로드",
         "download.macos": "macOS",
         "download.comingSoon": "출시 예정",
@@ -359,12 +363,14 @@ const translations = {
         "comparison.anonymousDesc": "比較中にAI名を非表示にしてバイアスを軽減。",
         "comparison.markdown": "マークダウンコピー",
         "comparison.markdownDesc": "ワンクリックでスレッド全体または最後の回答のみをコピー。",
+        "comparison.videoCaption": "デモ動画でアプリの動作を確認できます。",
+        "comparison.videoOpenYoutube": "YouTubeで開く",
 
         // Download Section
         "download.title": "今日からブロードキャストを開始",
         "download.tagline": "お好みのプラットフォーム用にダウンロード。オープンソース・非商用。",
         "download.windows": "Windows",
-        "download.windowsDesc": "v0.5.6 | ポータブルEXE & インストーラー",
+        "download.windowsDesc": "ポータブルEXE",
         "download.downloadExe": ".exeをダウンロード",
         "download.macos": "macOS",
         "download.comingSoon": "近日公開",
