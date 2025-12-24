@@ -249,6 +249,7 @@ nav {
 /* Feature Grid (Cards) */
 .features-section {
     padding: 100px 0;
+    border-top: 1px solid var(--card-border);
 }
 
 .section-tagline {
@@ -288,7 +289,6 @@ nav {
 /* Comparison Section */
 .comparison-section {
     padding: 100px 0;
-    border-top: 1px solid var(--card-border);
 }
 
 .comparison-layout {
