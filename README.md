@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/cccnam5158/sync-multi-chat)
+
 # Sync Multi Chat
 
 **Sync Multi Chat** (Code Name: MAPB - Multi AI Prompt Broadcaster) is an Electron-based desktop application designed to maximize productivity for users who utilize multiple AI services simultaneously.
