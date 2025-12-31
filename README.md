@@ -1,3 +1,5 @@
+[🇺🇸 English](README.md) | [🇰🇷 한국어](README.ko.md) | [🇯🇵 日本語](README.ja.md)
+
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/cccnam5158/sync-multi-chat)
 
 # Sync Multi Chat
