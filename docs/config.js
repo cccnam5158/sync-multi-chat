@@ -13,8 +13,7 @@ const SMC_CONFIG = {
     // Download URLs
     downloads: {
         windows: {
-            installer: 'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.8/Sync-Multi-Chat-Setup-0.5.8.exe',
-            portable: 'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.8/Sync.Multi.Chat-win32-x64.zip'
+            installer: 'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.8/Sync-Multi-Chat-Setup-0.5.8.exe'
         },
         // Future platforms
         macos: null,
@@ -46,13 +45,6 @@ function applyVersionInfo() {
     document.querySelectorAll('[data-download="windows-installer"]').forEach(el => {
         if (SMC_CONFIG.downloads.windows.installer) {
             el.href = SMC_CONFIG.downloads.windows.installer;
-            el.removeAttribute('disabled');
-        }
-    });
-    
-    document.querySelectorAll('[data-download="windows-portable"]').forEach(el => {
-        if (SMC_CONFIG.downloads.windows.portable) {
-            el.href = SMC_CONFIG.downloads.windows.portable;
             el.removeAttribute('disabled');
         }
     });

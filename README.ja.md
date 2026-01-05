@@ -33,15 +33,9 @@
 
 このアプリケーションは**Windowsインストーラー**として配布され、**自動更新機能**をサポートしています。
 
-### オプション A: インストーラー (推奨)
 1.  最新のインストーラーをダウンロードします: [Sync-Multi-Chat-Setup-0.5.8.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.8/Sync-Multi-Chat-Setup-0.5.8.exe)
 2.  インストーラーを実行し、インストールウィザードに従います。
 3.  アプリは起動時に自動的にアップデートを確認します。
-
-### オプション B: ポータブル版
-1.  ポータブルzipファイルをダウンロードします（例: `Sync.Multi.Chat-win32-x64.zip`）。
-2.  任意の場所にzipファイルを解凍します。
-3.  解凍したフォルダ内の `Sync Multi Chat.exe` を実行します。
 
 ### 開発環境セットアップ（コントリビューター向け）
 
@@ -90,15 +84,7 @@
 
 4.  **プロダクションビルド**
     
-    **オプション A: ポータブル実行ファイル (推奨)**
-    インストールなしで実行できるスタンドアロンフォルダを作成します。
-    ```bash
-    npm run build:portable
-    ```
-    実行ファイルは以下の場所に作成されます: `dist-packager/Sync Multi Chat-win32-x64/Sync Multi Chat.exe`
-
-    **オプション B: インストーラー (NSIS)**
-    setup.exe インストーラーを作成します（有効なコード署名環境が必要）。
+    自動更新機能付きのsetup.exeインストーラーを作成します。
     ```bash
     npm run build
     ```

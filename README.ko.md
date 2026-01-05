@@ -33,15 +33,9 @@
 
 이 애플리케이션은 **Windows 설치 프로그램**으로 배포되며, **자동 업데이트 기능**을 지원합니다.
 
-### 옵션 A: 설치 프로그램 (권장)
 1.  최신 설치 파일을 다운로드합니다: [Sync-Multi-Chat-Setup-0.5.8.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.8/Sync-Multi-Chat-Setup-0.5.8.exe)
 2.  설치 프로그램을 실행하고 설치 마법사를 따라 진행합니다.
 3.  앱은 시작 시 자동으로 업데이트를 확인합니다.
-
-### 옵션 B: 포터블 버전
-1.  포터블 zip 파일을 다운로드합니다 (예: `Sync.Multi.Chat-win32-x64.zip`).
-2.  원하는 위치에 zip 파일의 압축을 풉니다.
-3.  압축 해제된 폴더 내의 `Sync Multi Chat.exe`를 실행합니다.
 
 ### 개발 환경 설정 (기여자용)
 
@@ -90,15 +84,7 @@
 
 4.  **프로덕션 빌드**
     
-    **옵션 A: 포터블 실행 파일 (권장)**
-    설치 없이 실행할 수 있는 독립형 폴더를 생성합니다.
-    ```bash
-    npm run build:portable
-    ```
-    실행 파일은 다음 위치에 생성됩니다: `dist-packager/Sync Multi Chat-win32-x64/Sync Multi Chat.exe`
-
-    **옵션 B: 설치 프로그램 (NSIS)**
-    setup.exe 설치 프로그램을 생성합니다 (유효한 코드 서명 환경 필요).
+    자동 업데이트 기능이 포함된 setup.exe 설치 프로그램을 생성합니다.
     ```bash
     npm run build
     ```

@@ -33,17 +33,11 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 ## Installation
 
-This application is now distributed as a **Windows Installer** with **automatic update support**.
+This application is distributed as a **Windows Installer** with **automatic update support**.
 
-### Option A: Installer (Recommended)
 1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.5.8.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.8/Sync-Multi-Chat-Setup-0.5.8.exe)
 2.  Run the installer and follow the installation wizard.
 3.  The app will automatically check for updates on startup.
-
-### Option B: Portable Version
-1.  Download the portable zip file (e.g., `Sync.Multi.Chat-win32-x64.zip`).
-2.  Extract the zip file to a location of your choice.
-3.  Run `Sync Multi Chat.exe` inside the extracted folder.
 
 ### Development Setup (For Contributors)
 
@@ -92,15 +86,7 @@ This application is now distributed as a **Windows Installer** with **automatic 
 
 4.  **Build for production**
     
-    **Option A: Portable Executable (Recommended)**
-    Creates a standalone folder that you can run without installation.
-    ```bash
-    npm run build:portable
-    ```
-    The executable will be located in: `dist-packager/Sync Multi Chat-win32-x64/Sync Multi Chat.exe`
-
-    **Option B: Installer (NSIS)**
-    Creates a setup.exe installer (requires valid code signing environment).
+    Creates a setup.exe installer with automatic update support.
     ```bash
     npm run build
     ```
