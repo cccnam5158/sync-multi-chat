@@ -29,13 +29,19 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 ## Version
 
--   **Current Version**: v0.5.7
+-   **Current Version**: v0.5.8
 
 ## Installation
 
-This application is distributed as a portable executable for Windows (`.exe`). No complex installation is required.
+This application is now distributed as a **Windows Installer** with **automatic update support**.
 
-1.  Download the latest release zip file (e.g., `Sync Multi Chat-win32-x64-v0.5.v0.5.7.zip`).
+### Option A: Installer (Recommended)
+1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.5.8.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.8/Sync-Multi-Chat-Setup-0.5.8.exe)
+2.  Run the installer and follow the installation wizard.
+3.  The app will automatically check for updates on startup.
+
+### Option B: Portable Version
+1.  Download the portable zip file (e.g., `Sync.Multi.Chat-win32-x64.zip`).
 2.  Extract the zip file to a location of your choice.
 3.  Run `Sync Multi Chat.exe` inside the extracted folder.
 

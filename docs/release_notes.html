@@ -21,8 +21,8 @@
                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#3b82f6"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-                    Sync Multi Chat <span
-                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;">v0.5.7</span>
+                    Sync Multi Chat <span class="version-badge"
+                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.5.8</span>
                 </a>
                 <div class="nav-links">
                     <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
@@ -83,18 +83,36 @@
             style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 60px; max-width: 900px; margin-left: auto; margin-right: auto; padding-left: 20px;">
             <h2 style="margin-bottom: 0;" data-i18n="releaseNotes.title">Release History</h2>
             <span style="color: var(--text-tertiary); font-size: 0.9rem;" data-i18n="releaseNotes.lastUpdated">Last
-                updated: Jan 05, 2026</span>
+                updated: Jan 06, 2026</span>
         </div>
 
         <div class="timeline">
 
-            <!-- v0.5.7 (Active) -->
+            <!-- v0.5.8 (Active) -->
             <div class="timeline-item active">
                 <div class="timeline-dot"></div>
 
                 <div class="version-header">
-                    <span class="version-number">v0.5.7</span>
+                    <span class="version-number">v0.5.8</span>
                     <span class="badge-current" data-i18n="releaseNotes.current">Current</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ <span data-i18n="releaseNotes.newFeatures">New Features</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v058.feature1"><strong>Installer Distribution</strong>: Now distributed as a Windows installer (.exe) for easier installation.</li>
+                        <li data-i18n="releaseNotes.v058.feature2"><strong>Auto-Update</strong>: Automatic update support via electron-updater. Get the latest features without manual downloads.</li>
+                        <li data-i18n="releaseNotes.v058.feature3"><strong>GitHub Actions CI/CD</strong>: Automated build and release pipeline for faster deployments.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.5.7 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.5.7</span>
                 </div>
 
                 <div class="release-card-content">
@@ -321,6 +339,7 @@
         </svg>
     </button>
 
+    <script src="config.js"></script>
     <script src="i18n.js"></script>
     <script src="script.js"></script>
     <script>

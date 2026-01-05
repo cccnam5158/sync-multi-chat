@@ -30,5 +30,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Session Persistence APIs (SESS)
     onApplySavedState: (callback) => ipcRenderer.on('apply-saved-state', (event, state) => callback(state)),
     reportUiState: (state) => ipcRenderer.send('report-ui-state', state),
-    getSavedSession: () => ipcRenderer.invoke('get-saved-session')
+    getSavedSession: () => ipcRenderer.invoke('get-saved-session'),
+    // Auto Update APIs
+    checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+    downloadUpdate: () => ipcRenderer.invoke('download-update'),
+    installUpdate: () => ipcRenderer.invoke('install-update'),
+    getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+    onUpdateStatus: (callback) => ipcRenderer.on('update-status', (event, data) => callback(data))
 });

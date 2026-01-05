@@ -1,17 +1,30 @@
 {
   "name": "sync-multi-chat",
-  "version": "0.5.7",
-  "description": "",
+  "version": "0.5.8",
+  "description": "Multi AI Chat Broadcaster - Broadcast prompts to multiple AI services simultaneously",
   "main": "src/main/main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cccnam5158/sync-multi-chat.git"
+  },
   "scripts": {
     "start": "electron .",
     "generate:icons": "node scripts/generate-icons.js",
     "build": "node scripts/generate-icons.js && electron-builder",
+    "build:win": "node scripts/generate-icons.js && electron-builder --win",
     "build:portable": "node scripts/generate-icons.js && electron-packager . \"Sync Multi Chat\" --platform=win32 --arch=x64 --out=dist-packager --overwrite --icon=build/icon.ico",
+    "publish": "node scripts/generate-icons.js && electron-builder --win --publish always",
     "test": "echo \"Error: no test specified\" && exit 1",
     "postinstall": "electron-rebuild"
   },
-  "keywords": [],
+  "keywords": [
+    "electron",
+    "ai",
+    "chatgpt",
+    "claude",
+    "gemini",
+    "multi-chat"
+  ],
   "author": "Joseph Nam",
   "license": "SEE LICENSE IN LICENSE",
   "type": "commonjs",
@@ -28,6 +41,7 @@
     "chrome-launcher": "^1.2.1",
     "electron-log": "^5.0.0",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.6.2",
     "idb": "^8.0.3",
     "puppeteer-core": "^24.31.0",
     "puppeteer-extra": "^3.3.6",
@@ -44,17 +58,49 @@
     },
     "win": {
       "target": [
-        "nsis"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Sync Multi Chat"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "cccnam5158",
+      "repo": "sync-multi-chat",
+      "releaseType": "release"
     },
     "files": [
       "src/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      },
+      {
+        "from": "build/icon-512.png",
+        "to": "icon-512.png"
+      }
     ]
   }
 }

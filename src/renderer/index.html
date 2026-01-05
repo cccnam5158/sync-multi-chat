@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Multi Chat</title>
+    <title>Sync Multi Chat (v0.5.8)</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -330,28 +330,30 @@
         <script src="history-manager.js"></script>
         <script src="renderer.js"></script>
         <script>
-            // Scroll to Top Button Logic
-            const scrollToTopBtn = document.getElementById('scroll-to-top-btn');
-            const controlsContainer = document.getElementById('controls-container');
+            // Scroll to Top Button Logic (wrapped in IIFE to avoid variable conflicts)
+            (function() {
+                const scrollTopBtn = document.getElementById('scroll-to-top-btn');
+                const controlsEl = document.getElementById('controls-container');
 
-            if (controlsContainer && scrollToTopBtn) {
-                controlsContainer.addEventListener('scroll', function () {
-                    const scrollTop = this.scrollTop;
-                    const scrollHeight = this.scrollHeight;
-                    const clientHeight = this.clientHeight;
+                if (controlsEl && scrollTopBtn) {
+                    controlsEl.addEventListener('scroll', function () {
+                        const scrollTop = this.scrollTop;
+                        const scrollHeight = this.scrollHeight;
+                        const clientHeight = this.clientHeight;
 
-                    // Show button when scrolled down more than 100px or near bottom
-                    if (scrollTop > 100 || (scrollTop + clientHeight >= scrollHeight - 50)) {
-                        scrollToTopBtn.style.display = 'flex';
-                    } else {
-                        scrollToTopBtn.style.display = 'none';
-                    }
-                });
+                        // Show button when scrolled down more than 100px or near bottom
+                        if (scrollTop > 100 || (scrollTop + clientHeight >= scrollHeight - 50)) {
+                            scrollTopBtn.style.display = 'flex';
+                        } else {
+                            scrollTopBtn.style.display = 'none';
+                        }
+                    });
 
-                scrollToTopBtn.addEventListener('click', function () {
-                    controlsContainer.scrollTo({ top: 0, behavior: 'smooth' });
-                });
-            }
+                    scrollTopBtn.addEventListener('click', function () {
+                        controlsEl.scrollTo({ top: 0, behavior: 'smooth' });
+                    });
+                }
+            })();
         </script>
 </body>
 

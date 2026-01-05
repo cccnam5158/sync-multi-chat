@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.5.8 (2026-01-06)
+
+### ✨ New Features
+*   **Installer Distribution**: Now distributed as a Windows installer (.exe) for easier installation.
+*   **Auto-Update**: Automatic update support via electron-updater. Get the latest features without manual downloads.
+*   **GitHub Actions CI/CD**: Automated build and release pipeline for faster deployments.
+
+---
+
 ## v0.5.7 (2026-01-05)
 
 ### ⬆️ Improvements
