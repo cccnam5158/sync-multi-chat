@@ -135,9 +135,12 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "Release History",
-        "releaseNotes.lastUpdated": "Last updated: Dec 18, 2025",
+        "releaseNotes.lastUpdated": "Last updated: Jan 05, 2026",
         "releaseNotes.current": "Current",
         "releaseNotes.newFeatures": "New Features",
+        "releaseNotes.bugFixes": "Bug Fixes",
+        "releaseNotes.v057.fix1": "Grok Login Fix: Resolved \"Login required\" issue by syncing Google/X cookies.",
+        "releaseNotes.v057.fix2": "Login Detection: Improved state detection for Grok.",
         "releaseNotes.v056.feature1": "Genspark Integration: Full support for search-driven AI chat.",
         "releaseNotes.v056.feature2": "Anonymous Mapping: Maps Genspark to alias \"(F)\".",
         "releaseNotes.v055.title": "Conversation History",
@@ -294,9 +297,12 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "릴리스 히스토리",
-        "releaseNotes.lastUpdated": "최종 업데이트: 2025년 12월 18일",
+        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 1월 5일",
         "releaseNotes.current": "현재",
         "releaseNotes.newFeatures": "새로운 기능",
+        "releaseNotes.bugFixes": "버그 수정",
+        "releaseNotes.v057.fix1": "Grok 로그인 수정: Google/X 쿠키 동기화로 '로그인 필요' 문제 해결.",
+        "releaseNotes.v057.fix2": "로그인 감지: Grok의 로그인 상태 감지 개선.",
         "releaseNotes.v056.feature1": "Genspark 통합: 검색 기반 AI 채팅 완벽 지원.",
         "releaseNotes.v056.feature2": "익명 매핑: Genspark을 별칭 \"(F)\"로 매핑.",
         "releaseNotes.v055.title": "대화 기록",
@@ -453,9 +459,12 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "リリース履歴",
-        "releaseNotes.lastUpdated": "最終更新: 2025年12月18日",
+        "releaseNotes.lastUpdated": "最終更新: 2026年1月5日",
         "releaseNotes.current": "現在",
         "releaseNotes.newFeatures": "新機能",
+        "releaseNotes.bugFixes": "バグ修正",
+        "releaseNotes.v057.fix1": "Grokログイン修正: Google/Xクッキーの同期により「ログインが必要」という問題を解決。",
+        "releaseNotes.v057.fix2": "ログイン検出: Grokのログイン状態検出を改善。",
         "releaseNotes.v056.feature1": "Genspark統合: 検索駆動AIチャットの完全サポート。",
         "releaseNotes.v056.feature2": "匿名マッピング: Genspark をエイリアス「(F)」にマッピング。",
         "releaseNotes.v055.title": "会話履歴",
