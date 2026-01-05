@@ -58,7 +58,7 @@ const serviceDomains = {
     chatgpt: ['chatgpt.com', 'chat.openai.com', 'openai.com', 'auth0.com', 'auth.openai.com'],
     claude: ['claude.ai', 'anthropic.com'],
     gemini: ['gemini.google.com', 'google.com', 'accounts.google.com', 'gstatic.com'],
-    grok: ['grok.com', 'x.com', 'twitter.com'],
+    grok: ['grok.com', 'x.com', 'twitter.com', 'google.com', 'accounts.google.com', 'gstatic.com'],
     perplexity: ['perplexity.ai'],
     genspark: ['genspark.ai', 'google.com', 'accounts.google.com', 'gstatic.com']
 };
@@ -1910,6 +1910,18 @@ ipcMain.on('external-login', async (event, service) => {
                         cookies = [...cookies, ...googleCookies];
                     } catch (e) {
                         console.warn('Failed to fetch Google cookies for Genspark:', e);
+                    }
+                } else if (service === 'grok') {
+                    try {
+                        const extraCookies = await page.cookies(
+                            'https://x.com',
+                            'https://twitter.com',
+                            'https://accounts.google.com',
+                            'https://google.com'
+                        );
+                        cookies = [...cookies, ...extraCookies];
+                    } catch (e) {
+                        console.warn('Failed to fetch extra cookies for Grok:', e);
                     }
                 }
                 let isLoggedIn = false;

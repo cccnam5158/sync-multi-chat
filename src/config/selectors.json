@@ -164,7 +164,8 @@
     "grok": {
         "inputSelector": [
             "div.ProseMirror",
-            "div[contenteditable='true']"
+            "div[contenteditable='true']",
+            "textarea"
         ],
         "sendButtonSelector": [
             "button[aria-label='Submit']",
@@ -172,7 +173,8 @@
         ],
         "loggedInSelector": [
             "div.ProseMirror",
-            "div[contenteditable='true']"
+            "div[contenteditable='true']",
+            "textarea"
         ],
         "contentSelector": [
             "main",

@@ -1,5 +1,10 @@
 # Release Notes
 
+## v0.5.7 (2026-01-05)
+
+### ⬆️ Improvements
+*   **Grok**: Grok login state information sync with Google/X cookies.
+
 ## v0.5.6 (2025-12-18)
 
 ### ✨ New Features
