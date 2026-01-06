@@ -1,7 +1,5 @@
 # Release Notes
 
-# Release Notes
-
 ## v0.5.9 (2026-01-06)
 
 ### ✨ Improvements
