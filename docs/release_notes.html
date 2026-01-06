@@ -22,7 +22,7 @@
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     Sync Multi Chat <span class="version-badge"
-                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.5.8</span>
+                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.5.9</span>
                 </a>
                 <div class="nav-links">
                     <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
@@ -88,13 +88,31 @@
 
         <div class="timeline">
 
-            <!-- v0.5.8 (Active) -->
+            <!-- v0.5.9 (Active) -->
             <div class="timeline-item active">
                 <div class="timeline-dot"></div>
 
                 <div class="version-header">
-                    <span class="version-number">v0.5.8</span>
+                    <span class="version-number">v0.5.9</span>
                     <span class="badge-current" data-i18n="releaseNotes.current">Current</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ <span data-i18n="releaseNotes.newFeatures">New Features</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v059.feature1"><strong>Custom Prompt Persistence</strong>: Saved prompts now sync to the app data store (electron-store) with localStorage migration to prevent loss on reinstall.</li>
+                        <li data-i18n="releaseNotes.v059.feature2"><strong>Login UX Fix</strong>: “Chrome으로 로그인” badge reset fixed (ID mismatch) so the button clears after closing the Chrome login window.</li>
+                        <li data-i18n="releaseNotes.v059.feature3"><strong>Cookie Sync Hardening</strong>: SameSite mapping and default path fixes to keep ChatGPT/Claude/Gemini/Grok sessions stable on Windows 11.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.5.8 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.5.8</span>
                 </div>
 
                 <div class="release-card-content">

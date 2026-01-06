@@ -36,5 +36,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     downloadUpdate: () => ipcRenderer.invoke('download-update'),
     installUpdate: () => ipcRenderer.invoke('install-update'),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-    onUpdateStatus: (callback) => ipcRenderer.on('update-status', (event, data) => callback(data))
+    onUpdateStatus: (callback) => ipcRenderer.on('update-status', (event, data) => callback(data)),
+    // Prompt persistence
+    getCustomPrompts: () => ipcRenderer.invoke('get-custom-prompts'),
+    saveCustomPrompts: (prompts) => ipcRenderer.invoke('save-custom-prompts', prompts),
+    getPredefinedPrompt: () => ipcRenderer.invoke('get-predefined-prompt'),
+    savePredefinedPrompt: (promptText) => ipcRenderer.invoke('save-predefined-prompt', promptText)
 });

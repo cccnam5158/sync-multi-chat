@@ -1121,37 +1121,88 @@ let pendingDeletePromptIndex = null;
 const DEFAULT_PREDEFINED_PROMPT = "Below are responses from different AI models. Please compare and analyze them for accuracy, completeness, and logic. Identify any discrepancies and suggest the best answer.";
 let currentPredefinedPrompt = DEFAULT_PREDEFINED_PROMPT;
 
-function loadCustomPrompts() {
-    const stored = localStorage.getItem('customPrompts');
-    if (stored) {
+async function loadCustomPrompts() {
+    const storedLocal = localStorage.getItem('customPrompts');
+    let storedStore = null;
+
+    try {
+        if (window.electronAPI?.getCustomPrompts) {
+            storedStore = await window.electronAPI.getCustomPrompts();
+        }
+    } catch (e) {
+        console.error('Failed to load custom prompts from store', e);
+    }
+
+    let loaded = [];
+    if (Array.isArray(storedStore) && storedStore.length > 0) {
+        loaded = storedStore;
+    } else if (storedLocal) {
         try {
-            customPrompts = JSON.parse(stored);
-            // Migration: Ensure fields exist
-            customPrompts = customPrompts.map(p => ({
-                ...p,
-                createdAt: p.createdAt || new Date().toISOString(),
-                lastUsedAt: p.lastUsedAt || new Date().toISOString()
-            }));
+            loaded = JSON.parse(storedLocal);
         } catch (e) {
-            console.error('Failed to parse custom prompts', e);
-            customPrompts = [];
+            console.error('Failed to parse custom prompts from localStorage', e);
         }
     }
+
+    // Migration: Ensure fields exist
+    customPrompts = (loaded || []).map(p => ({
+        ...p,
+        createdAt: p.createdAt || new Date().toISOString(),
+        lastUsedAt: p.lastUsedAt || new Date().toISOString()
+    }));
+
+    // Persist back to store/local if we had only local data
+    if ((!Array.isArray(storedStore) || storedStore.length === 0) && customPrompts.length > 0) {
+        try {
+            await window.electronAPI?.saveCustomPrompts?.(customPrompts);
+        } catch (e) {
+            console.error('Failed to persist custom prompts to store', e);
+        }
+    }
+
+    localStorage.setItem('customPrompts', JSON.stringify(customPrompts));
+    renderSavedPrompts();
 }
 
 function loadPredefinedPrompt() {
-    const stored = localStorage.getItem('predefinedPrompt');
-    if (stored) {
-        currentPredefinedPrompt = stored;
-    } else {
-        currentPredefinedPrompt = DEFAULT_PREDEFINED_PROMPT;
-    }
-    updatePredefinedPromptPreview();
+    (async () => {
+        const storedLocal = localStorage.getItem('predefinedPrompt');
+        let storedStore = null;
+        try {
+            storedStore = await window.electronAPI?.getPredefinedPrompt?.();
+        } catch (e) {
+            console.error('Failed to load predefined prompt from store', e);
+        }
+
+        if (typeof storedStore === 'string' && storedStore.length > 0) {
+            currentPredefinedPrompt = storedStore;
+        } else if (storedLocal) {
+            currentPredefinedPrompt = storedLocal;
+            // Persist migration into store if store was empty
+            if (!storedStore) {
+                try {
+                    await window.electronAPI?.savePredefinedPrompt?.(storedLocal);
+                } catch (e) {
+                    console.error('Failed to persist predefined prompt to store', e);
+                }
+            }
+        } else {
+            currentPredefinedPrompt = DEFAULT_PREDEFINED_PROMPT;
+        }
+
+        localStorage.setItem('predefinedPrompt', currentPredefinedPrompt);
+        updatePredefinedPromptPreview();
+    })();
 }
 
 function savePredefinedPrompt(content) {
     currentPredefinedPrompt = content;
     localStorage.setItem('predefinedPrompt', content);
+    try {
+        window.electronAPI?.savePredefinedPrompt?.(content);
+    } catch (e) {
+        console.error('Failed to save predefined prompt to store', e);
+    }
     updatePredefinedPromptPreview();
 }
 
@@ -1163,6 +1214,12 @@ function updatePredefinedPromptPreview() {
 
 function saveCustomPromptsToStorage() {
     localStorage.setItem('customPrompts', JSON.stringify(customPrompts));
+    // Fire-and-forget persistence to electron-store
+    try {
+        window.electronAPI?.saveCustomPrompts?.(customPrompts);
+    } catch (e) {
+        console.error('Failed to save custom prompts to store', e);
+    }
 }
 
 function openCrossCheckModal() {

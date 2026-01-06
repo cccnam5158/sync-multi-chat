@@ -15,6 +15,12 @@ const defaultSessionState = {
     isScrollSyncEnabled: false
 };
 
+// User data persistence (prompts)
+const PROMPT_STORE_KEYS = {
+    customPrompts: 'customPrompts',
+    predefinedPrompt: 'predefinedPrompt'
+};
+
 let robot;
 try {
     robot = require('robotjs');
@@ -2006,17 +2012,27 @@ ipcMain.on('external-login', async (event, service) => {
                                     cookieUrl = (cookie.secure ? 'https://' : 'http://') + cleanDomain;
                                 }
 
+                                // Map SameSite to Electron-accepted values
+                                const mapSameSite = (value, isSecure) => {
+                                    const normalized = (value || '').toLowerCase();
+                                    if (normalized === 'no_restriction' || normalized === 'none') return 'no_restriction';
+                                    if (normalized === 'lax') return 'lax';
+                                    if (normalized === 'strict') return 'strict';
+                                    // Fallback: match Chrome behavior (None requires secure)
+                                    return isSecure ? 'no_restriction' : 'lax';
+                                };
+
                                 const cookieDetails = {
                                     url: cookieUrl,
                                     name: cookie.name,
                                     value: cookie.value,
                                     domain: cookie.domain,
-                                    path: cookie.path,
+                                    path: cookie.path || '/',
                                     secure: cookie.secure,
                                     httpOnly: cookie.httpOnly,
                                     expirationDate: cookie.expires,
                                     // Explicitly set SameSite policy for proper cookie context
-                                    sameSite: cookie.sameSite || (cookie.secure ? 'none' : 'lax')
+                                    sameSite: mapSameSite(cookie.sameSite, cookie.secure)
                                 };
 
                                 // Fix for __Host- prefix: Must NOT have a domain attribute
@@ -2026,7 +2042,7 @@ ipcMain.on('external-login', async (event, service) => {
 
                                 await electronCookies.set(cookieDetails);
                             } catch (err) {
-                                console.error(`Failed to set cookie ${cookie.name}:`, err);
+                                console.error(`Failed to set cookie ${cookie.name}:`, err?.message || err);
                             }
                         }
                         console.log(`Cookies synced for ${service}`);
@@ -2068,6 +2084,51 @@ ipcMain.on('external-login', async (event, service) => {
 ipcMain.on('reload-active-view', (event) => {
     // Reload only the view that requested it
     event.sender.reload();
+});
+
+// ===========================================
+// Prompt Persistence (electron-store)
+// ===========================================
+ipcMain.handle('get-custom-prompts', async () => {
+    try {
+        return store.get(PROMPT_STORE_KEYS.customPrompts, []);
+    } catch (e) {
+        console.error('[Prompts] Failed to read custom prompts:', e);
+        return [];
+    }
+});
+
+ipcMain.handle('save-custom-prompts', async (event, prompts) => {
+    try {
+        if (Array.isArray(prompts)) {
+            store.set(PROMPT_STORE_KEYS.customPrompts, prompts);
+        }
+        return true;
+    } catch (e) {
+        console.error('[Prompts] Failed to save custom prompts:', e);
+        return false;
+    }
+});
+
+ipcMain.handle('get-predefined-prompt', async () => {
+    try {
+        return store.get(PROMPT_STORE_KEYS.predefinedPrompt, null);
+    } catch (e) {
+        console.error('[Prompts] Failed to read predefined prompt:', e);
+        return null;
+    }
+});
+
+ipcMain.handle('save-predefined-prompt', async (event, promptText) => {
+    try {
+        if (typeof promptText === 'string') {
+            store.set(PROMPT_STORE_KEYS.predefinedPrompt, promptText);
+        }
+        return true;
+    } catch (e) {
+        console.error('[Prompts] Failed to save predefined prompt:', e);
+        return false;
+    }
 });
 
 ipcMain.on('status-update', (event, { isLoggedIn }) => {

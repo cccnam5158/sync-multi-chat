@@ -314,7 +314,7 @@ function updateLoginStatusUI(isLoggedIn) {
 }
 
 ipcRenderer.on('external-login-closed', () => {
-    const badge = document.getElementById('multi-ai-chat-login-badge');
+    const badge = document.getElementById('sync-multi-chat-login-badge');
     if (badge) {
         const btn = badge.querySelector('button');
         if (btn) {

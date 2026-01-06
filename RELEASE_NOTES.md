@@ -1,5 +1,14 @@
 # Release Notes
 
+# Release Notes
+
+## v0.5.9 (2026-01-06)
+
+### ✨ Improvements
+*   **Custom Prompt Persistence**: Saved prompts now sync to electron-store (app data) with migration from localStorage to avoid loss after reinstall.
+*   **Login Badge Reset Fix**: Fixed Chrome login badge ID mismatch so the “Chrome으로 로그인” button clears correctly after external login closes.
+*   **Cookie Sync Hardening**: SameSite mapping and default path fixes to keep ChatGPT/Claude/Gemini/Grok sessions stable, especially on Windows 11.
+
 ## v0.5.8 (2026-01-06)
 
 ### ✨ New Features
