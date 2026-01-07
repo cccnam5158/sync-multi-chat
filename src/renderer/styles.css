@@ -89,6 +89,40 @@ body {
     box-sizing: border-box;
 }
 
+.sidebar-header .sidebar-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.sidebar-header .icon-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    border: 1px solid transparent;
+    color: hsl(var(--muted-foreground));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.sidebar-header .icon-btn:hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--foreground));
+}
+
+.sidebar-header .icon-btn.active {
+    background-color: hsl(var(--primary));
+    border-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+}
+
+.hidden {
+    display: none !important;
+}
+
 .sidebar-title {
     font-size: 0.85rem;
     font-weight: 600;
@@ -150,6 +184,212 @@ body {
     font-size: 0.85rem;
     color: hsl(var(--muted-foreground));
     border: 1px solid transparent;
+}
+
+.history-item.selection-mode {
+    cursor: default;
+}
+
+.history-select {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.history-item.selection-mode {
+    padding: 8px 10px;
+}
+
+.history-item.selection-mode:hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+}
+
+.history-select input[type="checkbox"] {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid hsl(var(--muted-foreground));
+    border-radius: 4px;
+    background-color: transparent;
+    display: grid;
+    place-content: center;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: box-shadow 0.2s, border-color 0.2s, background-color 0.2s;
+}
+
+.history-select input[type="checkbox"]::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em hsl(var(--primary));
+    transform-origin: center;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+.history-select input[type="checkbox"]:focus-visible {
+    outline: none;
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.4);
+}
+
+.history-select input[type="checkbox"]:checked {
+    border-color: hsl(var(--primary));
+    background-color: hsl(var(--primary) / 0.08);
+}
+
+.history-select input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
+.history-item.selected {
+    background-color: hsl(var(--primary) / 0.12);
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--primary) / 0.35);
+}
+
+.history-item.selected:hover {
+    background-color: hsl(var(--primary) / 0.16);
+}
+
+.history-item.selection-mode .history-actions {
+    display: none;
+}
+
+.history-bulk-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 4px;
+    padding: 4px 0 0;
+    position: relative;
+    /* No surrounding card/border: use full sidebar width */
+    border: none;
+    border-radius: 0;
+    background: transparent;
+}
+
+.history-bulk-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.history-bulk-row-count {
+    justify-content: center;
+    padding: 0 0 6px;
+}
+
+.history-bulk-row-actions {
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 0 4px;
+    border-top: 1px solid hsl(var(--border));
+}
+
+.history-bulk-count {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: hsl(var(--muted-foreground));
+}
+
+.history-bulk-count-center {
+    flex: 1;
+    justify-content: center;
+    text-align: center;
+}
+
+.history-bulk-close-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.history-bulk-close-btn:hover {
+    background-color: transparent;
+    color: hsl(var(--foreground));
+}
+
+.history-bulk-close-text {
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.history-bulk-close-btn:hover .history-bulk-close-text {
+    font-weight: 700;
+}
+
+.history-pill-btn {
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex: 1;
+}
+
+.history-pill-subtle {
+    background-color: transparent;
+    color: hsl(var(--muted-foreground));
+}
+
+.history-pill-subtle:hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+}
+
+.history-pill-btn:not(.history-pill-danger):hover {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+}
+
+.history-pill-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.history-pill-danger {
+    background-color: hsl(var(--destructive));
+    border-color: hsl(var(--destructive));
+    color: hsl(var(--destructive-foreground));
+}
+
+.history-pill-danger:not(:disabled):hover {
+    background-color: hsl(var(--destructive));
+    border-color: hsl(var(--destructive));
+    color: hsl(var(--destructive-foreground));
+    font-weight: 700;
 }
 
 .history-item:hover {
@@ -237,6 +477,13 @@ body {
 .btn-ghost-danger:hover {
     background-color: hsl(var(--destructive) / 0.1);
     color: hsl(var(--destructive));
+}
+
+/* Clear All button in sidebar footer - make it feel like a pill action */
+.sidebar-footer > .btn-ghost-danger {
+    border-radius: 999px;
+    border: 1px solid hsl(var(--border));
+    justify-content: center;
 }
 
 /* Top Bar (Hamburger) */

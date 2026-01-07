@@ -28,6 +28,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Local AI assistant settings
+.claude/
+
 blogs/
 references/
 tasks/

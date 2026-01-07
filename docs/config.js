@@ -5,15 +5,15 @@
 
 const SMC_CONFIG = {
     // Current version
-    version: 'v0.5.9',
+    version: 'v0.5.10',
     
     // Release date
-    releaseDate: '2026-01-06',
+    releaseDate: '2026-01-07',
     
     // Download URLs
     downloads: {
         windows: {
-            installer: 'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.9/Sync-Multi-Chat-Setup-0.5.9.exe'
+            installer: 'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.10/Sync-Multi-Chat-Setup-0.5.10.exe'
         },
         // Future platforms
         macos: null,
@@ -49,7 +49,7 @@ function applyVersionInfo() {
         }
     });
     
-    // Update version description text (e.g., "v0.5.9 | Installer & Auto-update")
+    // Update version description text (e.g., "v0.5.10 | Installer & Auto-update")
     document.querySelectorAll('[data-version-desc]').forEach(el => {
         const descType = el.getAttribute('data-version-desc');
         if (descType === 'windows') {

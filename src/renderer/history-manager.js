@@ -122,6 +122,38 @@ class HistoryManager {
         });
     }
 
+    deleteSessions(ids = []) {
+        return this.ensureInit().then(() => {
+            return new Promise((resolve, reject) => {
+                const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+                if (uniqueIds.length === 0) {
+                    resolve();
+                    return;
+                }
+
+                const transaction = this.db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+
+                transaction.oncomplete = () => {
+                    console.log(`[HistoryManager] Deleted sessions: ${uniqueIds.length}`);
+                    resolve();
+                };
+                transaction.onerror = (event) => reject(event.target.error);
+                transaction.onabort = (event) => reject(event.target.error);
+
+                uniqueIds.forEach((id) => {
+                    try {
+                        store.delete(id);
+                    } catch (e) {
+                        // if delete throws synchronously, abort transaction
+                        try { transaction.abort(); } catch (_) {}
+                        reject(e);
+                    }
+                });
+            });
+        });
+    }
+
     clearAll() {
         return this.ensureInit().then(() => {
             return new Promise((resolve, reject) => {

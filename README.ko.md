@@ -27,13 +27,13 @@
 
 ## 버전
 
--   **현재 버전**: v0.5.9
+-   **현재 버전**: v0.5.10
 
 ## 설치 방법
 
 이 애플리케이션은 **Windows 설치 프로그램**으로 배포되며, **자동 업데이트 기능**을 지원합니다.
 
-1.  최신 설치 파일을 다운로드합니다: [Sync-Multi-Chat-Setup-0.5.9.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.9/Sync-Multi-Chat-Setup-0.5.9.exe)
+1.  최신 설치 파일을 다운로드합니다: [Sync-Multi-Chat-Setup-0.5.10.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.10/Sync-Multi-Chat-Setup-0.5.10.exe)
 2.  설치 프로그램을 실행하고 설치 마법사를 따라 진행합니다.
 3.  앱은 시작 시 자동으로 업데이트를 확인합니다.
 

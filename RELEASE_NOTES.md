@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.5.10 (2026-01-07)
+
+### ✨ New Features
+*   **Conversation History - Bulk Delete**: Added Selection Mode to the History Sidebar to select and delete multiple sessions at once (with confirmation).
+
+### ⬆️ Improvements
+*   **History Sidebar UX**: Improved infinite scroll stability and scroll position restoration for large history lists.
+*   **Modern UI**: Refined selection toolbar styling (pill buttons, clearer layout, hover feedback) for a more modern and consistent UX.
+
 ## v0.5.9 (2026-01-06)
 
 ### ✨ Improvements

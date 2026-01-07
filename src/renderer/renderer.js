@@ -1886,7 +1886,228 @@ const historySidebar = document.getElementById('history-sidebar');
 const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
 const historyList = document.getElementById('history-list');
 const clearHistoryBtn = document.getElementById('clear-history-btn');
+const historySelectModeBtn = document.getElementById('history-select-mode-btn');
+const historyBulkActions = document.getElementById('history-bulk-actions');
+const historySelectedCountEl = document.getElementById('history-selected-count');
+const historySelectAllBtn = document.getElementById('history-select-all-btn');
+const historyClearSelectionBtn = document.getElementById('history-clear-selection-btn');
+const historyBulkDeleteBtn = document.getElementById('history-bulk-delete-btn');
+const historyExitSelectionBtn = document.getElementById('history-exit-selection-btn');
 const currentSessionIdKey = 'multi_chat_current_session_id';
+const historyScrollStateKey = 'multi_chat_history_scroll_state';
+const HISTORY_PAGE_SIZE = 30;
+let historyOffset = 0;
+let historyHasMore = true;
+let historyLoading = false;
+let historyScrollAttached = false;
+let savedHistoryScrollState = null;
+let historyPendingReload = null;
+let historySuppressScrollEvents = false;
+
+let isHistorySelectionMode = false;
+const selectedHistorySessionIds = new Set();
+let pendingBulkDeleteIds = [];
+
+function saveHistoryScrollState() {
+    if (!historyList) return;
+    const state = {
+        scrollTop: historyList.scrollTop,
+        offset: historyOffset,
+        activeSessionId: currentSessionId,
+    };
+    try {
+        localStorage.setItem(historyScrollStateKey, JSON.stringify(state));
+    } catch (e) {
+        console.warn('Failed to save history scroll state', e);
+    }
+}
+
+function loadSavedHistoryScrollState() {
+    try {
+        const raw = localStorage.getItem(historyScrollStateKey);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch (e) {
+        console.warn('Failed to load history scroll state', e);
+        return null;
+    }
+}
+
+function scrollActiveHistoryItemIntoView() {
+    if (!historyList) return;
+    const active = historyList.querySelector('.history-item.active');
+    if (active) {
+        active.scrollIntoView({ block: 'nearest' });
+    }
+}
+
+function ensureActiveHistoryItemVisible() {
+    if (!historyList) return;
+    const active = historyList.querySelector('.history-item.active');
+    if (!active) return;
+    const containerRect = historyList.getBoundingClientRect();
+    const itemRect = active.getBoundingClientRect();
+    if (itemRect.top < containerRect.top || itemRect.bottom > containerRect.bottom) {
+        active.scrollIntoView({ block: 'nearest' });
+    }
+}
+
+function restoreHistoryScrollAfterExpand() {
+    if (!historyList) return;
+    const state = loadSavedHistoryScrollState();
+    if (state && typeof state.offset === 'number') {
+        historyOffset = state.offset;
+    }
+
+    // Wait for display:none -> visible layout to settle
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            if (state && typeof state.scrollTop === 'number') {
+                historyList.scrollTop = state.scrollTop;
+            }
+            ensureActiveHistoryItemVisible();
+        });
+    });
+}
+
+function setHistorySelectionMode(enabled) {
+    isHistorySelectionMode = !!enabled;
+    if (!isHistorySelectionMode) {
+        selectedHistorySessionIds.clear();
+    }
+    updateHistorySelectionUI();
+    // Re-render items to switch interaction mode & show/hide checkboxes
+    loadHistoryList({ preserveScroll: true });
+}
+
+function updateHistorySelectionUI() {
+    const selectedCount = selectedHistorySessionIds.size;
+
+    if (historyBulkActions) {
+        historyBulkActions.classList.toggle('hidden', !isHistorySelectionMode);
+    }
+    if (clearHistoryBtn) {
+        clearHistoryBtn.classList.toggle('hidden', isHistorySelectionMode);
+    }
+    if (historySelectedCountEl) {
+        historySelectedCountEl.textContent = String(selectedCount);
+    }
+    if (historyBulkDeleteBtn) {
+        historyBulkDeleteBtn.disabled = selectedCount === 0;
+    }
+    if (historySelectModeBtn) {
+        historySelectModeBtn.title = isHistorySelectionMode ? 'Cancel selection' : 'Select multiple';
+        historySelectModeBtn.classList.toggle('active', isHistorySelectionMode);
+    }
+}
+
+function toggleHistorySelection(sessionId) {
+    if (!sessionId) return;
+    if (selectedHistorySessionIds.has(sessionId)) {
+        selectedHistorySessionIds.delete(sessionId);
+    } else {
+        selectedHistorySessionIds.add(sessionId);
+    }
+    updateHistorySelectionUI();
+}
+
+function clearHistorySelection() {
+    selectedHistorySessionIds.clear();
+    updateHistorySelectionUI();
+    // Keep selection mode, but update styles
+    syncHistorySelectionStyles();
+}
+
+function selectAllLoadedHistoryItems() {
+    const items = document.querySelectorAll('#history-list .history-item[data-session-id]');
+    items.forEach((el) => {
+        const id = el.dataset.sessionId;
+        if (id) selectedHistorySessionIds.add(id);
+    });
+    updateHistorySelectionUI();
+    syncHistorySelectionStyles();
+}
+
+function syncHistorySelectionStyles() {
+    const items = document.querySelectorAll('#history-list .history-item[data-session-id]');
+    items.forEach((el) => {
+        const id = el.dataset.sessionId;
+        const selected = id && selectedHistorySessionIds.has(id);
+        el.classList.toggle('selected', !!selected);
+        const checkbox = el.querySelector('input[type="checkbox"].history-item-checkbox');
+        if (checkbox) checkbox.checked = !!selected;
+    });
+}
+
+function showHistoryBulkDeleteModal(ids) {
+    const modal = document.getElementById('history-bulk-delete-modal');
+    const countEl = document.getElementById('history-bulk-delete-count');
+    if (!modal || !countEl) return;
+
+    pendingBulkDeleteIds = Array.from(new Set(ids)).filter(Boolean);
+    countEl.textContent = String(pendingBulkDeleteIds.length);
+
+    window.electronAPI.setServiceVisibility(false);
+    modal.classList.add('visible');
+}
+
+function closeHistoryBulkDeleteModal() {
+    const modal = document.getElementById('history-bulk-delete-modal');
+    if (modal) modal.classList.remove('visible');
+    pendingBulkDeleteIds = [];
+    window.electronAPI.setServiceVisibility(true);
+}
+
+async function resetToNewSessionAfterDelete() {
+    // Create a new session like New Chat (same behavior as single delete/clear all)
+    const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
+    const currentUrls = {};
+    activeServices.forEach(service => {
+        const urlEl = document.getElementById(`url-text-${service}`);
+        if (urlEl && urlEl.dataset && urlEl.dataset.url) {
+            currentUrls[service] = urlEl.dataset.url;
+        }
+    });
+
+    currentSessionId = generateId();
+    const newSessionData = {
+        id: currentSessionId,
+        title: `Chat ${new Date().toLocaleTimeString()}`,
+        layout: currentLayout,
+        activeServices: activeServices,
+        prompt: '',
+        isAnonymousMode: isAnonymousMode,
+        isScrollSyncEnabled: isScrollSyncEnabled,
+        urls: currentUrls,
+        createdAt: new Date().toISOString(),
+    };
+    await historyManager.saveSession(newSessionData);
+    localStorage.setItem(currentSessionIdKey, currentSessionId);
+
+    window.electronAPI.newChat();
+}
+
+async function performHistoryBulkDelete(ids) {
+    const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+    if (uniqueIds.length === 0) return;
+
+    const deletingCurrent = uniqueIds.includes(currentSessionId);
+
+    try {
+        await historyManager.deleteSessions(uniqueIds);
+
+        // If deleted sessions include the current one, reset like New Chat
+        if (deletingCurrent) {
+            await resetToNewSessionAfterDelete();
+        }
+
+        // Exit selection mode after bulk delete
+        setHistorySelectionMode(false);
+        loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
+    } catch (e) {
+        console.error('Failed to bulk delete sessions:', e);
+    }
+}
 
 async function setupHistory() {
     try {
@@ -1898,12 +2119,63 @@ async function setupHistory() {
         sidebarToggleBtn.addEventListener('click', () => {
             historySidebar.classList.toggle('collapsed');
             // Adjust icon based on state if desired, but hamburger is fine for both
+            if (historySidebar.classList.contains('collapsed')) {
+                saveHistoryScrollState();
+            } else {
+                restoreHistoryScrollAfterExpand();
+            }
+        });
+
+        if (historySelectModeBtn) {
+            historySelectModeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setHistorySelectionMode(!isHistorySelectionMode);
+            });
+        }
+
+        if (historySelectAllBtn) {
+            historySelectAllBtn.addEventListener('click', () => {
+                selectAllLoadedHistoryItems();
+            });
+        }
+        if (historyClearSelectionBtn) {
+            historyClearSelectionBtn.addEventListener('click', () => {
+                clearHistorySelection();
+            });
+        }
+        if (historyExitSelectionBtn) {
+            historyExitSelectionBtn.addEventListener('click', () => {
+                setHistorySelectionMode(false);
+            });
+        }
+        if (historyBulkDeleteBtn) {
+            historyBulkDeleteBtn.addEventListener('click', () => {
+                showHistoryBulkDeleteModal(Array.from(selectedHistorySessionIds));
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && isHistorySelectionMode) {
+                setHistorySelectionMode(false);
+            }
         });
 
         if (clearHistoryBtn) {
             clearHistoryBtn.addEventListener('click', () => {
                 showClearAllModal();
             });
+        }
+
+        // Attach infinite scroll once
+        if (historyList && !historyScrollAttached) {
+            historyList.addEventListener('scroll', handleHistoryScroll);
+            historyScrollAttached = true;
+        }
+
+        // Load saved scroll state (for restoring list position on reopen)
+        savedHistoryScrollState = loadSavedHistoryScrollState();
+        if (savedHistoryScrollState && typeof savedHistoryScrollState.offset === 'number') {
+            historyOffset = savedHistoryScrollState.offset;
         }
 
         // Check if there are any sessions in DB
@@ -1962,33 +2234,97 @@ async function setupHistory() {
             console.log('[History] Main state already applied, skipping session ID assignment');
         }
 
-        loadHistoryList();
+        loadHistoryList({ preserveScroll: true, restoreSavedScroll: savedHistoryScrollState, ensureActiveVisible: true });
 
     } catch (e) {
         console.error('Failed to setup history:', e);
     }
 }
 
-async function loadHistoryList() {
+function handleHistoryScroll() {
+    if (!historyList) return;
+    if (historySuppressScrollEvents || historyLoading) return;
+    const nearBottom = historyList.scrollTop + historyList.clientHeight >= historyList.scrollHeight - 80;
+    if (nearBottom) {
+        loadHistoryList({ append: true });
+    }
+    saveHistoryScrollState();
+}
+
+async function loadHistoryList(options = {}) {
+    const { append = false, preserveScroll = false, restoreSavedScroll = null, ensureActiveVisible = false } = options;
     const listContainer = document.getElementById('history-list');
     if (!listContainer) return;
 
-    listContainer.innerHTML = '<div style="padding:10px; text-align:center; color:#666;">Loading...</div>';
+    // Guard BEFORE mutating DOM/state:
+    // - If an append call comes while loading, ignore it.
+    // - If a non-append (full re-render) is requested while loading, queue it and run after current load finishes.
+    if (historyLoading) {
+        if (!append) {
+            historyPendingReload = options;
+        }
+        return;
+    }
+
+    // Only block when appending; even if hasMore=false we still want to be able to re-render the current list.
+    if (append && !historyHasMore) return;
+
+    const prevScrollTop = preserveScroll ? listContainer.scrollTop : 0;
+
+    // Prevent programmatic scrollTop changes during render from triggering infinite-scroll logic
+    // (e.g., re-render while near bottom can fire scroll and accidentally append).
+    historySuppressScrollEvents = true;
+
+    // Reset state when not appending (full reload)
+    if (!append) {
+        // keep offset/hasMore when preserving to avoid losing already loaded pages
+        if (!preserveScroll) {
+            historyOffset = 0;
+            historyHasMore = true;
+        }
+        listContainer.innerHTML = '';
+    }
+    historyLoading = true;
+
+    // Show loading indicator (non-blocking)
+    let loadingEl = listContainer.querySelector('.history-loading');
+    if (!loadingEl) {
+        loadingEl = document.createElement('div');
+        loadingEl.className = 'history-loading';
+        loadingEl.style.padding = '10px';
+        loadingEl.style.textAlign = 'center';
+        loadingEl.style.color = '#666';
+        loadingEl.textContent = 'Loading...';
+        listContainer.appendChild(loadingEl);
+    }
 
     try {
-        const sessions = await historyManager.getSessions(50); // Load last 50
-        listContainer.innerHTML = '';
+        const queryOffset = append ? historyOffset : 0;
+        const baseLimit = Math.max(HISTORY_PAGE_SIZE, restoreSavedScroll?.offset || historyOffset || 0);
+        const queryLimit = append ? HISTORY_PAGE_SIZE : baseLimit;
+        const sessions = await historyManager.getSessions(queryLimit, queryOffset);
 
-        if (sessions.length === 0) {
+        // Empty state
+        if (!append && sessions.length === 0) {
             listContainer.innerHTML = '<div style="padding:10px; text-align:center; color:#666;">No history yet</div>';
+            historyHasMore = false;
+            historyLoading = false;
             return;
         }
 
         sessions.forEach(session => {
             const item = document.createElement('div');
             item.className = 'history-item';
+            item.dataset.sessionId = session.id;
+
             if (session.id === currentSessionId) {
                 item.classList.add('active');
+            }
+            if (isHistorySelectionMode) {
+                item.classList.add('selection-mode');
+            }
+            if (selectedHistorySessionIds.has(session.id)) {
+                item.classList.add('selected');
             }
 
             const title = session.title || 'Untitled Session';
@@ -1998,41 +2334,102 @@ async function loadHistoryList() {
             // Tooltip with full info
             const tooltip = `title: ${title}\ncreatedAt: ${createdAtStr}\nupdatedAt: ${updatedAtStr}`;
 
-            item.innerHTML = `
-                <div class="history-item-content" title="${tooltip.replace(/"/g, '&quot;')}">
-                    <div class="history-title">${title}</div>
-                    <div class="history-date">${createdAtStr}</div>
-                </div>
-                <div class="history-actions">
-                     <button class="history-btn-mini context-menu-btn" title="Options">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                     </button>
-                </div>
-            `;
+            if (isHistorySelectionMode) {
+                item.innerHTML = `
+                    <div class="history-select">
+                        <input class="history-item-checkbox" type="checkbox" ${selectedHistorySessionIds.has(session.id) ? 'checked' : ''} />
+                        <div class="history-item-content" title="${tooltip.replace(/"/g, '&quot;')}">
+                            <div class="history-title">${title}</div>
+                            <div class="history-date">${createdAtStr}</div>
+                        </div>
+                    </div>
+                `;
 
-            // Click to load
-            item.onclick = (e) => {
-                if (e.target.closest('.history-actions')) return;
-                loadSession(session);
-            };
+                const checkbox = item.querySelector('.history-item-checkbox');
+                checkbox.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleHistorySelection(session.id);
+                    syncHistorySelectionStyles();
+                });
 
-            // Context Menu Logic
-            const menuBtn = item.querySelector('.context-menu-btn');
-            menuBtn.onclick = (e) => {
-                e.stopPropagation();
-                // Show simple native-like context menu via custom HTML or Electron API? 
-                // Using a simple prompt method for now as requested for rename, but customized for menu
-                // For simplicity, we can reuse the rename/delete logic directly or show a small absolute div
+                item.onclick = () => {
+                    toggleHistorySelection(session.id);
+                    syncHistorySelectionStyles();
+                };
+            } else {
+                item.innerHTML = `
+                    <div class="history-item-content" title="${tooltip.replace(/"/g, '&quot;')}">
+                        <div class="history-title">${title}</div>
+                        <div class="history-date">${createdAtStr}</div>
+                    </div>
+                    <div class="history-actions">
+                         <button class="history-btn-mini context-menu-btn" title="Options">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                         </button>
+                    </div>
+                `;
 
-                // Let's use a dynamic custom menu
-                showCustomContextMenu(e, session);
-            };
+                // Click to load
+                item.onclick = (e) => {
+                    if (e.target.closest('.history-actions')) return;
+                    loadSession(session);
+                };
+
+                // Context Menu Logic
+                const menuBtn = item.querySelector('.context-menu-btn');
+                menuBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    showCustomContextMenu(e, session);
+                };
+            }
 
             listContainer.appendChild(item);
         });
+
+        updateHistorySelectionUI();
+
+        historyOffset = queryOffset + sessions.length;
+        historyHasMore = sessions.length >= queryLimit;
+
+        // restore scroll if requested
+        const targetScrollTop =
+            (restoreSavedScroll && typeof restoreSavedScroll.scrollTop === 'number')
+                ? restoreSavedScroll.scrollTop
+                : (preserveScroll ? prevScrollTop : null);
+
+        if (targetScrollTop !== null) {
+            // Apply after DOM paint to avoid intermediate scroll events with stale scrollHeight.
+            requestAnimationFrame(() => {
+                listContainer.scrollTop = targetScrollTop;
+            });
+        }
+
+        if (ensureActiveVisible) {
+            requestAnimationFrame(() => scrollActiveHistoryItemIntoView());
+        }
+
+        requestAnimationFrame(() => saveHistoryScrollState());
     } catch (e) {
         console.error('Error loading history list:', e);
-        listContainer.innerHTML = '<div style="padding:10px; color:red;">Error loading history</div>';
+        if (!append) {
+            listContainer.innerHTML = '<div style="padding:10px; color:red;">Error loading history</div>';
+        }
+    } finally {
+        if (loadingEl && loadingEl.parentNode) {
+            loadingEl.remove();
+        }
+        historyLoading = false;
+        // Re-enable scroll handling after paint
+        requestAnimationFrame(() => {
+            historySuppressScrollEvents = false;
+        });
+
+        // If a re-render was requested mid-flight, run it now.
+        const pending = historyPendingReload;
+        historyPendingReload = null;
+        if (pending) {
+            loadHistoryList(pending);
+        }
     }
 }
 
@@ -2240,7 +2637,7 @@ async function performHistoryDelete(session) {
             window.electronAPI.newChat();
         }
 
-        loadHistoryList();
+    loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
     } catch (err) {
         console.error('Failed to delete session:', err);
     }
@@ -2260,6 +2657,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 await performHistoryDelete(pendingDeleteSession);
                 closeHistoryDeleteModal();
             }
+        };
+    }
+
+    // Bulk Delete Modal Event Listeners
+    const closeBulkBtn = document.getElementById('close-history-bulk-delete-btn');
+    const cancelBulkBtn = document.getElementById('btn-cancel-history-bulk-delete');
+    const confirmBulkBtn = document.getElementById('btn-confirm-history-bulk-delete');
+
+    if (closeBulkBtn) closeBulkBtn.onclick = closeHistoryBulkDeleteModal;
+    if (cancelBulkBtn) cancelBulkBtn.onclick = closeHistoryBulkDeleteModal;
+    if (confirmBulkBtn) {
+        confirmBulkBtn.onclick = async () => {
+            const ids = pendingBulkDeleteIds;
+            closeHistoryBulkDeleteModal();
+            await performHistoryBulkDelete(ids);
         };
     }
 
@@ -2416,7 +2828,9 @@ async function saveCurrentSession() {
         // Refresh list if open
         const sidebar = document.getElementById('history-sidebar');
         if (sidebar && !sidebar.classList.contains('collapsed')) {
-            loadHistoryList();
+            // For background refreshes (e.g., toggles/auto-save), preserve scroll exactly.
+            // Do not force scrollIntoView here, as it can nudge the history scroll position.
+            loadHistoryList({ preserveScroll: true });
         }
     } catch (e) {
         console.error('Error saving session:', e);
@@ -2472,8 +2886,8 @@ async function loadSession(session) {
         localStorage.setItem(currentSessionIdKey, currentSessionId);
     }
 
-    // Refresh history list to show updated active state
-    loadHistoryList();
+    // Refresh history list to show updated active state (preserve scroll/loaded pages)
+    loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
 
     // Restore Prompt
     if (session.prompt !== undefined) {
@@ -2729,7 +3143,7 @@ async function performRename() {
 
         try {
             await historyManager.saveSession(pendingRenameSession);
-            loadHistoryList();
+            loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
         } catch (e) {
             console.error('Failed to save rename:', e);
         }
@@ -2755,6 +3169,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupResizeHandle();
     setupSessionPersistence();
 });
+
+window.addEventListener('beforeunload', saveHistoryScrollState);
 
 function setupSessionPersistence() {
     // 1. Listen for Apply Saved State from Main Process (Startup)

@@ -66,13 +66,6 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **REQ-HIST-009 (Rename)**: When "Rename" is selected, the system shall allow the user to modify the title of the history item inline or via a modal.
 - **REQ-HIST-010 (Delete)**: When "Delete" is selected, the system shall require confirmation before permanently removing the session from the database.
 - **REQ-HIST-011 (New Chat)**: When the "New Chat" button is clicked, the system shall save the current session state (ensuring the latest changes are persisted) and then reset the workspace to a fresh, default state (New Session ID).
-- **REQ-HIST-012 (Bulk Selection Mode Entry)**: When the user activates "Selection Mode" in the History Sidebar, the system shall switch History Item clicks from "Open Session" to "Toggle Selection".
-- **REQ-HIST-013 (Bulk Selection UI)**: While Selection Mode is enabled, the system shall display a selection control for each History Item and shall indicate selected items visually.
-- **REQ-HIST-014 (Selected Count & Actions)**: While Selection Mode is enabled, the system shall display the number of selected History Items and shall provide actions to "Delete Selected" and "Cancel Selection Mode".
-- **REQ-HIST-015 (Select All Loaded)**: While Selection Mode is enabled, when the user selects "Select All", the system shall select all currently loaded History Items in the sidebar list.
-- **REQ-HIST-016 (Bulk Delete Confirmation)**: When the user triggers "Delete Selected", the system shall require confirmation before permanently deleting the selected sessions.
-- **REQ-HIST-017 (Cancel / Escape)**: While Selection Mode is enabled, when the user cancels or presses Escape, the system shall exit Selection Mode and clear the current selection.
-- **REQ-HIST-018 (Bulk Delete Persistence)**: When sessions are deleted via Bulk Delete, the system shall remove them from persistent storage and update the History Sidebar list.
 
 ### 3.6 External Interaction
 - **REQ-EXT-001 (URL Bar)**: The system shall display the current URL of each Webview in a dedicated bar.

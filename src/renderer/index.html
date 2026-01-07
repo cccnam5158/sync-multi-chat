@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sync Multi Chat (v0.5.9)</title>
+<title>Sync Multi Chat (v0.5.10)</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -20,11 +20,32 @@
                     </svg>
                 </button>
                 <h2 class="sidebar-title">Chat History</h2>
+                <button id="history-select-mode-btn" class="icon-btn" title="Select multiple">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                        <path d="M20 6"></path>
+                    </svg>
+                </button>
             </div>
             <div id="history-list">
                 <!-- History items will be injected here -->
             </div>
             <div class="sidebar-footer">
+                <div id="history-bulk-actions" class="history-bulk-actions hidden">
+                    <button id="history-exit-selection-btn" class="history-bulk-close-btn" title="Exit selection" aria-label="Exit selection">
+                        <span class="history-bulk-close-text">X</span>
+                    </button>
+                    <div class="history-bulk-row history-bulk-row-count">
+                        <div class="history-bulk-count history-bulk-count-center">
+                            <span><span id="history-selected-count">0</span> selected</span>
+                        </div>
+                    </div>
+                    <div class="history-bulk-row history-bulk-row-actions">
+                        <button id="history-select-all-btn" class="history-pill-btn">All</button>
+                        <button id="history-clear-selection-btn" class="history-pill-btn">Clear</button>
+                        <button id="history-bulk-delete-btn" class="history-pill-btn history-pill-danger" disabled>Delete</button>
+                    </div>
+                </div>
                 <button id="clear-history-btn" class="btn-ghost-danger">Clear All</button>
             </div>
         </div>
@@ -281,6 +302,23 @@
                 <div class="prompt-delete-actions">
                     <button id="btn-cancel-history-delete" class="btn-ghost">Cancel</button>
                     <button id="btn-confirm-history-delete" class="btn-primary">Delete</button>
+                </div>
+            </div>
+        </div>
+        <!-- History Bulk Delete Confirmation Modal -->
+        <div id="history-bulk-delete-modal" class="modal">
+            <div class="modal-content prompt-delete-content history-modal-content">
+                <div class="modal-header">
+                    <h3>Delete Selected Sessions</h3>
+                    <button id="close-history-bulk-delete-btn" class="close-btn" aria-label="Close">&times;</button>
+                </div>
+                <hr class="modal-divider">
+                <div class="modal-body">
+                    <p>Are you sure you want to delete <strong><span id="history-bulk-delete-count">0</span></strong> sessions?<br>This cannot be undone.</p>
+                </div>
+                <div class="prompt-delete-actions">
+                    <button id="btn-cancel-history-bulk-delete" class="btn-ghost">Cancel</button>
+                    <button id="btn-confirm-history-bulk-delete" class="btn-primary">Delete</button>
                 </div>
             </div>
         </div>
