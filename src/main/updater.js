@@ -172,14 +172,24 @@ function stripHtmlTags(html) {
  * @param {Object} info - Update info from electron-updater
  */
 async function showUpdateAvailableDialog(info) {
-  if (!mainWindowRef || mainWindowRef.isDestroyed()) return;
+  log.info('[Updater] showUpdateAvailableDialog called with version:', info.version);
+  
+  if (!mainWindowRef || mainWindowRef.isDestroyed()) {
+    log.warn('[Updater] Cannot show dialog: mainWindow is null or destroyed');
+    return;
+  }
 
   const releaseNotes = typeof info.releaseNotes === 'string' 
     ? info.releaseNotes 
     : info.releaseNotes?.map(note => note.note || note).join('\n') || '';
 
+  log.info('[Updater] Release notes length:', releaseNotes.length);
+  
   // Remove HTML tags from release notes for plain text display
   const cleanReleaseNotes = stripHtmlTags(releaseNotes);
+  
+  log.info('[Updater] Clean release notes preview:', cleanReleaseNotes.substring(0, 100));
+  log.info('[Updater] Showing update dialog...');
 
   const result = await dialog.showMessageBox(mainWindowRef, {
     type: 'info',
@@ -392,9 +402,22 @@ function registerIpcHandlers() {
  */
 function checkForUpdates() {
   log.info('[Updater] Starting update check...');
-  autoUpdater.checkForUpdates().catch((err) => {
-    log.error('[Updater] Failed to check for updates:', err);
-  });
+  log.info('[Updater] Current version:', require('electron').app.getVersion());
+  
+  autoUpdater.checkForUpdates()
+    .then((result) => {
+      if (result) {
+        log.info('[Updater] Check result:', JSON.stringify({
+          version: result.updateInfo?.version,
+          releaseDate: result.updateInfo?.releaseDate,
+          files: result.updateInfo?.files?.length
+        }));
+      }
+    })
+    .catch((err) => {
+      log.error('[Updater] Failed to check for updates:', err);
+      log.error('[Updater] Error details:', err.message, err.stack);
+    });
 }
 
 /**
