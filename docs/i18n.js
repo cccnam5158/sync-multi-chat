@@ -175,7 +175,8 @@ const translations = {
         "releaseNotes.v0510.improvement2": "Modernized Selection UI: Refined selection toolbar styling and interactions for better clarity.",
         "releaseNotes.v0511.fix1": "Gemini Login Persistence: Fixed Gemini login not persisting on app restart by syncing accounts.google.com cookies and improving cookie name detection (supports both _Secure- and __Secure- variants).",
         "releaseNotes.v0511.improvement1": "Reload Button Repositioned: Moved reload button from URL bar to header (left of maximize button) for better accessibility.",
-        "releaseNotes.v0511.improvement2": "Per-Service New Chat: Added \"New Chat\" button (plus icon) in URL bar for each service panel, allowing individual service chat resets without affecting others."
+        "releaseNotes.v0511.improvement2": "Per-Service New Chat: Added \"New Chat\" button (plus icon) in URL bar for each service panel, allowing individual service chat resets without affecting others.",
+        "releaseNotes.v0512.fix1": "Update Dialog: Fixed HTML tags being displayed in update dialog release notes. Release notes are now shown as plain text."
     },
 
     ko: {
@@ -349,7 +350,8 @@ const translations = {
         "releaseNotes.v0510.improvement2": "현대화된 선택 UI: 더 나은 명확성을 위해 선택 도구 모음 스타일 및 상호작용 개선.",
         "releaseNotes.v0511.fix1": "Gemini 로그인 유지: accounts.google.com 쿠키 동기화 및 쿠키 이름 감지 개선(_Secure- 및 __Secure- 변형 모두 지원)으로 앱 재시작 시 Gemini 로그인이 유지되지 않던 문제 수정.",
         "releaseNotes.v0511.improvement1": "새로 고침 버튼 재배치: 접근성 향상을 위해 URL 바에서 헤더(확대/축소 버튼 왼쪽)로 새로 고침 버튼 이동.",
-        "releaseNotes.v0511.improvement2": "서비스별 새 채팅: 각 서비스 패널의 URL 바에 \"New Chat\" 버튼(플러스 아이콘) 추가, 다른 서비스에 영향을 주지 않고 개별 서비스 채팅 초기화 가능."
+        "releaseNotes.v0511.improvement2": "서비스별 새 채팅: 각 서비스 패널의 URL 바에 \"New Chat\" 버튼(플러스 아이콘) 추가, 다른 서비스에 영향을 주지 않고 개별 서비스 채팅 초기화 가능.",
+        "releaseNotes.v0512.fix1": "업데이트 다이얼로그: 업데이트 다이얼로그의 릴리스 노트에 HTML 태그가 표시되던 문제 수정. 이제 일반 텍스트로 표시됩니다."
     },
 
     ja: {
@@ -523,7 +525,8 @@ const translations = {
         "releaseNotes.v0510.improvement2": "モダンな選択UI: より明確にするため、選択ツールバーのスタイリングとインタラクションを改善。",
         "releaseNotes.v0511.fix1": "Geminiログイン永続化: accounts.google.comクッキーの同期とクッキー名検出の改善（_Secure-と__Secure-の両方のバリアントをサポート）により、アプリ再起動時にGeminiログインが維持されない問題を修正。",
         "releaseNotes.v0511.improvement1": "リロードボタンの再配置: アクセシビリティ向上のため、URLバーからヘッダー（最大化ボタンの左）にリロードボタンを移動。",
-        "releaseNotes.v0511.improvement2": "サービス別新規チャット: 各サービスパネルのURLバーに「New Chat」ボタン（プラスアイコン）を追加し、他のサービスに影響を与えずに個別のサービスチャットをリセット可能。"
+        "releaseNotes.v0511.improvement2": "サービス別新規チャット: 各サービスパネルのURLバーに「New Chat」ボタン（プラスアイコン）を追加し、他のサービスに影響を与えずに個別のサービスチャットをリセット可能。",
+        "releaseNotes.v0512.fix1": "アップデートダイアログ: アップデートダイアログのリリースノートにHTMLタグが表示されていた問題を修正。リリースノートはプレーンテキストで表示されるようになりました。"
     }
 };
 
