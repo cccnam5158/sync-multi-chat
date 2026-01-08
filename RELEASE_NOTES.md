@@ -1,5 +1,10 @@
 # Release Notes
 
+## v0.5.12 (2026-01-08)
+
+### 🔧 Fixes
+*   **Update Dialog**: Fixed HTML tags being displayed in update dialog release notes. Release notes are now shown as plain text.
+
 ## v0.5.11 (2026-01-08)
 
 ### 🔧 Fixes & Improvements
