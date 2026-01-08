@@ -1904,6 +1904,131 @@ ipcMain.on('external-login', async (event, service) => {
     const isWin = process.platform === 'win32';
 
     try {
+        // Helper: collect cookies relevant to each service (captures Google SSO cookies too)
+        const collectLoginCookies = async (page, service) => {
+            let cookies = [];
+            try {
+                cookies = await page.cookies();
+            } catch (e) {
+                console.warn('Failed to fetch page cookies:', e);
+            }
+
+            // Always try service base URL cookies explicitly (can differ from current URL)
+            try {
+                const serviceBaseCookies = await page.cookies(serviceUrls[service]);
+                cookies = [...cookies, ...serviceBaseCookies];
+            } catch (e) {
+                // ignore
+            }
+
+            // Google-based login cookies
+            if (service === 'gemini' || service === 'genspark') {
+                try {
+                    const googleCookies = await page.cookies(
+                        'https://accounts.google.com',
+                        'https://google.com',
+                        'https://www.google.com'
+                    );
+                    cookies = [...cookies, ...googleCookies];
+                } catch (e) {
+                    console.warn(`Failed to fetch Google cookies for ${service}:`, e);
+                }
+            }
+
+            // Genspark domain cookies can be separate from Google cookies
+            if (service === 'genspark') {
+                try {
+                    const gsCookies = await page.cookies(
+                        'https://www.genspark.ai',
+                        'https://genspark.ai'
+                    );
+                    cookies = [...cookies, ...gsCookies];
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            // Grok extra cookies (X + Google)
+            if (service === 'grok') {
+                try {
+                    const extraCookies = await page.cookies(
+                        'https://x.com',
+                        'https://twitter.com',
+                        'https://accounts.google.com',
+                        'https://google.com'
+                    );
+                    cookies = [...cookies, ...extraCookies];
+                } catch (e) {
+                    console.warn('Failed to fetch extra cookies for Grok:', e);
+                }
+            }
+
+            // Deduplicate by name+domain+path
+            const seen = new Set();
+            const unique = [];
+            for (const c of cookies) {
+                const key = `${c.name}|${c.domain || ''}|${c.path || ''}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    unique.push(c);
+                }
+            }
+            return unique;
+        };
+
+        const syncCookiesToElectron = async (service, cookies) => {
+            if (!views[service] || !views[service].view) return;
+            const electronCookies = views[service].view.webContents.session.cookies;
+
+            for (const cookie of cookies) {
+                try {
+                    // Determine URL based on cookie domain
+                    let cookieUrl = serviceUrls[service];
+                    if (cookie.domain) {
+                        const cleanDomain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
+                        cookieUrl = (cookie.secure ? 'https://' : 'http://') + cleanDomain + '/';
+                    }
+
+                    // Map SameSite to Electron-accepted values
+                    const mapSameSite = (value, isSecure) => {
+                        const normalized = (value || '').toLowerCase();
+                        if (normalized === 'no_restriction' || normalized === 'none') return 'no_restriction';
+                        if (normalized === 'lax') return 'lax';
+                        if (normalized === 'strict') return 'strict';
+                        // Fallback: match Chrome behavior (None requires secure)
+                        return isSecure ? 'no_restriction' : 'lax';
+                    };
+
+                    const cookieDetails = {
+                        url: cookieUrl,
+                        name: cookie.name,
+                        value: cookie.value,
+                        domain: cookie.domain,
+                        path: cookie.path || '/',
+                        secure: cookie.secure,
+                        httpOnly: cookie.httpOnly,
+                        // Explicitly set SameSite policy for proper cookie context
+                        sameSite: mapSameSite(cookie.sameSite, cookie.secure)
+                    };
+
+                    // Only set expirationDate for persistent cookies.
+                    // Puppeteer uses -1 for session cookies; Electron expects a unix timestamp (seconds).
+                    if (typeof cookie.expires === 'number' && cookie.expires > 0) {
+                        cookieDetails.expirationDate = cookie.expires;
+                    }
+
+                    // Fix for __Host- prefix: Must NOT have a domain attribute
+                    if (cookie.name.startsWith('__Host-')) {
+                        delete cookieDetails.domain;
+                    }
+
+                    await electronCookies.set(cookieDetails);
+                } catch (err) {
+                    console.error(`Failed to set cookie ${cookie.name}:`, err?.message || err);
+                }
+            }
+        };
+
         // 0. Cleanup existing Chrome instances (Mac specific)
         if (isMac) {
             try {
@@ -1950,6 +2075,37 @@ ipcMain.on('external-login', async (event, service) => {
 
         const page = (await browser.pages())[0];
 
+        // Track latest cookies so we can sync even if user closes Chrome quickly after login
+        let lastSeenCookies = [];
+        let didSyncCookies = false;
+
+        // Sync aggressively when we navigate to a likely post-login page (prevents missing the 1s polling window)
+        page.on('framenavigated', async (frame) => {
+            try {
+                if (frame !== page.mainFrame()) return;
+                const currentUrl = frame.url() || '';
+
+                // If we reached the app page (or service domain), sync immediately
+                const isServiceDomain = (() => {
+                    if (service === 'gemini') return currentUrl.includes('gemini.google.com');
+                    if (service === 'genspark') return currentUrl.includes('genspark.ai');
+                    return currentUrl.includes(new URL(serviceUrls[service]).hostname);
+                })();
+
+                if (!isServiceDomain) return;
+
+                const cookies = await collectLoginCookies(page, service);
+                lastSeenCookies = cookies;
+                if (!didSyncCookies && cookies.length > 0) {
+                    console.log(`[${service}] Navigation-triggered cookie sync (${cookies.length} cookies) from ${currentUrl}`);
+                    await syncCookiesToElectron(service, cookies);
+                    didSyncCookies = true;
+                }
+            } catch (e) {
+                // ignore
+            }
+        });
+
         await page.goto(serviceUrls[service]);
 
         // Special handling for Grok: Wait longer to bypass Cloudflare
@@ -1966,29 +2122,8 @@ ipcMain.on('external-login', async (event, service) => {
                     return;
                 }
 
-                let cookies = await page.cookies();
-
-                // Gemini and Genspark rely on Google Login, so we need to fetch Google cookies as well
-                if (service === 'gemini' || service === 'genspark') {
-                    try {
-                        const googleCookies = await page.cookies('https://accounts.google.com', 'https://google.com', 'https://www.google.com');
-                        cookies = [...cookies, ...googleCookies];
-                    } catch (e) {
-                        console.warn(`Failed to fetch Google cookies for ${service}:`, e);
-                    }
-                } else if (service === 'grok') {
-                    try {
-                        const extraCookies = await page.cookies(
-                            'https://x.com',
-                            'https://twitter.com',
-                            'https://accounts.google.com',
-                            'https://google.com'
-                        );
-                        cookies = [...cookies, ...extraCookies];
-                    } catch (e) {
-                        console.warn('Failed to fetch extra cookies for Grok:', e);
-                    }
-                }
+                const cookies = await collectLoginCookies(page, service);
+                lastSeenCookies = cookies;
                 let isLoggedIn = false;
 
                 if (service === 'chatgpt') {
@@ -2030,61 +2165,14 @@ ipcMain.on('external-login', async (event, service) => {
                     console.log(`${service} login detected! Syncing cookies...`);
 
                     // Sync cookies to Electron session
+                    console.log(`[${service}] Syncing ${cookies.length} cookies...`);
+                    await syncCookiesToElectron(service, cookies);
+                    didSyncCookies = true;
+                    console.log(`Cookies synced for ${service}`);
+
+                    // Navigate to canonical service URL so DOM-based login detection updates immediately
+                    const targetUrl = getServiceResetUrl(service);
                     if (views[service] && views[service].view) {
-                        const electronCookies = views[service].view.webContents.session.cookies;
-                        console.log(`[${service}] Syncing ${cookies.length} cookies...`);
-                        for (const cookie of cookies) {
-                            try {
-                                // FIX: Dynamically determine URL based on cookie domain
-                                let cookieUrl = serviceUrls[service];
-                                if (cookie.domain) {
-                                    const cleanDomain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
-                                    cookieUrl = (cookie.secure ? 'https://' : 'http://') + cleanDomain;
-                                    // For Google cookies, ensure we use the correct base URL
-                                    if (cleanDomain.includes('google.com') && !cookieUrl.includes('/')) {
-                                        cookieUrl += '/';
-                                    }
-                                }
-
-                                // Map SameSite to Electron-accepted values
-                                const mapSameSite = (value, isSecure) => {
-                                    const normalized = (value || '').toLowerCase();
-                                    if (normalized === 'no_restriction' || normalized === 'none') return 'no_restriction';
-                                    if (normalized === 'lax') return 'lax';
-                                    if (normalized === 'strict') return 'strict';
-                                    // Fallback: match Chrome behavior (None requires secure)
-                                    return isSecure ? 'no_restriction' : 'lax';
-                                };
-
-                                const cookieDetails = {
-                                    url: cookieUrl,
-                                    name: cookie.name,
-                                    value: cookie.value,
-                                    domain: cookie.domain,
-                                    path: cookie.path || '/',
-                                    secure: cookie.secure,
-                                    httpOnly: cookie.httpOnly,
-                                    expirationDate: cookie.expires,
-                                    // Explicitly set SameSite policy for proper cookie context
-                                    sameSite: mapSameSite(cookie.sameSite, cookie.secure)
-                                };
-
-                                // Fix for __Host- prefix: Must NOT have a domain attribute
-                                if (cookie.name.startsWith('__Host-')) {
-                                    delete cookieDetails.domain;
-                                }
-                                // Note: __Secure- and _Secure- cookies can have domain attributes
-                                // The cookieUrl is already set correctly based on cookie.domain above
-
-                                await electronCookies.set(cookieDetails);
-                            } catch (err) {
-                                console.error(`Failed to set cookie ${cookie.name}:`, err?.message || err);
-                            }
-                        }
-                        console.log(`Cookies synced for ${service}`);
-
-                        // Navigate to canonical service URL so DOM-based login detection updates immediately
-                        const targetUrl = getServiceResetUrl(service);
                         views[service].view.webContents.loadURL(targetUrl);
                     }
 
@@ -2104,6 +2192,13 @@ ipcMain.on('external-login', async (event, service) => {
 
             // Navigate the Electron view to canonical service URL (ensures login detection updates)
             if (views[service] && views[service].view) {
+                // If we never hit the "login detected" branch, try syncing whatever cookies we last observed.
+                // This prevents "close Chrome too fast" from skipping cookie sync.
+                if (!didSyncCookies && Array.isArray(lastSeenCookies) && lastSeenCookies.length > 0) {
+                    console.log(`[${service}] Chrome closed before login detection; syncing last seen cookies (${lastSeenCookies.length})...`);
+                    syncCookiesToElectron(service, lastSeenCookies).catch(() => {});
+                }
+
                 const targetUrl = getServiceResetUrl(service);
                 console.log(`Loading service view: ${service} -> ${targetUrl}`);
                 views[service].view.webContents.loadURL(targetUrl);
