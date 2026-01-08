@@ -829,16 +829,22 @@ ipcMain.on('request-current-urls', () => {
     });
 });
 
+// Helper: canonical "reset/new chat" URL for each service
+function getServiceResetUrl(service) {
+    let url = serviceUrls[service];
+    if (service === 'claude') {
+        url = 'https://claude.ai/new';
+    }
+    // ChatGPT and Gemini use base URL which usually redirects to new chat
+    // For ChatGPT, https://chatgpt.com/ is correct.
+    // For Gemini, https://gemini.google.com/app is correct.
+    return url;
+}
+
 ipcMain.on('new-chat', () => {
     services.forEach(service => {
         if (views[service]) {
-            let url = serviceUrls[service];
-            if (service === 'claude') {
-                url = 'https://claude.ai/new';
-            }
-            // ChatGPT and Gemini use base URL which usually redirects to new chat
-            // For ChatGPT, https://chatgpt.com/ is correct.
-            // For Gemini, https://gemini.google.com/app is correct.
+            const url = getServiceResetUrl(service);
 
             console.log(`Resetting chat for ${service} to ${url}`);
             if (views[service].view && !views[service].view.webContents.isDestroyed()) {
@@ -850,13 +856,7 @@ ipcMain.on('new-chat', () => {
 
 ipcMain.on('new-chat-for-service', (event, service) => {
     if (views[service]) {
-        let url = serviceUrls[service];
-        if (service === 'claude') {
-            url = 'https://claude.ai/new';
-        }
-        // ChatGPT and Gemini use base URL which usually redirects to new chat
-        // For ChatGPT, https://chatgpt.com/ is correct.
-        // For Gemini, https://gemini.google.com/app is correct.
+        const url = getServiceResetUrl(service);
 
         console.log(`Resetting chat for ${service} to ${url}`);
         if (views[service].view && !views[service].view.webContents.isDestroyed()) {
@@ -2018,7 +2018,12 @@ ipcMain.on('external-login', async (event, service) => {
 
                 // Also check URL to ensure we are not on login page
                 const url = page.url();
-                const isNotLoginPage = !url.includes('/auth/login') && !url.includes('accounts.google.com') && !url.includes('sso');
+                // NOTE:
+                // For Google-based services (Gemini/Genspark), the final post-login page can still be accounts.google.com.
+                // If we block on that, cookie sync never happens and the in-app view stays logged out until restart.
+                const isNotLoginPage = (service === 'gemini' || service === 'genspark')
+                    ? (!url.includes('/auth/login') && !url.includes('sso'))
+                    : (!url.includes('/auth/login') && !url.includes('accounts.google.com') && !url.includes('sso'));
 
                 if (isLoggedIn && isNotLoginPage) {
                     clearInterval(checkLogin);
@@ -2078,8 +2083,9 @@ ipcMain.on('external-login', async (event, service) => {
                         }
                         console.log(`Cookies synced for ${service}`);
 
-                        // Force reload to apply cookies immediately
-                        views[service].view.webContents.reload();
+                        // Navigate to canonical service URL so DOM-based login detection updates immediately
+                        const targetUrl = getServiceResetUrl(service);
+                        views[service].view.webContents.loadURL(targetUrl);
                     }
 
                     console.log(`${service} login detected! Keeping Chrome open for manual close...`);
@@ -2094,12 +2100,13 @@ ipcMain.on('external-login', async (event, service) => {
         // Handle manual close
         browser.on('disconnected', () => {
             clearInterval(checkLogin);
-            console.log('Chrome disconnected (closed by user). Reloading view...');
+            console.log('Chrome disconnected (closed by user). Navigating view...');
 
-            // Reload the Electron view
+            // Navigate the Electron view to canonical service URL (ensures login detection updates)
             if (views[service] && views[service].view) {
-                console.log(`Reloading service view: ${service}`);
-                views[service].view.webContents.reload();
+                const targetUrl = getServiceResetUrl(service);
+                console.log(`Loading service view: ${service} -> ${targetUrl}`);
+                views[service].view.webContents.loadURL(targetUrl);
             }
 
             if (mainWindow) {
