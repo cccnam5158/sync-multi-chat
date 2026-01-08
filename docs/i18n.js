@@ -517,7 +517,13 @@ const translations = {
         "releaseNotes.v051.feature2": "モダンUI: スクロール同期トグル、レイアウトアイコン、洗練されたスタイリング。",
         "releaseNotes.v050.title": "ファイルアップロードサポート",
         "releaseNotes.v050.feature1": "ファイルと画像のマルチサービスブロードキャスティング。",
-        "releaseNotes.v050.feature2": "ドラッグ＆ドロップ: 直接ファイル添付サポート。"
+        "releaseNotes.v050.feature2": "ドラッグ＆ドロップ: 直接ファイル添付サポート。",
+        "releaseNotes.v0510.feature1": "履歴一括削除: 履歴サイドバーで複数のセッションを選択し、一度の操作で削除できます（選択モード）。",
+        "releaseNotes.v0510.improvement1": "履歴UX改善: 長い履歴リストの無限スクロールとスクロール復元を改善。",
+        "releaseNotes.v0510.improvement2": "モダンな選択UI: より明確にするため、選択ツールバーのスタイリングとインタラクションを改善。",
+        "releaseNotes.v0511.fix1": "Geminiログイン永続化: accounts.google.comクッキーの同期とクッキー名検出の改善（_Secure-と__Secure-の両方のバリアントをサポート）により、アプリ再起動時にGeminiログインが維持されない問題を修正。",
+        "releaseNotes.v0511.improvement1": "リロードボタンの再配置: アクセシビリティ向上のため、URLバーからヘッダー（最大化ボタンの左）にリロードボタンを移動。",
+        "releaseNotes.v0511.improvement2": "サービス別新規チャット: 各サービスパネルのURLバーに「New Chat」ボタン（プラスアイコン）を追加し、他のサービスに影響を与えずに個別のサービスチャットをリセット可能。"
     }
 };
 
