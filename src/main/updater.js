@@ -123,11 +123,24 @@ async function showUpdateAvailableDialog(info) {
     ? info.releaseNotes 
     : info.releaseNotes?.map(note => note.note || note).join('\n') || '';
 
+  // Remove HTML tags from release notes for plain text display
+  const cleanReleaseNotes = releaseNotes
+    .replace(/<p>/gi, '')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<strong>/gi, '')
+    .replace(/<\/strong>/gi, '')
+    .replace(/<em>/gi, '')
+    .replace(/<\/em>/gi, '')
+    .replace(/<[^>]+>/g, '') // Remove any remaining HTML tags
+    .replace(/\n{3,}/g, '\n\n') // Replace multiple newlines with double newline
+    .trim();
+
   const result = await dialog.showMessageBox(mainWindowRef, {
     type: 'info',
     title: '업데이트 가능',
     message: `새 버전이 사용 가능합니다!`,
-    detail: `현재 버전: ${require('electron').app.getVersion()}\n새 버전: ${info.version}\n\n${releaseNotes ? '변경 사항:\n' + releaseNotes.substring(0, 500) : '업데이트를 다운로드하시겠습니까?'}`,
+    detail: `현재 버전: ${require('electron').app.getVersion()}\n새 버전: ${info.version}\n\n${cleanReleaseNotes ? '변경 사항:\n' + cleanReleaseNotes.substring(0, 500) : '업데이트를 다운로드하시겠습니까?'}`,
     buttons: ['지금 업데이트', '나중에'],
     defaultId: 0,
     cancelId: 1,
