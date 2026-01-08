@@ -782,6 +782,18 @@ function createSlot(container, service) {
     const headerBtns = document.createElement('div');
     headerBtns.className = 'header-buttons';
 
+    // Reload button - moved from URL bar to header (left of maximize button)
+    const reloadBtn = document.createElement('button');
+    reloadBtn.className = 'header-btn';
+    const reloadSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+    reloadBtn.innerHTML = reloadSvg;
+    reloadBtn.title = 'Reload';
+    reloadBtn.addEventListener('click', () => {
+        reloadBtn.classList.add('spinning');
+        setTimeout(() => reloadBtn.classList.remove('spinning'), 500);
+        window.electronAPI.reloadService(service);
+    });
+
     // Maximize/Restore Button
     const maxBtn = document.createElement('button');
     maxBtn.className = 'header-btn';
@@ -797,6 +809,7 @@ function createSlot(container, service) {
         toggleMaximize(service, maxBtn, maxIcon, restoreIcon);
     });
 
+    headerBtns.appendChild(reloadBtn);
     headerBtns.appendChild(maxBtn);
     header.appendChild(headerBtns);
 
@@ -817,16 +830,60 @@ function createSlot(container, service) {
     const urlBtnsContainer = document.createElement('div');
     urlBtnsContainer.className = 'url-bar-buttons';
 
-    // Reload button - SVG refresh icon with spin animation
-    const reloadBtn = document.createElement('button');
-    reloadBtn.className = 'url-bar-btn';
-    const reloadSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
-    reloadBtn.innerHTML = reloadSvg;
-    reloadBtn.title = 'Reload';
-    reloadBtn.addEventListener('click', () => {
-        reloadBtn.classList.add('spinning');
-        setTimeout(() => reloadBtn.classList.remove('spinning'), 500);
-        window.electronAPI.reloadService(service);
+    // New Chat button - replaced reload button position
+    const newChatBtn = document.createElement('button');
+    newChatBtn.className = 'url-bar-btn';
+    const newChatSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+    newChatBtn.innerHTML = newChatSvg;
+    newChatBtn.title = 'New Chat';
+    newChatBtn.addEventListener('click', async () => {
+        // Save current session first (if there is one)
+        if (currentSessionId) {
+            await saveCurrentSession();
+        }
+
+        // Get current URL for this service
+        const urlEl = document.getElementById(`url-text-${service}`);
+        const currentUrl = urlEl && urlEl.dataset && urlEl.dataset.url ? urlEl.dataset.url : null;
+
+        // Generate new session ID and create new history entry
+        const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
+        const currentUrls = {};
+        activeServices.forEach(s => {
+            const el = document.getElementById(`url-text-${s}`);
+            if (el && el.dataset && el.dataset.url) {
+                currentUrls[s] = el.dataset.url;
+            }
+        });
+        // Update current service URL
+        if (currentUrl) {
+            currentUrls[service] = currentUrl;
+        }
+
+        currentSessionId = generateId();
+        const newSessionData = {
+            id: currentSessionId,
+            title: `Chat ${new Date().toLocaleTimeString()}`,
+            layout: currentLayout,
+            activeServices: activeServices,
+            prompt: '',
+            isAnonymousMode: isAnonymousMode,
+            isScrollSyncEnabled: isScrollSyncEnabled,
+            urls: currentUrls,
+            createdAt: new Date().toISOString(),
+        };
+
+        // Save new session to history
+        await historyManager.saveSession(newSessionData);
+
+        // Persist new session ID to localStorage
+        localStorage.setItem(currentSessionIdKey, currentSessionId);
+
+        // Refresh history list to show new active chat
+        loadHistoryList();
+
+        // Notify main process to start new chat for this specific service
+        window.electronAPI.newChatForService(service);
     });
 
     // Copy URL button - overlapping squares icon
@@ -873,8 +930,8 @@ function createSlot(container, service) {
         }
     });
 
-    // Order: Reload, Copy URL, Copy Chat, Open in browser
-    urlBtnsContainer.appendChild(reloadBtn);
+    // Order: New Chat, Copy URL, Copy Chat, Open in browser
+    urlBtnsContainer.appendChild(newChatBtn);
     urlBtnsContainer.appendChild(copyUrlBtn);
     urlBtnsContainer.appendChild(copyChatBtn);
     urlBtnsContainer.appendChild(chromeBtn);

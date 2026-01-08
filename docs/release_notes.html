@@ -21,8 +21,8 @@
                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#3b82f6"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-                    Sync Multi Chat <span class="version-badge"
-                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.5.10</span>
+                    Sync Multi Chat                     <span class="version-badge"
+                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.5.11</span>
                 </a>
                 <div class="nav-links">
                     <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
@@ -83,26 +83,44 @@
             style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 60px; max-width: 900px; margin-left: auto; margin-right: auto; padding-left: 20px;">
             <h2 style="margin-bottom: 0;" data-i18n="releaseNotes.title">Release History</h2>
             <span style="color: var(--text-tertiary); font-size: 0.9rem;" data-i18n="releaseNotes.lastUpdated">Last
-                updated: Jan 07, 2026</span>
+                updated: Jan 08, 2026</span>
         </div>
 
         <div class="timeline">
 
-            <!-- v0.5.10 (Active) -->
+            <!-- v0.5.11 (Active) -->
             <div class="timeline-item active">
                 <div class="timeline-dot"></div>
 
                 <div class="version-header">
-                    <span class="version-number">v0.5.10</span>
+                    <span class="version-number">v0.5.11</span>
                     <span class="badge-current" data-i18n="releaseNotes.current">Current</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>🔧 <span data-i18n="releaseNotes.bugFixes">Fixes & Improvements</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v0511.fix1"><strong>Gemini Login Persistence</strong>: Fixed Gemini login not persisting on app restart by syncing accounts.google.com cookies and improving cookie name detection.</li>
+                        <li data-i18n="releaseNotes.v0511.improvement1"><strong>Reload Button Repositioned</strong>: Moved reload button from URL bar to header (left of maximize button) for better accessibility.</li>
+                        <li data-i18n="releaseNotes.v0511.improvement2"><strong>Per-Service New Chat</strong>: Added "New Chat" button (plus icon) in URL bar for each service panel, allowing individual service chat resets.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.5.10 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.5.10</span>
                 </div>
 
                 <div class="release-card-content">
                     <h3>✨ <span data-i18n="releaseNotes.newFeatures">New Features</span></h3>
                     <ul>
-                        <li><strong>History Bulk Delete</strong>: Select multiple sessions in the History Sidebar and delete them in one action (Selection Mode).</li>
-                        <li><strong>History UX Improvements</strong>: Improved infinite scroll and scroll restoration for long history lists.</li>
-                        <li><strong>Modernized Selection UI</strong>: Refined selection toolbar styling and interactions for better clarity.</li>
+                        <li data-i18n="releaseNotes.v0510.feature1"><strong>History Bulk Delete</strong>: Select multiple sessions in the History Sidebar and delete them in one action (Selection Mode).</li>
+                        <li data-i18n="releaseNotes.v0510.improvement1"><strong>History UX Improvements</strong>: Improved infinite scroll and scroll restoration for long history lists.</li>
+                        <li data-i18n="releaseNotes.v0510.improvement2"><strong>Modernized Selection UI</strong>: Refined selection toolbar styling and interactions for better clarity.</li>
                     </ul>
                 </div>
             </div>

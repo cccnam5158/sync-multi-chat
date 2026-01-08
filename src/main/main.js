@@ -848,6 +848,23 @@ ipcMain.on('new-chat', () => {
     });
 });
 
+ipcMain.on('new-chat-for-service', (event, service) => {
+    if (views[service]) {
+        let url = serviceUrls[service];
+        if (service === 'claude') {
+            url = 'https://claude.ai/new';
+        }
+        // ChatGPT and Gemini use base URL which usually redirects to new chat
+        // For ChatGPT, https://chatgpt.com/ is correct.
+        // For Gemini, https://gemini.google.com/app is correct.
+
+        console.log(`Resetting chat for ${service} to ${url}`);
+        if (views[service].view && !views[service].view.webContents.isDestroyed()) {
+            views[service].view.webContents.loadURL(url);
+        }
+    }
+});
+
 ipcMain.on('reload-service', (event, service) => {
     if (views[service] && views[service].enabled) {
         console.log(`Reloading ${service}`);
@@ -1951,13 +1968,13 @@ ipcMain.on('external-login', async (event, service) => {
 
                 let cookies = await page.cookies();
 
-                // Genspark relies on Google Login, so we need to fetch Google cookies as well
-                if (service === 'genspark') {
+                // Gemini and Genspark rely on Google Login, so we need to fetch Google cookies as well
+                if (service === 'gemini' || service === 'genspark') {
                     try {
                         const googleCookies = await page.cookies('https://accounts.google.com', 'https://google.com', 'https://www.google.com');
                         cookies = [...cookies, ...googleCookies];
                     } catch (e) {
-                        console.warn('Failed to fetch Google cookies for Genspark:', e);
+                        console.warn(`Failed to fetch Google cookies for ${service}:`, e);
                     }
                 } else if (service === 'grok') {
                     try {
@@ -1980,8 +1997,15 @@ ipcMain.on('external-login', async (event, service) => {
                 } else if (service === 'claude') {
                     isLoggedIn = cookies.some(c => c.name === 'sessionKey');
                 } else if (service === 'gemini') {
-                    // Based on user image: SID, __Secure-1PSID, __Secure-3PSID
-                    isLoggedIn = cookies.some(c => c.name === 'SID' || c.name === '__Secure-1PSID' || c.name === '__Secure-3PSID');
+                    // Based on user image: SID, _Secure-1PSID, __Secure-1PSID, _Secure-3PSID, __Secure-3PSID
+                    // Check for both single and double underscore variants to handle different cookie formats
+                    isLoggedIn = cookies.some(c => 
+                        c.name === 'SID' || 
+                        c.name === '_Secure-1PSID' || c.name === '__Secure-1PSID' ||
+                        c.name === '_Secure-3PSID' || c.name === '__Secure-3PSID' ||
+                        c.name === '_Secure-1PAPISID' || c.name === '__Secure-1PAPISID' ||
+                        c.name === '_Secure-3PAPISID' || c.name === '__Secure-3PAPISID'
+                    );
                 } else if (service === 'grok') {
                     isLoggedIn = cookies.some(c => c.name.includes('sso') || c.name === 'auth_token' || c.name.includes('grok'));
                 } else if (service === 'perplexity') {
@@ -2003,6 +2027,7 @@ ipcMain.on('external-login', async (event, service) => {
                     // Sync cookies to Electron session
                     if (views[service] && views[service].view) {
                         const electronCookies = views[service].view.webContents.session.cookies;
+                        console.log(`[${service}] Syncing ${cookies.length} cookies...`);
                         for (const cookie of cookies) {
                             try {
                                 // FIX: Dynamically determine URL based on cookie domain
@@ -2010,6 +2035,10 @@ ipcMain.on('external-login', async (event, service) => {
                                 if (cookie.domain) {
                                     const cleanDomain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
                                     cookieUrl = (cookie.secure ? 'https://' : 'http://') + cleanDomain;
+                                    // For Google cookies, ensure we use the correct base URL
+                                    if (cleanDomain.includes('google.com') && !cookieUrl.includes('/')) {
+                                        cookieUrl += '/';
+                                    }
                                 }
 
                                 // Map SameSite to Electron-accepted values
@@ -2039,6 +2068,8 @@ ipcMain.on('external-login', async (event, service) => {
                                 if (cookie.name.startsWith('__Host-')) {
                                     delete cookieDetails.domain;
                                 }
+                                // Note: __Secure- and _Secure- cookies can have domain attributes
+                                // The cookieUrl is already set correctly based on cookie.domain above
 
                                 await electronCookies.set(cookieDetails);
                             } catch (err) {

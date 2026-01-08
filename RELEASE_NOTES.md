@@ -1,5 +1,13 @@
 # Release Notes
 
+## v0.5.11 (2026-01-08)
+
+### 🔧 Fixes & Improvements
+*   **Gemini Login Persistence**: Fixed Gemini login not persisting on app restart by syncing accounts.google.com cookies and improving cookie name detection (supports both `_Secure-` and `__Secure-` variants).
+*   **UI Improvements**:
+    *   **Reload Button Repositioned**: Moved reload button from URL bar to header (left of maximize button) for better accessibility.
+    *   **Per-Service New Chat**: Added "New Chat" button (plus icon) in URL bar for each service panel, allowing individual service chat resets without affecting others.
+
 ## v0.5.10 (2026-01-07)
 
 ### ✨ New Features

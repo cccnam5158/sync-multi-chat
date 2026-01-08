@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onServiceStatusUpdate: (callback) => ipcRenderer.on('service-status-update', (event, data) => callback(data)),
     externalLogin: (service) => ipcRenderer.send('external-login', service),
     newChat: () => ipcRenderer.send('new-chat'),
+    newChatForService: (service) => ipcRenderer.send('new-chat-for-service', service),
     reloadService: (service) => ipcRenderer.send('reload-service', service),
     navigateToUrl: (service, url) => ipcRenderer.send('navigate-to-url', service, url),
     copyChatThread: (options) => ipcRenderer.send('copy-chat-thread', options),

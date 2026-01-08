@@ -135,7 +135,7 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "Release History",
-        "releaseNotes.lastUpdated": "Last updated: Jan 06, 2026",
+        "releaseNotes.lastUpdated": "Last updated: Jan 08, 2026",
         "releaseNotes.current": "Current",
         "releaseNotes.newFeatures": "New Features",
         "releaseNotes.bugFixes": "Bug Fixes",
@@ -169,7 +169,13 @@ const translations = {
         "releaseNotes.v051.feature2": "Modern UI: Scroll sync toggle, layout icons, and refined styling.",
         "releaseNotes.v050.title": "File Upload Support",
         "releaseNotes.v050.feature1": "Multi-service broadcasting for files and images.",
-        "releaseNotes.v050.feature2": "Drag & Drop: Direct file attachment support."
+        "releaseNotes.v050.feature2": "Drag & Drop: Direct file attachment support.",
+        "releaseNotes.v0510.feature1": "History Bulk Delete: Select multiple sessions in the History Sidebar and delete them in one action (Selection Mode).",
+        "releaseNotes.v0510.improvement1": "History UX Improvements: Improved infinite scroll and scroll restoration for long history lists.",
+        "releaseNotes.v0510.improvement2": "Modernized Selection UI: Refined selection toolbar styling and interactions for better clarity.",
+        "releaseNotes.v0511.fix1": "Gemini Login Persistence: Fixed Gemini login not persisting on app restart by syncing accounts.google.com cookies and improving cookie name detection (supports both _Secure- and __Secure- variants).",
+        "releaseNotes.v0511.improvement1": "Reload Button Repositioned: Moved reload button from URL bar to header (left of maximize button) for better accessibility.",
+        "releaseNotes.v0511.improvement2": "Per-Service New Chat: Added \"New Chat\" button (plus icon) in URL bar for each service panel, allowing individual service chat resets without affecting others."
     },
 
     ko: {
@@ -303,7 +309,7 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "릴리스 히스토리",
-        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 1월 6일",
+        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 1월 8일",
         "releaseNotes.current": "현재",
         "releaseNotes.newFeatures": "새로운 기능",
         "releaseNotes.bugFixes": "버그 수정",
@@ -337,7 +343,13 @@ const translations = {
         "releaseNotes.v051.feature2": "모던 UI: 스크롤 동기화 토글, 레이아웃 아이콘 및 정제된 스타일링.",
         "releaseNotes.v050.title": "파일 업로드 지원",
         "releaseNotes.v050.feature1": "파일 및 이미지 멀티 서비스 브로드캐스팅.",
-        "releaseNotes.v050.feature2": "드래그 앤 드롭: 직접 파일 첨부 지원."
+        "releaseNotes.v050.feature2": "드래그 앤 드롭: 직접 파일 첨부 지원.",
+        "releaseNotes.v0510.feature1": "히스토리 일괄 삭제: 히스토리 사이드바에서 여러 세션을 선택하여 한 번에 삭제할 수 있습니다 (선택 모드).",
+        "releaseNotes.v0510.improvement1": "히스토리 UX 개선: 긴 히스토리 목록에 대한 무한 스크롤 및 스크롤 복원 기능 개선.",
+        "releaseNotes.v0510.improvement2": "현대화된 선택 UI: 더 나은 명확성을 위해 선택 도구 모음 스타일 및 상호작용 개선.",
+        "releaseNotes.v0511.fix1": "Gemini 로그인 유지: accounts.google.com 쿠키 동기화 및 쿠키 이름 감지 개선(_Secure- 및 __Secure- 변형 모두 지원)으로 앱 재시작 시 Gemini 로그인이 유지되지 않던 문제 수정.",
+        "releaseNotes.v0511.improvement1": "새로 고침 버튼 재배치: 접근성 향상을 위해 URL 바에서 헤더(확대/축소 버튼 왼쪽)로 새로 고침 버튼 이동.",
+        "releaseNotes.v0511.improvement2": "서비스별 새 채팅: 각 서비스 패널의 URL 바에 \"New Chat\" 버튼(플러스 아이콘) 추가, 다른 서비스에 영향을 주지 않고 개별 서비스 채팅 초기화 가능."
     },
 
     ja: {
@@ -471,7 +483,7 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "リリース履歴",
-        "releaseNotes.lastUpdated": "最終更新: 2026年1月6日",
+        "releaseNotes.lastUpdated": "最終更新: 2026年1月8日",
         "releaseNotes.current": "現在",
         "releaseNotes.newFeatures": "新機能",
         "releaseNotes.bugFixes": "バグ修正",

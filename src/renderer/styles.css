@@ -714,12 +714,21 @@ body {
     animation: spin 0.5s ease-in-out;
 }
 
-/* Header button spin animation (for copy feedback) */
+/* Header button spin animation (for reload and copy feedback) */
+.view-header .header-btn.spinning svg {
+    animation: spin 0.5s ease-in-out;
+}
+
 .header-btn.spinning svg {
     animation: spin 0.5s ease-in-out;
 }
 
 .header-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.view-header .header-btn svg {
     width: 14px;
     height: 14px;
 }
