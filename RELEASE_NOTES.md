@@ -1,5 +1,13 @@
 # Release Notes
 
+## v0.5.13 (2026-01-08)
+
+### 🔧 Fixes & Improvements
+*   **Gemini/Genspark Login Fix**: Fixed login not persisting after external Chrome login when user had logged out within the app. Prevents false login detection from stale Chrome profile cookies.
+*   **Update Download Progress**: Added visual download progress window with progress bar during update download. Shows percentage, speed, and file size.
+*   **Taskbar Progress**: Windows taskbar now shows download progress indicator.
+*   **Update Error Dialog**: Added error dialog when update fails.
+
 ## v0.5.12 (2026-01-08)
 
 ### 🔧 Fixes

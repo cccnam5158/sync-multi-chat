@@ -27,13 +27,13 @@
 
 ## バージョン
 
--   **現在のバージョン**: v0.5.12
+-   **現在のバージョン**: v0.5.13
 
 ## インストール
 
 このアプリケーションは**Windowsインストーラー**として配布され、**自動更新機能**をサポートしています。
 
-1.  最新のインストーラーをダウンロードします: [Sync-Multi-Chat-Setup-0.5.12.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.12/Sync-Multi-Chat-Setup-0.5.12.exe)
+1.  最新のインストーラーをダウンロードします: [Sync-Multi-Chat-Setup-0.5.13.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.13/Sync-Multi-Chat-Setup-0.5.13.exe)
 2.  インストーラーを実行し、インストールウィザードに従います。
 3.  アプリは起動時に自動的にアップデートを確認します。
 

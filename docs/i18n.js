@@ -176,7 +176,10 @@ const translations = {
         "releaseNotes.v0511.fix1": "Gemini Login Persistence: Fixed Gemini login not persisting on app restart by syncing accounts.google.com cookies and improving cookie name detection (supports both _Secure- and __Secure- variants).",
         "releaseNotes.v0511.improvement1": "Reload Button Repositioned: Moved reload button from URL bar to header (left of maximize button) for better accessibility.",
         "releaseNotes.v0511.improvement2": "Per-Service New Chat: Added \"New Chat\" button (plus icon) in URL bar for each service panel, allowing individual service chat resets without affecting others.",
-        "releaseNotes.v0512.fix1": "Update Dialog: Fixed HTML tags being displayed in update dialog release notes. Release notes are now shown as plain text."
+        "releaseNotes.v0512.fix1": "Update Dialog: Fixed HTML tags being displayed in update dialog release notes. Release notes are now shown as plain text.",
+        "releaseNotes.v0513.fix1": "Gemini/Genspark Login Fix: Fixed login not persisting after external Chrome login when user had logged out within the app. Prevents false login detection from stale Chrome profile cookies.",
+        "releaseNotes.v0513.improvement1": "Update Download Progress: Added visual download progress window with progress bar during update download. Shows percentage, speed, and file size.",
+        "releaseNotes.v0513.improvement2": "Taskbar Progress: Windows taskbar now shows download progress indicator during update."
     },
 
     ko: {
@@ -351,7 +354,10 @@ const translations = {
         "releaseNotes.v0511.fix1": "Gemini 로그인 유지: accounts.google.com 쿠키 동기화 및 쿠키 이름 감지 개선(_Secure- 및 __Secure- 변형 모두 지원)으로 앱 재시작 시 Gemini 로그인이 유지되지 않던 문제 수정.",
         "releaseNotes.v0511.improvement1": "새로 고침 버튼 재배치: 접근성 향상을 위해 URL 바에서 헤더(확대/축소 버튼 왼쪽)로 새로 고침 버튼 이동.",
         "releaseNotes.v0511.improvement2": "서비스별 새 채팅: 각 서비스 패널의 URL 바에 \"New Chat\" 버튼(플러스 아이콘) 추가, 다른 서비스에 영향을 주지 않고 개별 서비스 채팅 초기화 가능.",
-        "releaseNotes.v0512.fix1": "업데이트 다이얼로그: 업데이트 다이얼로그의 릴리스 노트에 HTML 태그가 표시되던 문제 수정. 이제 일반 텍스트로 표시됩니다."
+        "releaseNotes.v0512.fix1": "업데이트 다이얼로그: 업데이트 다이얼로그의 릴리스 노트에 HTML 태그가 표시되던 문제 수정. 이제 일반 텍스트로 표시됩니다.",
+        "releaseNotes.v0513.fix1": "Gemini/Genspark 로그인 수정: 앱 내에서 로그아웃한 후 외부 Chrome 로그인 시 로그인 상태가 유지되지 않던 문제 수정. Chrome 프로필의 만료된 쿠키로 인한 잘못된 로그인 감지 방지.",
+        "releaseNotes.v0513.improvement1": "업데이트 다운로드 진행률: 업데이트 다운로드 중 진행률 바가 포함된 시각적 진행률 창 추가. 퍼센트, 속도, 파일 크기 표시.",
+        "releaseNotes.v0513.improvement2": "작업 표시줄 진행률: 업데이트 다운로드 중 Windows 작업 표시줄에 진행률 표시기 표시."
     },
 
     ja: {
@@ -526,7 +532,10 @@ const translations = {
         "releaseNotes.v0511.fix1": "Geminiログイン永続化: accounts.google.comクッキーの同期とクッキー名検出の改善（_Secure-と__Secure-の両方のバリアントをサポート）により、アプリ再起動時にGeminiログインが維持されない問題を修正。",
         "releaseNotes.v0511.improvement1": "リロードボタンの再配置: アクセシビリティ向上のため、URLバーからヘッダー（最大化ボタンの左）にリロードボタンを移動。",
         "releaseNotes.v0511.improvement2": "サービス別新規チャット: 各サービスパネルのURLバーに「New Chat」ボタン（プラスアイコン）を追加し、他のサービスに影響を与えずに個別のサービスチャットをリセット可能。",
-        "releaseNotes.v0512.fix1": "アップデートダイアログ: アップデートダイアログのリリースノートにHTMLタグが表示されていた問題を修正。リリースノートはプレーンテキストで表示されるようになりました。"
+        "releaseNotes.v0512.fix1": "アップデートダイアログ: アップデートダイアログのリリースノートにHTMLタグが表示されていた問題を修正。リリースノートはプレーンテキストで表示されるようになりました。",
+        "releaseNotes.v0513.fix1": "Gemini/Gensparkログイン修正: アプリ内でログアウトした後、外部Chromeログイン時にログイン状態が維持されない問題を修正。Chromeプロファイルの期限切れクッキーによる誤ったログイン検出を防止。",
+        "releaseNotes.v0513.improvement1": "アップデートダウンロード進捗: アップデートダウンロード中に進捗バー付きのビジュアル進捗ウィンドウを追加。パーセンテージ、速度、ファイルサイズを表示。",
+        "releaseNotes.v0513.improvement2": "タスクバー進捗: アップデートダウンロード中、Windowsタスクバーに進捗インジケーターを表示。"
     }
 };
 
