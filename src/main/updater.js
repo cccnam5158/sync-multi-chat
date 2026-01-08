@@ -6,7 +6,7 @@
  */
 
 const { autoUpdater } = require('electron-updater');
-const { dialog, ipcMain } = require('electron');
+const { dialog, ipcMain, BrowserWindow } = require('electron');
 const log = require('electron-log');
 
 // Configure logging
@@ -19,6 +19,9 @@ autoUpdater.autoInstallOnAppQuit = true;
 
 // Reference to main window for sending IPC messages
 let mainWindowRef = null;
+
+// Progress window for download status
+let progressWindow = null;
 
 /**
  * Initialize the auto updater with event handlers
@@ -65,6 +68,10 @@ function initAutoUpdater(mainWindow) {
     
     log.info(`[Updater] Download progress: ${percent}% (${transferred}MB / ${total}MB @ ${speed}MB/s)`);
     
+    // Update progress window
+    const statusText = `${percent}% (${transferred}MB / ${total}MB) - ${speed}MB/s`;
+    updateDownloadProgress(percent, statusText);
+    
     sendStatusToRenderer({ 
       status: 'downloading', 
       percent,
@@ -91,11 +98,26 @@ function initAutoUpdater(mainWindow) {
   // Error handling
   autoUpdater.on('error', (err) => {
     log.error('[Updater] Error:', err);
+    
+    // Close progress window on error
+    closeDownloadProgressWindow();
+    
     sendStatusToRenderer({ 
       status: 'error', 
       error: err.message,
       message: `업데이트 오류: ${err.message}`
     });
+    
+    // Show error dialog
+    if (mainWindowRef && !mainWindowRef.isDestroyed()) {
+      dialog.showMessageBox(mainWindowRef, {
+        type: 'error',
+        title: '업데이트 오류',
+        message: '업데이트 중 오류가 발생했습니다.',
+        detail: err.message,
+        buttons: ['확인']
+      });
+    }
   });
 
   // Register IPC handlers
@@ -113,6 +135,34 @@ function sendStatusToRenderer(data) {
 }
 
 /**
+ * Strip all HTML tags and convert to plain text
+ * @param {string} html - HTML string to clean
+ * @returns {string} Plain text
+ */
+function stripHtmlTags(html) {
+  if (!html || typeof html !== 'string') return '';
+  
+  return html
+    // Convert block elements to newlines first
+    .replace(/<\/?(p|div|h[1-6]|li|tr)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(ul|ol|table|tbody|thead)>/gi, '\n')
+    // Remove all other HTML tags
+    .replace(/<[^>]*>/g, '')
+    // Decode common HTML entities
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    // Clean up whitespace
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+}
+
+/**
  * Show dialog when update is available
  * @param {Object} info - Update info from electron-updater
  */
@@ -124,17 +174,7 @@ async function showUpdateAvailableDialog(info) {
     : info.releaseNotes?.map(note => note.note || note).join('\n') || '';
 
   // Remove HTML tags from release notes for plain text display
-  const cleanReleaseNotes = releaseNotes
-    .replace(/<p>/gi, '')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<strong>/gi, '')
-    .replace(/<\/strong>/gi, '')
-    .replace(/<em>/gi, '')
-    .replace(/<\/em>/gi, '')
-    .replace(/<[^>]+>/g, '') // Remove any remaining HTML tags
-    .replace(/\n{3,}/g, '\n\n') // Replace multiple newlines with double newline
-    .trim();
+  const cleanReleaseNotes = stripHtmlTags(releaseNotes);
 
   const result = await dialog.showMessageBox(mainWindowRef, {
     type: 'info',
@@ -149,9 +189,125 @@ async function showUpdateAvailableDialog(info) {
 
   if (result.response === 0) {
     log.info('[Updater] User chose to download update');
+    showDownloadProgressWindow();
     autoUpdater.downloadUpdate();
   } else {
     log.info('[Updater] User postponed update');
+  }
+}
+
+/**
+ * Create and show download progress window
+ */
+function showDownloadProgressWindow() {
+  if (progressWindow && !progressWindow.isDestroyed()) {
+    progressWindow.focus();
+    return;
+  }
+
+  progressWindow = new BrowserWindow({
+    width: 400,
+    height: 150,
+    parent: mainWindowRef,
+    modal: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    closable: false,
+    frame: false,
+    transparent: false,
+    backgroundColor: '#1a1a2e',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          background: #1a1a2e;
+          color: #eee;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          padding: 20px;
+          -webkit-app-region: drag;
+        }
+        h3 { margin-bottom: 15px; font-weight: 500; }
+        .progress-container {
+          width: 100%;
+          height: 8px;
+          background: #333;
+          border-radius: 4px;
+          overflow: hidden;
+          margin-bottom: 10px;
+        }
+        .progress-bar {
+          height: 100%;
+          background: linear-gradient(90deg, #6366f1, #8b5cf6);
+          width: 0%;
+          transition: width 0.3s ease;
+        }
+        .status {
+          font-size: 13px;
+          color: #aaa;
+        }
+      </style>
+    </head>
+    <body>
+      <h3>업데이트 다운로드 중...</h3>
+      <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="status" id="status">준비 중...</div>
+    </body>
+    </html>
+  `;
+
+  progressWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+  progressWindow.center();
+}
+
+/**
+ * Update download progress in progress window
+ * @param {number} percent - Download percentage
+ * @param {string} status - Status message
+ */
+function updateDownloadProgress(percent, status) {
+  if (progressWindow && !progressWindow.isDestroyed()) {
+    progressWindow.webContents.executeJavaScript(`
+      document.getElementById('progressBar').style.width = '${percent}%';
+      document.getElementById('status').textContent = '${status}';
+    `).catch(() => {});
+  }
+  
+  // Also update taskbar progress
+  if (mainWindowRef && !mainWindowRef.isDestroyed()) {
+    mainWindowRef.setProgressBar(percent / 100);
+  }
+}
+
+/**
+ * Close download progress window
+ */
+function closeDownloadProgressWindow() {
+  if (progressWindow && !progressWindow.isDestroyed()) {
+    progressWindow.close();
+    progressWindow = null;
+  }
+  
+  // Reset taskbar progress
+  if (mainWindowRef && !mainWindowRef.isDestroyed()) {
+    mainWindowRef.setProgressBar(-1);
   }
 }
 
@@ -160,6 +316,9 @@ async function showUpdateAvailableDialog(info) {
  * @param {Object} info - Update info from electron-updater
  */
 async function showUpdateReadyDialog(info) {
+  // Close progress window first
+  closeDownloadProgressWindow();
+  
   if (!mainWindowRef || mainWindowRef.isDestroyed()) return;
 
   const result = await dialog.showMessageBox(mainWindowRef, {
