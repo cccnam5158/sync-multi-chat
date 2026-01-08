@@ -2114,46 +2114,26 @@ ipcMain.on('external-login', async (event, service) => {
         let lastSeenCookies = [];
         let lastAuthCookies = [];
         let didSyncCookies = false;
+        // Track if user actually completed login in Chrome (not just had old cookies in profile)
+        let loginConfirmedInChrome = false;
 
-        // Sync aggressively when we navigate to a likely post-login page (prevents missing the 1s polling window)
-        page.on('framenavigated', async (frame) => {
-            try {
-                if (frame !== page.mainFrame()) return;
-                const currentUrl = frame.url() || '';
-
-                // If we reached the app page (or service domain), sync immediately
-                const isServiceDomain = (() => {
-                    if (service === 'gemini') return currentUrl.includes('gemini.google.com');
-                    if (service === 'genspark') return currentUrl.includes('genspark.ai');
-                    return currentUrl.includes(new URL(serviceUrls[service]).hostname);
-                })();
-
-                if (!isServiceDomain) return;
-
-                const cookies = await collectLoginCookies(page, service);
-                lastSeenCookies = cookies;
-                const isLoggedIn = isAuthCookiePresent(service, cookies);
-                if (isLoggedIn) {
-                    lastAuthCookies = cookies;
-                }
-                // Only sync on navigation if we have real auth cookies (prevents premature sync on non-auth cookies)
-                if (isLoggedIn && !didSyncCookies) {
-                    console.log(`[${service}] Navigation-triggered cookie sync (${cookies.length} cookies) from ${currentUrl}`);
-                    await syncCookiesToElectron(service, cookies);
-                    didSyncCookies = true;
-                }
-            } catch (e) {
-                // ignore
-            }
-        });
+        // NOTE: We do NOT sync cookies on framenavigated anymore.
+        // Problem: Chrome profile may have stale/invalid cookies from previous sessions.
+        // If we sync on navigation, we may sync invalid cookies before user actually logs in.
+        // Instead, we only sync when polling detects login AND user is on a non-login page.
 
         await page.goto(serviceUrls[service]);
 
-        // Special handling for Grok: Wait longer to bypass Cloudflare
-        if (service === 'grok') {
-            console.log('Waiting 5 seconds for Grok Cloudflare check...');
-            await new Promise(resolve => setTimeout(resolve, 5000));
-        }
+        // Wait for page to stabilize before starting login detection.
+        // This is CRITICAL for Google-based services (Gemini/Genspark):
+        // - Chrome profile may have OLD/INVALID cookies from previous sessions
+        // - If we check immediately, we might see those cookies + /app URL = false "login detected"
+        // - But Chrome will redirect to login page within 1-2 seconds if cookies are invalid
+        // - By waiting, we give Chrome time to redirect before we start checking
+        const stabilizeDelay = (service === 'grok') ? 5000 : 
+                               (service === 'gemini' || service === 'genspark') ? 3000 : 1000;
+        console.log(`[${service}] Waiting ${stabilizeDelay}ms for page to stabilize...`);
+        await new Promise(resolve => setTimeout(resolve, stabilizeDelay));
 
         // 3. Monitor for Login Success (Cookie Check)
         const checkLogin = setInterval(async () => {
@@ -2170,18 +2150,33 @@ ipcMain.on('external-login', async (event, service) => {
                     lastAuthCookies = cookies;
                 }
 
-                // Also check URL to ensure we are not on login page
+                // Check URL to ensure we are on the actual service domain (not login pages)
                 const url = page.url();
-                // NOTE:
-                // For Google-based services (Gemini/Genspark), the final post-login page can still be accounts.google.com.
-                // If we block on that, cookie sync never happens and the in-app view stays logged out until restart.
-                const isNotLoginPage = (service === 'gemini' || service === 'genspark')
-                    ? (!url.includes('/auth/login') && !url.includes('sso'))
-                    : (!url.includes('/auth/login') && !url.includes('accounts.google.com') && !url.includes('sso'));
+                // CRITICAL: For Google-based services, we must confirm Chrome is ON the service domain.
+                // - accounts.google.com = still logging in, NOT confirmed
+                // - gemini.google.com/app = on service, can confirm if cookies valid
+                // - genspark.ai/... = on service, can confirm if cookies valid
+                const isOnServiceDomain = (() => {
+                    if (service === 'gemini') return url.includes('gemini.google.com');
+                    if (service === 'genspark') return url.includes('genspark.ai');
+                    if (service === 'chatgpt') return url.includes('chatgpt.com') || url.includes('chat.openai.com');
+                    if (service === 'claude') return url.includes('claude.ai');
+                    if (service === 'grok') return url.includes('grok.com') || url.includes('x.com');
+                    if (service === 'perplexity') return url.includes('perplexity.ai');
+                    return !url.includes('accounts.google.com');
+                })();
+                const isNotLoginPage = isOnServiceDomain && 
+                    !url.includes('/auth/login') && 
+                    !url.includes('/signin') &&
+                    !url.includes('accounts.google.com') && 
+                    !url.includes('sso');
 
                 if (isLoggedIn && isNotLoginPage) {
                     clearInterval(checkLogin);
-                    console.log(`${service} login detected! Syncing cookies...`);
+                    console.log(`${service} login detected in Chrome! Syncing cookies...`);
+
+                    // Mark that login was actually confirmed in Chrome (not just stale profile cookies)
+                    loginConfirmedInChrome = true;
 
                     // Sync cookies to Electron session
                     console.log(`[${service}] Syncing ${cookies.length} cookies...`);
@@ -2195,7 +2190,7 @@ ipcMain.on('external-login', async (event, service) => {
                         views[service].view.webContents.loadURL(targetUrl);
                     }
 
-                    console.log(`${service} login detected! Keeping Chrome open for manual close...`);
+                    console.log(`${service} login confirmed! Keeping Chrome open for manual close...`);
                     // Do NOT close browser automatically. User will close it.
                 }
             } catch (e) {
@@ -2207,31 +2202,38 @@ ipcMain.on('external-login', async (event, service) => {
         // Handle manual close
         browser.on('disconnected', async () => {
             clearInterval(checkLogin);
-            console.log('Chrome disconnected (closed by user). Navigating view...');
+            console.log(`Chrome disconnected (closed by user). loginConfirmedInChrome=${loginConfirmedInChrome}`);
 
-            // Navigate the Electron view to canonical service URL (ensures login detection updates)
             if (views[service] && views[service].view) {
-                // If we never hit the "login detected" branch, try syncing whatever cookies we last observed.
-                // This prevents "close Chrome too fast" from skipping cookie sync.
-                if (!didSyncCookies) {
-                    const cookiesToSync = (Array.isArray(lastAuthCookies) && lastAuthCookies.length > 0)
-                        ? lastAuthCookies
-                        : lastSeenCookies;
-
-                    if (Array.isArray(cookiesToSync) && cookiesToSync.length > 0) {
-                        console.log(`[${service}] Chrome closed; syncing cookies before navigation (${cookiesToSync.length})...`);
+                // CRITICAL FIX: Only navigate app view to /app if login was ACTUALLY confirmed in Chrome.
+                // Problem scenario:
+                // 1. User logs out in app webview (Electron cookies cleared)
+                // 2. Opens Chrome - Chrome profile may still have OLD Google cookies
+                // 3. If we sync those old cookies and navigate to /app, they're invalid → stuck on login
+                // 4. Second attempt works because user actually logged in, making cookies valid
+                //
+                // Solution: Only sync cookies and navigate to /app if polling detected actual login.
+                if (loginConfirmedInChrome) {
+                    // User actually completed login in Chrome - sync and navigate
+                    if (!didSyncCookies && Array.isArray(lastAuthCookies) && lastAuthCookies.length > 0) {
+                        console.log(`[${service}] Syncing confirmed auth cookies (${lastAuthCookies.length})...`);
                         try {
-                            await syncCookiesToElectron(service, cookiesToSync);
+                            await syncCookiesToElectron(service, lastAuthCookies);
                             didSyncCookies = true;
                         } catch (e) {
                             // ignore
                         }
                     }
-                }
 
-                const targetUrl = getServiceResetUrl(service);
-                console.log(`Loading service view: ${service} -> ${targetUrl}`);
-                views[service].view.webContents.loadURL(targetUrl);
+                    const targetUrl = getServiceResetUrl(service);
+                    console.log(`[${service}] Login confirmed, loading: ${targetUrl}`);
+                    views[service].view.webContents.loadURL(targetUrl);
+                } else {
+                    // User closed Chrome without completing login - just reload current view
+                    // This keeps the app on whatever page it was (likely login page)
+                    console.log(`[${service}] No login confirmed, reloading current view...`);
+                    views[service].view.webContents.reload();
+                }
             }
 
             if (mainWindow) {
