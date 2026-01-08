@@ -1976,6 +1976,41 @@ ipcMain.on('external-login', async (event, service) => {
             return unique;
         };
 
+        // Helper: determine "logged-in" for each service based on cookie presence
+        const isAuthCookiePresent = (service, cookies) => {
+            if (!Array.isArray(cookies) || cookies.length === 0) return false;
+
+            if (service === 'chatgpt') {
+                // Based on user image: __Secure-next-auth.session-token, oai-did, _cf_bm
+                return cookies.some(c => c.name === '__Secure-next-auth.session-token' || c.name === 'oai-did');
+            }
+            if (service === 'claude') {
+                return cookies.some(c => c.name === 'sessionKey');
+            }
+            if (service === 'gemini') {
+                // Based on user image: SID, _Secure-1PSID, __Secure-1PSID, _Secure-3PSID, __Secure-3PSID
+                // Check for both single and double underscore variants to handle different cookie formats
+                return cookies.some(c =>
+                    c.name === 'SID' ||
+                    c.name === '_Secure-1PSID' || c.name === '__Secure-1PSID' ||
+                    c.name === '_Secure-3PSID' || c.name === '__Secure-3PSID' ||
+                    c.name === '_Secure-1PAPISID' || c.name === '__Secure-1PAPISID' ||
+                    c.name === '_Secure-3PAPISID' || c.name === '__Secure-3PAPISID'
+                );
+            }
+            if (service === 'grok') {
+                return cookies.some(c => c.name.includes('sso') || c.name === 'auth_token' || c.name.includes('grok'));
+            }
+            if (service === 'perplexity') {
+                return cookies.some(c => c.name === '__Secure-next-auth.session-token');
+            }
+            if (service === 'genspark') {
+                // Genspark relies on Google Login, so check Google auth cookies
+                return cookies.some(c => c.name === '__Secure-1PSID' || c.name === '__Secure-3PSID' || c.name === 'SID');
+            }
+            return false;
+        };
+
         const syncCookiesToElectron = async (service, cookies) => {
             if (!views[service] || !views[service].view) return;
             const electronCookies = views[service].view.webContents.session.cookies;
@@ -2077,6 +2112,7 @@ ipcMain.on('external-login', async (event, service) => {
 
         // Track latest cookies so we can sync even if user closes Chrome quickly after login
         let lastSeenCookies = [];
+        let lastAuthCookies = [];
         let didSyncCookies = false;
 
         // Sync aggressively when we navigate to a likely post-login page (prevents missing the 1s polling window)
@@ -2096,7 +2132,12 @@ ipcMain.on('external-login', async (event, service) => {
 
                 const cookies = await collectLoginCookies(page, service);
                 lastSeenCookies = cookies;
-                if (!didSyncCookies && cookies.length > 0) {
+                const isLoggedIn = isAuthCookiePresent(service, cookies);
+                if (isLoggedIn) {
+                    lastAuthCookies = cookies;
+                }
+                // Only sync on navigation if we have real auth cookies (prevents premature sync on non-auth cookies)
+                if (isLoggedIn && !didSyncCookies) {
                     console.log(`[${service}] Navigation-triggered cookie sync (${cookies.length} cookies) from ${currentUrl}`);
                     await syncCookiesToElectron(service, cookies);
                     didSyncCookies = true;
@@ -2124,31 +2165,9 @@ ipcMain.on('external-login', async (event, service) => {
 
                 const cookies = await collectLoginCookies(page, service);
                 lastSeenCookies = cookies;
-                let isLoggedIn = false;
-
-                if (service === 'chatgpt') {
-                    // Based on user image: __Secure-next-auth.session-token, oai-did, _cf_bm
-                    isLoggedIn = cookies.some(c => c.name === '__Secure-next-auth.session-token' || c.name === 'oai-did');
-                } else if (service === 'claude') {
-                    isLoggedIn = cookies.some(c => c.name === 'sessionKey');
-                } else if (service === 'gemini') {
-                    // Based on user image: SID, _Secure-1PSID, __Secure-1PSID, _Secure-3PSID, __Secure-3PSID
-                    // Check for both single and double underscore variants to handle different cookie formats
-                    isLoggedIn = cookies.some(c => 
-                        c.name === 'SID' || 
-                        c.name === '_Secure-1PSID' || c.name === '__Secure-1PSID' ||
-                        c.name === '_Secure-3PSID' || c.name === '__Secure-3PSID' ||
-                        c.name === '_Secure-1PAPISID' || c.name === '__Secure-1PAPISID' ||
-                        c.name === '_Secure-3PAPISID' || c.name === '__Secure-3PAPISID'
-                    );
-                } else if (service === 'grok') {
-                    isLoggedIn = cookies.some(c => c.name.includes('sso') || c.name === 'auth_token' || c.name.includes('grok'));
-                } else if (service === 'perplexity') {
-                    isLoggedIn = cookies.some(c => c.name === '__Secure-next-auth.session-token');
-                } else if (service === 'genspark') {
-                    // Start of Genspark Verification
-                    // Based on user provided cookie list (Standard Google Auth Cookies)
-                    isLoggedIn = cookies.some(c => c.name === '__Secure-1PSID' || c.name === '__Secure-3PSID' || c.name === 'SID');
+                const isLoggedIn = isAuthCookiePresent(service, cookies);
+                if (isLoggedIn) {
+                    lastAuthCookies = cookies;
                 }
 
                 // Also check URL to ensure we are not on login page
@@ -2186,7 +2205,7 @@ ipcMain.on('external-login', async (event, service) => {
         }, 1000);
 
         // Handle manual close
-        browser.on('disconnected', () => {
+        browser.on('disconnected', async () => {
             clearInterval(checkLogin);
             console.log('Chrome disconnected (closed by user). Navigating view...');
 
@@ -2194,9 +2213,20 @@ ipcMain.on('external-login', async (event, service) => {
             if (views[service] && views[service].view) {
                 // If we never hit the "login detected" branch, try syncing whatever cookies we last observed.
                 // This prevents "close Chrome too fast" from skipping cookie sync.
-                if (!didSyncCookies && Array.isArray(lastSeenCookies) && lastSeenCookies.length > 0) {
-                    console.log(`[${service}] Chrome closed before login detection; syncing last seen cookies (${lastSeenCookies.length})...`);
-                    syncCookiesToElectron(service, lastSeenCookies).catch(() => {});
+                if (!didSyncCookies) {
+                    const cookiesToSync = (Array.isArray(lastAuthCookies) && lastAuthCookies.length > 0)
+                        ? lastAuthCookies
+                        : lastSeenCookies;
+
+                    if (Array.isArray(cookiesToSync) && cookiesToSync.length > 0) {
+                        console.log(`[${service}] Chrome closed; syncing cookies before navigation (${cookiesToSync.length})...`);
+                        try {
+                            await syncCookiesToElectron(service, cookiesToSync);
+                            didSyncCookies = true;
+                        } catch (e) {
+                            // ignore
+                        }
+                    }
                 }
 
                 const targetUrl = getServiceResetUrl(service);
