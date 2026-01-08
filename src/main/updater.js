@@ -143,10 +143,14 @@ function stripHtmlTags(html) {
   if (!html || typeof html !== 'string') return '';
   
   return html
-    // Convert block elements to newlines first
-    .replace(/<\/?(p|div|h[1-6]|li|tr)>/gi, '\n')
+    // Remove opening/closing p tags (they add unwanted newlines)
+    .replace(/<p>/gi, '')
+    .replace(/<\/p>/gi, '\n')
+    // Convert br to single newline
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(ul|ol|table|tbody|thead)>/gi, '\n')
+    // Convert other block elements to newlines
+    .replace(/<\/?(div|h[1-6]|li|tr)>/gi, '\n')
+    .replace(/<\/?(ul|ol|table|tbody|thead)>/gi, '')
     // Remove all other HTML tags
     .replace(/<[^>]*>/g, '')
     // Decode common HTML entities
@@ -156,9 +160,10 @@ function stripHtmlTags(html) {
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
-    // Clean up whitespace
-    .replace(/\n{3,}/g, '\n\n')
+    // Clean up whitespace - reduce multiple newlines to single
+    .replace(/\n{2,}/g, '\n')
     .replace(/[ \t]+/g, ' ')
+    .replace(/\n /g, '\n')
     .trim();
 }
 
