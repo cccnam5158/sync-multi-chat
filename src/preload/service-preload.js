@@ -23,15 +23,251 @@ Object.defineProperty(navigator, 'languages', {
 
 let currentConfig = null;
 let currentService = '';
+let currentInstanceKey = null;
+
+//===========================================
+// SPA URL OBSERVER (fix: ChatGPT pushState doesn't trigger did-navigate)
+//===========================================
+
+let lastReportedUrl = null;
+function reportUrlIfChanged(force = false) {
+    try {
+        const url = window.location.href;
+        if (!force && url === lastReportedUrl) return;
+        lastReportedUrl = url;
+        console.log(`[Preload URL] Reporting URL change: service=${currentService}, instanceKey=${currentInstanceKey}, url=${url}`);
+        ipcRenderer.send('service-url-updated', {
+            service: currentService,
+            instanceKey: currentInstanceKey,
+            url
+        });
+    } catch (e) {
+        console.error('[Preload URL] Error reporting URL:', e);
+    }
+}
+
+function installSpaUrlHooks() {
+    try {
+        const wrap = (fnName) => {
+            const orig = history[fnName];
+            if (!orig || orig.__syncMultiChatWrapped) return;
+            const wrapped = function (...args) {
+                const ret = orig.apply(this, args);
+                setTimeout(() => reportUrlIfChanged(false), 0);
+                return ret;
+            };
+            wrapped.__syncMultiChatWrapped = true;
+            history[fnName] = wrapped;
+        };
+        wrap('pushState');
+        wrap('replaceState');
+        window.addEventListener('popstate', () => reportUrlIfChanged(false));
+        window.addEventListener('hashchange', () => reportUrlIfChanged(false));
+    } catch (e) {
+        // ignore
+    }
+}
+
+installSpaUrlHooks();
+// Low-frequency poll as a safety net (covers frameworks that mutate location in unusual ways)
+setInterval(() => reportUrlIfChanged(false), 1000);
 
 ipcRenderer.on('inject-prompt', (event, { text, selectors, autoSend }) => {
     console.log('[inject-prompt] Received:', { text, selectors, autoSend, service: currentService });
     injectPrompt(text, selectors, autoSend);
 });
 
+/**
+ * Human-like typing simulation with random delays between characters
+ * This helps avoid bot detection by mimicking natural typing patterns
+ * 
+ * Strategy: Type first ~15 words character-by-character, then paste the rest
+ * This balances human-like behavior with reasonable speed for long texts
+ * 
+ * Note: For ProseMirror (Gemini) and contentEditable elements, we use execCommand
+ * or textContent to avoid line break issues with innerHTML
+ */
+async function humanLikeTyping(element, text, isProseMirror = false, isContentEditable = false) {
+    console.log('[humanLikeTyping] Starting human-like typing simulation...');
+    console.log('[humanLikeTyping] isProseMirror:', isProseMirror, 'isContentEditable:', isContentEditable);
+    
+    // Sanitize text: replace newlines with spaces to prevent unwanted line breaks
+    const sanitizedText = text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+    console.log('[humanLikeTyping] Sanitized text length:', sanitizedText.length);
+    
+    const MIN_CHAR_DELAY = 25;  // Minimum ms between characters
+    const MAX_CHAR_DELAY = 70;  // Maximum ms between characters
+    const PAUSE_CHANCE = 0.06;  // 6% chance of longer pause
+    const MIN_PAUSE = 100;
+    const MAX_PAUSE = 300;
+    
+    // Type first ~15 words character-by-character, paste the rest
+    const WORDS_TO_TYPE = 15;
+    const words = sanitizedText.split(' ');
+    const typingPart = words.slice(0, WORDS_TO_TYPE).join(' ');
+    const pastePart = words.length > WORDS_TO_TYPE ? ' ' + words.slice(WORDS_TO_TYPE).join(' ') : '';
+    
+    console.log('[humanLikeTyping] Typing part:', typingPart.length, 'chars, Paste part:', pastePart.length, 'chars');
+    
+    // For ProseMirror/contentEditable: Use execCommand or direct text manipulation
+    // This avoids the line break issues caused by innerHTML with <p> tags
+    if (isProseMirror || isContentEditable) {
+        // Focus and place cursor at the end
+        element.focus();
+        
+        // Clear existing content
+        element.textContent = '';
+        
+        // Phase 1: Type first part character-by-character using execCommand
+        for (let i = 0; i < typingPart.length; i++) {
+            const char = typingPart[i];
+            
+            // Random delay between characters
+            const charDelay = MIN_CHAR_DELAY + Math.random() * (MAX_CHAR_DELAY - MIN_CHAR_DELAY);
+            await new Promise(r => setTimeout(r, charDelay));
+            
+            // Simulate keydown event
+            element.dispatchEvent(new KeyboardEvent('keydown', {
+                key: char,
+                code: char === ' ' ? 'Space' : `Key${char.toUpperCase()}`,
+                bubbles: true,
+                cancelable: true,
+                view: window
+            }));
+            
+            // Use execCommand for text insertion (works better with contentEditable)
+            // Falls back to direct textContent manipulation if execCommand fails
+            const inserted = document.execCommand('insertText', false, char);
+            if (!inserted) {
+                // Fallback: append to textContent
+                element.textContent = (element.textContent || '') + char;
+            }
+            
+            // Dispatch input event
+            element.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                cancelable: true,
+                inputType: 'insertText',
+                data: char,
+                view: window
+            }));
+            
+            // Simulate keyup event
+            element.dispatchEvent(new KeyboardEvent('keyup', {
+                key: char,
+                code: char === ' ' ? 'Space' : `Key${char.toUpperCase()}`,
+                bubbles: true,
+                cancelable: true,
+                view: window
+            }));
+            
+            // Occasional longer pause
+            if (Math.random() < PAUSE_CHANCE) {
+                const pauseDuration = MIN_PAUSE + Math.random() * (MAX_PAUSE - MIN_PAUSE);
+                await new Promise(r => setTimeout(r, pauseDuration));
+            }
+        }
+        
+        // Phase 2: Paste remaining text at once
+        if (pastePart.length > 0) {
+            console.log('[humanLikeTyping] Pasting remaining text for contentEditable...');
+            await new Promise(r => setTimeout(r, 100 + Math.random() * 150));
+            
+            const inserted = document.execCommand('insertText', false, pastePart);
+            if (!inserted) {
+                element.textContent = (element.textContent || '') + pastePart;
+            }
+            
+            element.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                cancelable: true,
+                inputType: 'insertFromPaste',
+                data: pastePart,
+                view: window
+            }));
+        }
+    } else {
+        // For textarea/input elements
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLTextAreaElement.prototype, 'value'
+        )?.set || Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype, 'value'
+        )?.set;
+        
+        // Phase 1: Type first part character-by-character
+        for (let i = 0; i < typingPart.length; i++) {
+            const char = typingPart[i];
+            
+            const charDelay = MIN_CHAR_DELAY + Math.random() * (MAX_CHAR_DELAY - MIN_CHAR_DELAY);
+            await new Promise(r => setTimeout(r, charDelay));
+            
+            element.dispatchEvent(new KeyboardEvent('keydown', {
+                key: char,
+                code: char === ' ' ? 'Space' : `Key${char.toUpperCase()}`,
+                bubbles: true,
+                cancelable: true,
+                view: window
+            }));
+            
+            const currentValue = element.value || '';
+            if (nativeSetter) {
+                nativeSetter.call(element, currentValue + char);
+            } else {
+                element.value = currentValue + char;
+            }
+            
+            element.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                cancelable: true,
+                inputType: 'insertText',
+                data: char,
+                view: window
+            }));
+            
+            element.dispatchEvent(new KeyboardEvent('keyup', {
+                key: char,
+                code: char === ' ' ? 'Space' : `Key${char.toUpperCase()}`,
+                bubbles: true,
+                cancelable: true,
+                view: window
+            }));
+            
+            if (Math.random() < PAUSE_CHANCE) {
+                const pauseDuration = MIN_PAUSE + Math.random() * (MAX_PAUSE - MIN_PAUSE);
+                await new Promise(r => setTimeout(r, pauseDuration));
+            }
+        }
+        
+        // Phase 2: Paste remaining text at once
+        if (pastePart.length > 0) {
+            console.log('[humanLikeTyping] Pasting remaining text for textarea...');
+            await new Promise(r => setTimeout(r, 100 + Math.random() * 150));
+            
+            const currentValue = element.value || '';
+            if (nativeSetter) {
+                nativeSetter.call(element, currentValue + pastePart);
+            } else {
+                element.value = currentValue + pastePart;
+            }
+            
+            element.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                cancelable: true,
+                inputType: 'insertFromPaste',
+                data: pastePart,
+                view: window
+            }));
+        }
+    }
+    
+    // Final change event
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    console.log('[humanLikeTyping] Typing simulation complete');
+}
+
 async function injectPrompt(text, selectors, autoSend = false) {
     console.log('[injectPrompt] Starting injection. Service:', currentService);
-    console.log('[injectPrompt] Text:', text);
+    console.log('[injectPrompt] Text length:', text.length);
     console.log('[injectPrompt] Selectors:', selectors);
 
     // Try to find input element using provided selectors with retry
@@ -64,52 +300,37 @@ async function injectPrompt(text, selectors, autoSend = false) {
 
     inputEl.focus();
     console.log('[injectPrompt] Input focused');
+    
+    // Small delay after focus (human behavior)
+    await new Promise(r => setTimeout(r, 100 + Math.random() * 200));
 
-    // 2. Set Value based on element type
-    if (inputEl.classList.contains('ProseMirror') || inputEl.getAttribute('contenteditable') === 'true') {
+    // 2. Set Value based on element type with human-like typing
+    const isProseMirror = inputEl.classList.contains('ProseMirror');
+    const isContentEditable = inputEl.getAttribute('contenteditable') === 'true';
+    
+    if (isProseMirror || isContentEditable) {
         // ContentEditable (Claude, Gemini, Grok, Perplexity)
         console.log('[injectPrompt] Detected ContentEditable element');
 
-        // Clear existing content first to avoid appending
+        // Clear existing content first
         inputEl.innerHTML = '';
-
-        if (inputEl.classList.contains('ProseMirror')) {
-            // ProseMirror (Claude, Grok)
-            console.log('[injectPrompt] Using ProseMirror injection (for Claude/Grok)');
-            inputEl.innerHTML = `<p>${text}</p>`;
-        } else {
-            // Generic ContentEditable (Gemini, Perplexity)
-            console.log('[injectPrompt] Using generic ContentEditable injection (for Gemini/Perplexity)');
-            inputEl.innerText = text;
-        }
-
-        // Dispatch Input Events
-        const inputEvent = new InputEvent('input', {
-            bubbles: true,
-            cancelable: true,
-            inputType: 'insertText',
-            data: text,
-            view: window
-        });
-        inputEl.dispatchEvent(inputEvent);
-        console.log('[injectPrompt] InputEvent dispatched');
+        
+        // Use human-like typing
+        await humanLikeTyping(inputEl, text, isProseMirror, isContentEditable);
+        console.log('[injectPrompt] Human-like typing completed for ContentEditable');
     } else {
         // Textarea (ChatGPT)
         console.log('[injectPrompt] Using Textarea injection (for ChatGPT)');
-        // React/Vue compatible setter for textarea
+        
+        // Clear existing content
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
             window.HTMLTextAreaElement.prototype, 'value'
         ).set;
-        nativeInputValueSetter.call(inputEl, text);
-
-        // Dispatch comprehensive input events
-        inputEl.dispatchEvent(new InputEvent('input', {
-            bubbles: true,
-            inputType: 'insertText',
-            data: text
-        }));
-        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-        console.log('[injectPrompt] Textarea events dispatched');
+        nativeInputValueSetter.call(inputEl, '');
+        
+        // Use human-like typing
+        await humanLikeTyping(inputEl, text, false, false);
+        console.log('[injectPrompt] Human-like typing completed for Textarea');
     }
 
     // 3. Trigger Enter key if needed or Click Send
@@ -212,9 +433,14 @@ function clickSendButton(selectors, providedInputEl = null) {
 // LOGIN STATUS DETECTION
 //===========================================
 
-ipcRenderer.on('set-config', (event, { config, service }) => {
+ipcRenderer.on('set-config', (event, payload) => {
+    const { config, service, instanceKey } = payload || {};
+    console.log(`[Preload] set-config received: service=${service}, instanceKey=${instanceKey}`);
     currentConfig = config;
-    currentService = service;
+    currentService = service || currentService;
+    if (instanceKey) currentInstanceKey = instanceKey;
+    console.log(`[Preload] After set-config: currentService=${currentService}, currentInstanceKey=${currentInstanceKey}`);
+    reportUrlIfChanged(true);
 });
 
 // Request config immediately (Handshake)

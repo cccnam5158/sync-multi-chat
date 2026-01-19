@@ -16,6 +16,20 @@ let attachedFiles = [];
 // History Manager
 const historyManager = new window.HistoryManager();
 
+// Base/reset URLs (must match main process reset behavior)
+const SERVICE_RESET_URLS = {
+    chatgpt: 'https://chatgpt.com/',
+    claude: 'https://claude.ai/new',
+    gemini: 'https://gemini.google.com/app',
+    grok: 'https://grok.com/',
+    perplexity: 'https://www.perplexity.ai/',
+    genspark: 'https://www.genspark.ai/agents?type=ai_chat'
+};
+
+function getServiceResetUrl(service) {
+    return SERVICE_RESET_URLS[service] || '';
+}
+
 // Handle New Chat Button Click
 newChatBtn.addEventListener('click', async () => {
     // Save current session first (if there is one)
@@ -23,15 +37,24 @@ newChatBtn.addEventListener('click', async () => {
         await saveCurrentSession();
     }
 
-    // Collect current URLs BEFORE resetting webviews
-    const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
-    const currentUrls = {};
-    activeServices.forEach(service => {
-        const urlEl = document.getElementById(`url-text-${service}`);
-        if (urlEl && urlEl.dataset && urlEl.dataset.url) {
-            currentUrls[service] = urlEl.dataset.url;
+    // IMPORTANT:
+    // New Chat should start from base/reset URLs.
+    // Do NOT copy the current conversation URLs into the new session, or the new session will restore
+    // back into the previous conversation (causing "history overwrite" symptoms).
+    let activeServices = [];
+    const resetUrls = {};
+    if (chatMode === 'single') {
+        const base = getServiceResetUrl(singleAiService);
+        for (let i = 0; i < SINGLE_MODE_MAX_INSTANCES; i++) {
+            if (!singleAiActiveInstances[i]) continue;
+            resetUrls[`${singleAiService}-${i}`] = base;
         }
-    });
+    } else {
+        activeServices = enforceMultiToggleLimit();
+        activeServices.forEach(service => {
+            resetUrls[service] = getServiceResetUrl(service);
+        });
+    }
 
     // Generate new session ID and create new history entry
     currentSessionId = generateId();
@@ -39,11 +62,21 @@ newChatBtn.addEventListener('click', async () => {
         id: currentSessionId,
         title: `Chat ${new Date().toLocaleTimeString()}`,
         layout: currentLayout,
-        activeServices: activeServices,
+        chatMode: chatMode,
+        activeServices: chatMode === 'multi' ? activeServices : [],
+        singleAiConfig: chatMode === 'single' ? {
+            service: singleAiService,
+            activeInstances: [...singleAiActiveInstances],
+            urls: resetUrls
+        } : null,
+        multiAiConfig: chatMode === 'multi' ? {
+            activeServices: activeServices,
+            urls: resetUrls
+        } : null,
         prompt: '',
         isAnonymousMode: isAnonymousMode,
         isScrollSyncEnabled: isScrollSyncEnabled,
-        urls: currentUrls, // Save current URLs (base chat URLs)
+        urls: resetUrls, // Save base chat URLs for the new chat session
         createdAt: new Date().toISOString(),
     };
 
@@ -115,6 +148,43 @@ clearFilesBtn?.addEventListener('click', () => {
 const copyChatBtn = document.getElementById('copy-chat-btn');
 const copyFormatSelect = document.getElementById('copy-format-select');
 const copyLastResponseBtn = document.getElementById('copy-last-response-btn');
+const crossCheckBtn = document.getElementById('cross-check-btn');
+const anonymousBtn = document.getElementById('anonymous-btn');
+
+if (crossCheckBtn) {
+    crossCheckBtn.addEventListener('click', () => {
+        openCrossCheckModal();
+    });
+}
+
+function setBottomControlsDisabled(disabled) {
+    const controls = [
+        newChatBtn,
+        copyChatBtn,
+        copyLastResponseBtn,
+        crossCheckBtn,
+        anonymousBtn,
+        copyFormatSelect,
+        scrollSyncToggle,
+        promptToggleBtn,
+        clipBtn,
+        clearFilesBtn,
+        sendBtn,
+        masterInput,
+        fileInput
+    ].filter(Boolean);
+
+    controls.forEach(el => {
+        try {
+            el.disabled = !!disabled;
+        } catch (e) { /* ignore */ }
+        if (disabled) {
+            el.setAttribute?.('aria-disabled', 'true');
+        } else {
+            el.removeAttribute?.('aria-disabled');
+        }
+    });
+}
 
 copyChatBtn.addEventListener('click', () => {
     const format = copyFormatSelect ? copyFormatSelect.value : 'markdown';
@@ -172,12 +242,6 @@ window.electronAPI.onSingleChatThreadCopied((data) => {
     }
 });
 
-const crossCheckBtn = document.getElementById('cross-check-btn');
-crossCheckBtn.addEventListener('click', () => {
-    openCrossCheckModal();
-});
-
-const anonymousBtn = document.getElementById('anonymous-btn');
 let isAnonymousMode = false;
 const SERVICE_ALIASES = {
     'chatgpt': '(A)',
@@ -211,11 +275,35 @@ function toggleAnonymousMode() {
     }
 
     updateServiceToggles();
+    // In Single Mode, also update instance toggle labels and per-view headers
+    if (chatMode === 'single') {
+        renderSingleAiToggles();
+        updateSingleModeHeaders();
+    }
 
     // Report state change to main process for session persistence (SESS-002)
     if (typeof reportCurrentUIState === 'function') {
         reportCurrentUIState();
     }
+}
+
+function updateSingleModeHeaders() {
+    if (chatMode !== 'single') return;
+    if (!singleAiService) return;
+    // Update per-slot header titles (e.g. ChatGPT (A) vs ChatGPT #1)
+    activeServiceKeys.forEach((slotKey) => {
+        const match = slotKey.match(/^(.+)-(\d)$/);
+        if (!match) return;
+        const serviceKey = match[1];
+        const idx = parseInt(match[2], 10);
+        const serviceName = SERVICE_NAMES[serviceKey] || serviceKey;
+        const icon = SERVICE_ICONS[serviceKey] || '';
+        const displayName = isAnonymousMode ? `${serviceName} ${INSTANCE_ALIASES[idx]}` : `${serviceName} #${idx + 1}`;
+        const headerName = document.querySelector(`#slot-${slotKey} .service-name`);
+        if (headerName) {
+            headerName.innerHTML = `<span class="service-icon-wrapper header-icon">${icon}</span> ${displayName}`;
+        }
+    });
 }
 
 function updateServiceToggles() {
@@ -257,6 +345,11 @@ function updateServiceToggles() {
             headerName.innerHTML = headerContent;
         }
     }
+
+    // Single AI Mode: update instance headers too (handles cases like Grok showing #1~#4 in anonymous)
+    if (chatMode === 'single') {
+        updateSingleModeHeaders();
+    }
 }
 
 const scrollSyncToggle = document.getElementById('scroll-sync-toggle');
@@ -277,6 +370,357 @@ const toggles = {
     perplexity: document.getElementById('toggle-perplexity'),
     genspark: document.getElementById('toggle-genspark')
 };
+
+// Multi AI Mode constraints
+const MULTI_SERVICE_ORDER = ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity', 'genspark'];
+const MAX_MULTI_ACTIVE = 4;
+let isApplyingMultiToggleClamp = false;
+
+function getCheckedMultiServicesInOrder() {
+    return MULTI_SERVICE_ORDER.filter(svc => toggles[svc] && toggles[svc].checked);
+}
+
+function clampMultiActiveServices(list) {
+    if (!Array.isArray(list)) return [];
+    const dedup = [];
+    for (const s of list) {
+        if (MULTI_SERVICE_ORDER.includes(s) && !dedup.includes(s)) dedup.push(s);
+    }
+    return dedup.slice(0, MAX_MULTI_ACTIVE);
+}
+
+function enforceMultiToggleLimit() {
+    if (chatMode !== 'multi') return getCheckedMultiServicesInOrder();
+    const checked = getCheckedMultiServicesInOrder();
+    const clamped = clampMultiActiveServices(checked);
+    if (checked.length <= MAX_MULTI_ACTIVE) return checked;
+
+    // Turn off extras to satisfy "max 4"
+    isApplyingMultiToggleClamp = true;
+    try {
+        MULTI_SERVICE_ORDER.forEach(svc => {
+            const shouldBeOn = clamped.includes(svc);
+            if (toggles[svc]) toggles[svc].checked = shouldBeOn;
+            window.electronAPI.toggleService(svc, shouldBeOn);
+        });
+    } finally {
+        isApplyingMultiToggleClamp = false;
+    }
+    return clamped;
+}
+
+// ========================================
+// Chat Mode State (Single AI / Multi AI)
+// ========================================
+let chatMode = 'multi'; // 'multi' | 'single'
+let singleAiService = null; // 'chatgpt' | 'claude' | etc.
+const SINGLE_MODE_MAX_INSTANCES = 3; // Reduced to 3 for bot detection mitigation
+let singleAiActiveInstances = [true, true, true]; // 3 instances max
+let selectedServiceForSingleMode = null; // Temp selection in modal
+
+// Remember last Multi-mode selection so switching Single -> Multi doesn't clear toggles.
+let lastMultiActiveServices = null;
+let isRestoringMultiToggles = false;
+
+function snapshotCurrentMultiSelection() {
+    const active = Object.entries(toggles)
+        .filter(([_, t]) => t && t.checked)
+        .map(([k]) => k);
+    lastMultiActiveServices = active;
+    try {
+        localStorage.setItem('lastMultiActiveServices', JSON.stringify(active));
+    } catch (e) { /* ignore */ }
+}
+
+async function restoreMultiSelectionAfterModeSwitch() {
+    if (isRestoringMultiToggles) return;
+    isRestoringMultiToggles = true;
+    try {
+        let desired = lastMultiActiveServices;
+        if (!desired || desired.length === 0) {
+            try {
+                const raw = localStorage.getItem('lastMultiActiveServices');
+                desired = raw ? JSON.parse(raw) : null;
+            } catch (e) { /* ignore */ }
+        }
+        if (!desired || desired.length === 0) {
+            // Fall back to main-process persisted sessionState
+            const saved = await window.electronAPI.getSavedSession?.();
+            desired = saved?.activeServices || [];
+        }
+
+        desired = clampMultiActiveServices(desired);
+
+        const allServices = Object.keys(toggles);
+        allServices.forEach(svc => {
+            const shouldBeOn = desired.includes(svc);
+            if (toggles[svc]) toggles[svc].checked = shouldBeOn;
+            window.electronAPI.toggleService(svc, shouldBeOn);
+        });
+
+        updateLayoutState();
+        updateServiceToggles();
+    } finally {
+        isRestoringMultiToggles = false;
+    }
+}
+
+const SERVICE_NAMES = {
+    'chatgpt': 'ChatGPT',
+    'claude': 'Claude',
+    'gemini': 'Gemini',
+    'grok': 'Grok',
+    'perplexity': 'Perplexity',
+    'genspark': 'Genspark'
+};
+
+// Instance aliases for Anonymous Mode
+const INSTANCE_ALIASES = ['(A)', '(B)', '(C)', '(D)'];
+
+// Chat Mode Modal Elements
+const multiAiToggles = document.getElementById('multi-ai-toggles');
+const singleAiToggles = document.getElementById('single-ai-toggles');
+const chatModeModal = document.getElementById('chat-mode-modal');
+const chatModeSettingsBtn = document.getElementById('chat-mode-settings-btn');
+const closeChatModeBtn = document.getElementById('close-chat-mode-btn');
+const btnMultiAiMode = document.getElementById('btn-multi-ai-mode');
+const btnSingleAiMode = document.getElementById('btn-single-ai-mode');
+const chatModeOptions = document.getElementById('chat-mode-options');
+const singleAiSelection = document.getElementById('single-ai-selection');
+const serviceSelectionGrid = document.getElementById('service-selection-grid');
+const btnBackToModes = document.getElementById('btn-back-to-modes');
+const btnApplySingleAi = document.getElementById('btn-apply-single-ai');
+const currentModeText = document.getElementById('current-mode-text');
+
+// Chat Mode Modal Functions
+function openChatModeModal() {
+    if (!chatModeModal) return;
+    
+    // Reset to mode selection view
+    if (chatModeOptions) chatModeOptions.classList.remove('hidden');
+    if (singleAiSelection) singleAiSelection.classList.add('hidden');
+    
+    // Update active state
+    if (btnMultiAiMode) btnMultiAiMode.classList.toggle('active', chatMode === 'multi');
+    if (btnSingleAiMode) btnSingleAiMode.classList.toggle('active', chatMode === 'single');
+    
+    // Update current mode text
+    if (currentModeText) {
+        if (chatMode === 'single' && singleAiService) {
+            currentModeText.textContent = `Single AI (${SERVICE_NAMES[singleAiService]})`;
+        } else {
+            currentModeText.textContent = 'Multi AI';
+        }
+    }
+    
+    // Reset selection
+    selectedServiceForSingleMode = singleAiService;
+    
+    chatModeModal.classList.add('visible');
+    
+    // Hide services to show modal (like Cross Check)
+    window.electronAPI.setServiceVisibility(false);
+}
+
+function closeChatModeModal() {
+    if (chatModeModal) {
+        chatModeModal.classList.remove('visible');
+    }
+    // Show services again
+    window.electronAPI.setServiceVisibility(true);
+}
+
+// Chat Mode Event Listeners
+if (chatModeSettingsBtn) {
+    chatModeSettingsBtn.addEventListener('click', openChatModeModal);
+}
+
+if (closeChatModeBtn) {
+    closeChatModeBtn.addEventListener('click', closeChatModeModal);
+}
+
+if (chatModeModal) {
+    chatModeModal.addEventListener('click', (e) => {
+        if (e.target === chatModeModal) closeChatModeModal();
+    });
+}
+
+if (btnMultiAiMode) {
+    btnMultiAiMode.addEventListener('click', async () => {
+        if (chatMode === 'multi') {
+            closeChatModeModal();
+            return;
+        }
+        
+        const result = await window.electronAPI.setChatMode('multi');
+        if (result.success) {
+            chatMode = 'multi';
+            singleAiService = null;
+            updateToggleUI();
+            // Restore last Multi selection (fix: all toggles unchecked when coming from Single)
+            await restoreMultiSelectionAfterModeSwitch();
+            closeChatModeModal();
+        }
+    });
+}
+
+if (btnSingleAiMode) {
+    btnSingleAiMode.addEventListener('click', () => {
+        if (chatModeOptions) chatModeOptions.classList.add('hidden');
+        if (singleAiSelection) singleAiSelection.classList.remove('hidden');
+        renderServiceSelectionGrid();
+    });
+}
+
+if (btnBackToModes) {
+    btnBackToModes.addEventListener('click', () => {
+        if (singleAiSelection) singleAiSelection.classList.add('hidden');
+        if (chatModeOptions) chatModeOptions.classList.remove('hidden');
+    });
+}
+
+if (btnApplySingleAi) {
+    btnApplySingleAi.addEventListener('click', async () => {
+        if (!selectedServiceForSingleMode) return;
+
+        // Snapshot Multi-mode selection before switching into Single mode
+        if (chatMode === 'multi') {
+            snapshotCurrentMultiSelection();
+        }
+        
+        const result = await window.electronAPI.setChatMode('single', {
+            service: selectedServiceForSingleMode,
+            activeInstances: [true, true, true] // SINGLE_MODE_MAX_INSTANCES
+        });
+        
+        if (result.success) {
+            chatMode = 'single';
+            singleAiService = selectedServiceForSingleMode;
+            // Ensure max 3 instances
+            const restored = result.activeInstances || [true, true, true];
+            singleAiActiveInstances = restored.slice(0, SINGLE_MODE_MAX_INSTANCES);
+            updateToggleUI();
+            closeChatModeModal();
+        }
+    });
+}
+
+// Render service selection grid
+function renderServiceSelectionGrid() {
+    if (!serviceSelectionGrid) return;
+    
+    serviceSelectionGrid.innerHTML = '';
+    const allServices = ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity', 'genspark'];
+    
+    allServices.forEach(service => {
+        const option = document.createElement('div');
+        option.className = 'service-option' + (selectedServiceForSingleMode === service ? ' selected' : '');
+        option.dataset.service = service;
+        option.innerHTML = `
+            <div class="service-icon">${SERVICE_ICONS[service] || ''}</div>
+            <div class="service-name">${SERVICE_NAMES[service]}</div>
+        `;
+        option.addEventListener('click', () => {
+            // Update selection
+            serviceSelectionGrid.querySelectorAll('.service-option').forEach(el => el.classList.remove('selected'));
+            option.classList.add('selected');
+            selectedServiceForSingleMode = service;
+            if (btnApplySingleAi) btnApplySingleAi.disabled = false;
+        });
+        serviceSelectionGrid.appendChild(option);
+    });
+    
+    // Update apply button state
+    if (btnApplySingleAi) btnApplySingleAi.disabled = !selectedServiceForSingleMode;
+}
+
+// Update Toggle UI based on Chat Mode
+function updateToggleUI() {
+    if (chatMode === 'single') {
+        // Hide Multi AI toggles, show Single AI toggles
+        if (multiAiToggles) multiAiToggles.classList.add('hidden');
+        if (singleAiToggles) {
+            singleAiToggles.classList.remove('hidden');
+            renderSingleAiToggles();
+        }
+    } else {
+        // Show Multi AI toggles, hide Single AI toggles
+        if (multiAiToggles) multiAiToggles.classList.remove('hidden');
+        if (singleAiToggles) singleAiToggles.classList.add('hidden');
+    }
+    
+    // Update current mode text
+    if (currentModeText) {
+        if (chatMode === 'single' && singleAiService) {
+            currentModeText.textContent = `Single AI (${SERVICE_NAMES[singleAiService]})`;
+        } else {
+            currentModeText.textContent = 'Multi AI';
+        }
+    }
+    
+    // Update layout state
+    updateLayoutState();
+}
+
+// Render Single AI Mode instance toggles
+function renderSingleAiToggles() {
+    if (!singleAiToggles || !singleAiService) return;
+    
+    singleAiToggles.innerHTML = '';
+    const icon = SERVICE_ICONS[singleAiService] || '';
+    const name = SERVICE_NAMES[singleAiService] || singleAiService;
+    
+    for (let i = 0; i < SINGLE_MODE_MAX_INSTANCES; i++) {
+        const label = document.createElement('label');
+        label.className = 'service-toggle-label';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `toggle-single-${i}`;
+        checkbox.checked = singleAiActiveInstances[i];
+        checkbox.addEventListener('change', (e) => {
+            singleAiActiveInstances[i] = e.target.checked;
+            window.electronAPI.toggleSingleInstance(i, e.target.checked);
+            updateLayoutState();
+        });
+        
+        const labelText = document.createElement('span');
+        labelText.className = 'label-text';
+        
+        const instanceLabel = isAnonymousMode ? INSTANCE_ALIASES[i] : `#${i + 1}`;
+        labelText.innerHTML = `<span class="service-icon-wrapper" title="${name}">${icon}</span> <span class="instance-number">${instanceLabel}</span>`;
+        
+        label.appendChild(checkbox);
+        label.appendChild(labelText);
+        singleAiToggles.appendChild(label);
+    }
+}
+
+// Listen for chat mode changes from main process
+if (window.electronAPI.onChatModeChanged) {
+    window.electronAPI.onChatModeChanged((data) => {
+        console.log('[ChatMode] Mode changed:', data);
+        chatMode = data.mode;
+        singleAiService = data.service;
+        if (data.activeInstances) {
+            singleAiActiveInstances = data.activeInstances;
+        }
+        updateToggleUI();
+    });
+}
+
+// Listen for Single AI instance URL changes
+if (window.electronAPI.onSingleInstanceUrlChanged) {
+    window.electronAPI.onSingleInstanceUrlChanged((data) => {
+        console.log('[SingleAI] URL changed:', data);
+        // Update URL display if needed (similar to multi-AI mode)
+        const urlEl = document.getElementById(`url-text-${data.instanceKey}`);
+        if (urlEl) {
+            urlEl.textContent = data.url;
+            urlEl.dataset.url = data.url;
+        }
+    });
+}
 
 // Handle Send Button Click
 sendBtn.addEventListener('click', () => {
@@ -355,7 +799,7 @@ if (window.electronAPI.onFileUploadComplete) {
 }
 
 async function sendPrompt() {
-    console.log('sendPrompt called. pendingConfirmation:', pendingConfirmation);
+    console.log('sendPrompt called. pendingConfirmation:', pendingConfirmation, 'chatMode:', chatMode);
 
     // If pending confirmation, send confirm signal
     if (pendingConfirmation) {
@@ -383,20 +827,31 @@ async function sendPrompt() {
         return;
     }
 
-    const activeServices = {
-        chatgpt: toggles.chatgpt.checked,
-        claude: toggles.claude.checked,
-        gemini: toggles.gemini.checked,
-        grok: toggles.grok.checked,
-        perplexity: toggles.perplexity.checked,
-        genspark: toggles.genspark.checked
-    };
-
     // Get file paths
     const filePaths = attachedFiles.map(f => f.path);
 
-    // If files are attached, we enter "upload only" mode first
-    window.electronAPI.sendPrompt(text, activeServices, filePaths);
+    // Handle based on Chat Mode
+    if (chatMode === 'single') {
+        // Single AI Mode: Send to active instances
+        const instanceKeys = singleAiActiveInstances
+            .map((active, i) => active ? `${singleAiService}-${i}` : null)
+            .filter(Boolean);
+        
+        console.log('[SingleAI] Sending to instances:', instanceKeys);
+        window.electronAPI.sendPromptToInstances(text, instanceKeys, filePaths);
+    } else {
+        // Multi AI Mode: Send to active services
+        const activeServices = {
+            chatgpt: toggles.chatgpt.checked,
+            claude: toggles.claude.checked,
+            gemini: toggles.gemini.checked,
+            grok: toggles.grok.checked,
+            perplexity: toggles.perplexity.checked,
+            genspark: toggles.genspark.checked
+        };
+        
+        window.electronAPI.sendPrompt(text, activeServices, filePaths);
+    }
 
     // If files are present, disable inputs and wait for upload complete
     if (filePaths.length > 0) {
@@ -582,34 +1037,42 @@ let activeServiceKeys = []; // Track order of active services
 let currentLayout = '1x4';
 
 function updateLayoutState() {
-    // 1. Determine active services
-    const activeToggles = Object.entries(toggles).filter(([_, t]) => t.checked);
-    const activeCount = activeToggles.length;
-    activeServiceKeys = activeToggles.map(([k]) => k);
-
-    // 2. Constraint: Max 4 services - disable UNCHECKED toggles only
-    if (activeCount >= 4) {
-        for (const toggle of Object.values(toggles)) {
-            // Only disable unchecked toggles, never disable checked ones
-            toggle.disabled = !toggle.checked;
-        }
+    let activeCount;
+    
+    // 1. Determine active views based on Chat Mode
+    if (chatMode === 'single') {
+        // Single AI Mode: Count active instances
+        activeCount = singleAiActiveInstances.filter(Boolean).length;
+        activeServiceKeys = singleAiActiveInstances
+            .map((active, i) => active ? `${singleAiService}-${i}` : null)
+            .filter(Boolean);
     } else {
-        for (const toggle of Object.values(toggles)) {
-            toggle.disabled = false;
+        // Multi AI Mode: enforce max 4 + keep deterministic order
+        const activeServices = enforceMultiToggleLimit();
+        activeCount = activeServices.length;
+        activeServiceKeys = [...activeServices];
+
+        // 2. Constraint: Max 4 services - disable UNCHECKED toggles only (Multi AI Mode only)
+        if (activeCount >= 4) {
+            for (const toggle of Object.values(toggles)) {
+                toggle.disabled = !toggle.checked;
+            }
+        } else {
+            for (const toggle of Object.values(toggles)) {
+                toggle.disabled = false;
+            }
         }
     }
 
-    // 3. Layout Buttons Logic (LAYOUT-002-1)
-    // Disable all layout buttons when fewer than 3 services are active
+    // 3. Layout Buttons Logic (LAYOUT-002-1) - applies to both modes
     if (activeCount < 3) {
-        // < 3 services: Disable all layout buttons
+        // < 3 views: Disable all layout buttons
         Object.values(layoutBtns).forEach(btn => {
             btn.disabled = true;
             btn.classList.add('disabled');
         });
-        // Don't change current layout, just let it use whatever is current
     } else if (activeCount === 3) {
-        // 3 services: Enable 1x3 and 3x1, disable others
+        // 3 views: Enable 1x3 and 3x1, disable others
         layoutBtns['1x3'].disabled = false;
         layoutBtns['1x3'].classList.remove('disabled');
         layoutBtns['3x1'].disabled = false;
@@ -618,12 +1081,11 @@ function updateLayoutState() {
         layoutBtns['1x4'].classList.add('disabled');
         layoutBtns['2x2'].disabled = true;
         layoutBtns['2x2'].classList.add('disabled');
-        // If current layout is not valid for 3 services, switch to 1x3
         if (currentLayout === '1x4' || currentLayout === '2x2') {
             setLayout('1x3');
         }
     } else {
-        // >= 4 services: Enable 1x4 and 2x2, disable 1x3 and 3x1
+        // >= 4 views: Enable 1x4 and 2x2, disable 1x3 and 3x1
         layoutBtns['1x3'].disabled = true;
         layoutBtns['1x3'].classList.add('disabled');
         layoutBtns['3x1'].disabled = true;
@@ -632,7 +1094,6 @@ function updateLayoutState() {
         layoutBtns['1x4'].classList.remove('disabled');
         layoutBtns['2x2'].disabled = false;
         layoutBtns['2x2'].classList.remove('disabled');
-        // If current layout is not valid for 4 services, switch to 1x4
         if (currentLayout === '1x3' || currentLayout === '3x1') {
             setLayout('1x4');
         }
@@ -743,40 +1204,52 @@ function renderLayout() {
     });
 }
 
-function createSlot(container, service) {
+function createSlot(container, slotKey) {
     const slot = document.createElement('div');
     slot.className = 'view-slot';
-    slot.id = `slot-${service}`;
+    slot.id = `slot-${slotKey}`;
     slot.style.flex = '1';
 
     // Create header bar above BrowserView
     const header = document.createElement('div');
     header.className = 'view-header';
 
-    // Left side: service name with proper display name
-    const serviceNames = {
-        'chatgpt': 'ChatGPT',
-        'claude': 'Claude',
-        'gemini': 'Gemini',
-        'grok': 'Grok',
-        'perplexity': 'Perplexity',
-        'genspark': 'Genspark'
-    };
-    const baseDisplayName = serviceNames[service] || service;
-    const name = baseDisplayName;
-    const icon = SERVICE_ICONS[service] || '';
-
-    const serviceName = document.createElement('span');
-    serviceName.className = 'service-name';
-
-    let headerContent = `<span class="service-icon-wrapper header-icon">${icon}</span> ${name}`;
-    if (isAnonymousMode && SERVICE_ALIASES[service]) {
-        headerContent += ` <span class="service-alias">${SERVICE_ALIASES[service]}</span>`;
+    // Determine if this is a Single AI Mode instance or Multi AI service
+    let serviceName, displayName, icon, serviceKey;
+    const instanceMatch = slotKey.match(/^(.+)-(\d)$/);
+    
+    if (chatMode === 'single' && instanceMatch) {
+        // Single AI Mode: e.g., "chatgpt-0" -> ChatGPT #1 or (A)
+        serviceKey = instanceMatch[1];
+        const instanceIndex = parseInt(instanceMatch[2]);
+        serviceName = SERVICE_NAMES[serviceKey] || serviceKey;
+        displayName = isAnonymousMode 
+            ? `${serviceName} ${INSTANCE_ALIASES[instanceIndex]}` 
+            : `${serviceName} #${instanceIndex + 1}`;
+        icon = SERVICE_ICONS[serviceKey] || '';
+    } else {
+        // Multi AI Mode: e.g., "chatgpt" -> ChatGPT
+        serviceKey = slotKey;
+        serviceName = SERVICE_NAMES[slotKey] || slotKey;
+        displayName = serviceName;
+        icon = SERVICE_ICONS[slotKey] || '';
     }
-    serviceName.innerHTML = headerContent;
+    
+    const name = displayName;
+
+    const serviceNameEl = document.createElement('span');
+    serviceNameEl.className = 'service-name';
+
+    // For Single AI Mode, we already included the instance alias in displayName
+    let headerContent = `<span class="service-icon-wrapper header-icon">${icon}</span> ${name}`;
+    // Only add SERVICE_ALIASES for Multi AI Mode anonymous
+    if (chatMode === 'multi' && isAnonymousMode && SERVICE_ALIASES[serviceKey]) {
+        headerContent += ` <span class="service-alias">${SERVICE_ALIASES[serviceKey]}</span>`;
+    }
+    serviceNameEl.innerHTML = headerContent;
 
     // Header only contains service name (buttons moved to URL bar)
-    header.appendChild(serviceName);
+    header.appendChild(serviceNameEl);
 
     // Header Buttons Container (Restored for Maximize button)
     const headerBtns = document.createElement('div');
@@ -791,7 +1264,12 @@ function createSlot(container, service) {
     reloadBtn.addEventListener('click', () => {
         reloadBtn.classList.add('spinning');
         setTimeout(() => reloadBtn.classList.remove('spinning'), 500);
-        window.electronAPI.reloadService(service);
+        // Use appropriate API based on chat mode
+        if (chatMode === 'single') {
+            window.electronAPI.reloadInstance(slotKey);
+        } else {
+            window.electronAPI.reloadService(slotKey);
+        }
     });
 
     // Maximize/Restore Button
@@ -806,7 +1284,7 @@ function createSlot(container, service) {
     maxBtn.innerHTML = maxIcon;
 
     maxBtn.addEventListener('click', () => {
-        toggleMaximize(service, maxBtn, maxIcon, restoreIcon);
+        toggleMaximize(slotKey, maxBtn, maxIcon, restoreIcon);
     });
 
     headerBtns.appendChild(reloadBtn);
@@ -818,12 +1296,12 @@ function createSlot(container, service) {
     // Create URL bar below header (URLBAR-001)
     const urlBar = document.createElement('div');
     urlBar.className = 'url-bar';
-    urlBar.id = `url-bar-${service}`;
+    urlBar.id = `url-bar-${slotKey}`;
 
     // URL text display (URLBAR-002)
     const urlText = document.createElement('span');
     urlText.className = 'url-text';
-    urlText.id = `url-text-${service}`;
+    urlText.id = `url-text-${slotKey}`;
     urlText.textContent = 'Loading...';
 
     // URL bar buttons container
@@ -842,22 +1320,35 @@ function createSlot(container, service) {
             await saveCurrentSession();
         }
 
-        // Get current URL for this service
-        const urlEl = document.getElementById(`url-text-${service}`);
-        const currentUrl = urlEl && urlEl.dataset && urlEl.dataset.url ? urlEl.dataset.url : null;
-
         // Generate new session ID and create new history entry
-        const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
-        const currentUrls = {};
-        activeServices.forEach(s => {
-            const el = document.getElementById(`url-text-${s}`);
-            if (el && el.dataset && el.dataset.url) {
-                currentUrls[s] = el.dataset.url;
-            }
-        });
-        // Update current service URL
-        if (currentUrl) {
-            currentUrls[service] = currentUrl;
+        let currentUrls = {};
+        if (chatMode === 'single') {
+            // Single AI Mode: collect URLs from instances
+            activeServiceKeys.forEach(key => {
+                const el = document.getElementById(`url-text-${key}`);
+                if (el && el.dataset && el.dataset.url) {
+                    currentUrls[key] = el.dataset.url;
+                }
+            });
+        } else {
+            // Multi AI Mode: collect URLs from services
+            const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
+            activeServices.forEach(s => {
+                const el = document.getElementById(`url-text-${s}`);
+                if (el && el.dataset && el.dataset.url) {
+                    currentUrls[s] = el.dataset.url;
+                }
+            });
+        }
+
+        // IMPORTANT: this "New Chat" resets only this slotKey.
+        // Ensure the new session uses base/reset URL for the slot being reset.
+        if (chatMode === 'single') {
+            const base = getServiceResetUrl(singleAiService);
+            if (base) currentUrls[slotKey] = base;
+        } else {
+            const base = getServiceResetUrl(slotKey);
+            if (base) currentUrls[slotKey] = base;
         }
 
         currentSessionId = generateId();
@@ -865,7 +1356,17 @@ function createSlot(container, service) {
             id: currentSessionId,
             title: `Chat ${new Date().toLocaleTimeString()}`,
             layout: currentLayout,
-            activeServices: activeServices,
+            chatMode: chatMode,
+            singleAiConfig: chatMode === 'single' ? {
+                service: singleAiService,
+                activeInstances: singleAiActiveInstances,
+                urls: currentUrls
+            } : null,
+            multiAiConfig: chatMode === 'multi' ? {
+                activeServices: Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k),
+                urls: currentUrls
+            } : null,
+            activeServices: chatMode === 'multi' ? Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k) : [],
             prompt: '',
             isAnonymousMode: isAnonymousMode,
             isScrollSyncEnabled: isScrollSyncEnabled,
@@ -882,8 +1383,12 @@ function createSlot(container, service) {
         // Refresh history list to show new active chat
         loadHistoryList();
 
-        // Notify main process to start new chat for this specific service
-        window.electronAPI.newChatForService(service);
+        // Notify main process to start new chat
+        if (chatMode === 'single') {
+            window.electronAPI.newChatForInstance(slotKey);
+        } else {
+            window.electronAPI.newChatForService(slotKey);
+        }
     });
 
     // Copy URL button - overlapping squares icon
@@ -911,7 +1416,9 @@ function createSlot(container, service) {
     copyChatBtn.addEventListener('click', function () {
         const button = this;
         const format = copyFormatSelect ? copyFormatSelect.value : 'markdown';
-        window.electronAPI.copySingleChatThread(service, { format, anonymousMode: isAnonymousMode });
+        // Multi: serviceKey (chatgpt/claude/...), Single: slotKey (chatgpt-0/...)
+        const targetKey = (chatMode === 'single') ? slotKey : serviceKey;
+        window.electronAPI.copySingleChatThread(targetKey, { format, anonymousMode: isAnonymousMode });
         button.innerHTML = '<span style="color:#22c55e;font-weight:bold;">✓</span>';
         setTimeout(function () {
             button.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>';
@@ -1056,12 +1563,13 @@ function updateBounds() {
     const URL_BAR_HEIGHT = 32; // Height for URL bar (URLBAR-001) - same as header
     const TOTAL_TOP_HEIGHT = HEADER_HEIGHT + URL_BAR_HEIGHT;
     const bounds = {};
-    activeServiceKeys.forEach(service => {
-        const slot = document.getElementById(`slot-${service}`);
+    
+    activeServiceKeys.forEach(key => {
+        const slot = document.getElementById(`slot-${key}`);
         if (slot) {
             const rect = slot.getBoundingClientRect();
             // BrowserView starts below header bar and URL bar
-            bounds[service] = {
+            bounds[key] = {
                 x: Math.round(rect.x),
                 y: Math.round(rect.y) + TOTAL_TOP_HEIGHT,
                 width: Math.round(rect.width),
@@ -1070,7 +1578,17 @@ function updateBounds() {
         }
     });
 
-    window.electronAPI.updateViewBounds(bounds);
+    // Send bounds to appropriate IPC based on chat mode
+    if (chatMode === 'single') {
+        // Single AI Mode uses update-single-view-bounds
+        if (window.electronAPI.updateViewBounds) {
+            // For now, use the same IPC but main process will handle it
+            // We'll add a separate handler in the future if needed
+            window.electronAPI.updateViewBounds(bounds);
+        }
+    } else {
+        window.electronAPI.updateViewBounds(bounds);
+    }
 }
 
 // Window Resize Observer
@@ -1089,7 +1607,22 @@ Object.keys(layoutBtns).forEach(layout => {
 
 for (const [service, toggle] of Object.entries(toggles)) {
     toggle.addEventListener('change', (e) => {
+        // Enforce max 4 services in Multi mode (spec)
+        if (chatMode === 'multi' && e.target.checked && !isApplyingMultiToggleClamp) {
+            const checkedNow = getCheckedMultiServicesInOrder();
+            if (checkedNow.length > MAX_MULTI_ACTIVE) {
+                // Revert this toggle
+                e.target.checked = false;
+                window.electronAPI.toggleService(service, false);
+                updateLayoutState();
+                return;
+            }
+        }
+
         window.electronAPI.toggleService(service, e.target.checked);
+        if (chatMode === 'multi' && !isRestoringMultiToggles) {
+            snapshotCurrentMultiSelection();
+        }
         updateLayoutState();
     });
 }
@@ -1824,77 +2357,29 @@ function escapeHtml(text) {
 
 // Initial state setup on load
 window.addEventListener('DOMContentLoaded', () => {
-    // Perplexity should start checked, Grok unchecked
-    const initialActiveServices = {
-        chatgpt: toggles.chatgpt.checked,
-        claude: toggles.claude.checked,
-        gemini: toggles.gemini.checked,
-        grok: toggles.grok.checked,
-        perplexity: toggles.perplexity.checked
-    };
+    // Apply initial toggle state to main process (all services), while enforcing "max 4" in Multi mode.
+    if (chatMode === 'multi') {
+        // Clamp any accidental >4 checked (e.g. migrated data or manual edits)
+        enforceMultiToggleLimit();
+    }
 
-    // Notify main process of initial state
-    Object.keys(initialActiveServices).forEach(service => {
-        if (!initialActiveServices[service]) {
-            window.electronAPI.toggleService(service, false);
-        } else {
-            window.electronAPI.toggleService(service, true);
+    MULTI_SERVICE_ORDER.forEach(service => {
+        if (toggles[service]) {
+            window.electronAPI.toggleService(service, !!toggles[service].checked);
         }
     });
 
-    // Update layout state based on initial toggles
+    // Ensure we render at least once on boot so BrowserViews get bounds
     updateLayoutState();
     updateServiceToggles();
 });
 
-// Session Persistence: Listen for saved state restoration (SESS-003)
-if (window.electronAPI.onApplySavedState) {
-    window.electronAPI.onApplySavedState((savedState) => {
-        console.log('[Session] Applying saved state:', savedState);
-
-        // Restore active services (toggles)
-        if (savedState.activeServices && Array.isArray(savedState.activeServices)) {
-            const allServices = ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity'];
-            allServices.forEach(service => {
-                const shouldBeActive = savedState.activeServices.includes(service);
-                if (toggles[service]) {
-                    toggles[service].checked = shouldBeActive;
-                    window.electronAPI.toggleService(service, shouldBeActive);
-                }
-            });
-        }
-
-        // Restore layout
-        if (savedState.layout && layoutBtns[savedState.layout]) {
-            setLayout(savedState.layout);
-        }
-
-        // Restore anonymous mode
-        if (savedState.isAnonymousMode && !isAnonymousMode) {
-            toggleAnonymousMode();
-        } else {
-            // Even if not toggling, update header names to match current state
-            updateServiceToggles();
-        }
-
-        // Restore scroll sync
-        if (savedState.isScrollSyncEnabled && scrollSyncToggle) {
-            scrollSyncToggle.checked = true;
-            isScrollSyncEnabled = true;
-            window.electronAPI.toggleScrollSync(true);
-        }
-
-        // Update layout after restoring state
-        updateLayoutState();
-    });
-}
+// NOTE: apply-saved-state is handled in setupSessionPersistence() to support chatMode + singleAiConfig and avoid double-apply.
 
 // Report UI state changes to main process for persistence
 function reportCurrentUIState() {
     if (window.electronAPI.reportUiState) {
-        const activeServices = Object.entries(toggles)
-            .filter(([_, toggle]) => toggle.checked)
-            .map(([service, _]) => service);
+        const activeServices = (chatMode === 'multi') ? enforceMultiToggleLimit() : [];
 
         window.electronAPI.reportUiState({
             isAnonymousMode,
@@ -1921,6 +2406,7 @@ function toggleMaximize(service, btn, maxIcon, restoreIcon) {
             btn.classList.add('maximized-btn');
             // Auto collapse prompt input when maximized
             setPromptCollapsed(true);
+            setBottomControlsDisabled(true);
         } else {
             viewsPlaceholder.classList.remove('has-maximized-view');
             btn.innerHTML = maxIcon;
@@ -1928,6 +2414,8 @@ function toggleMaximize(service, btn, maxIcon, restoreIcon) {
             btn.classList.remove('maximized-btn');
             // Auto expand prompt input when restored
             setPromptCollapsed(false);
+            const anyMaximized = document.querySelector('.view-slot.maximized');
+            setBottomControlsDisabled(!!anyMaximized);
         }
 
         // Send updated bounds to main process
@@ -2839,26 +3327,156 @@ async function saveCurrentSession() {
             currentSessionId = generateId();
         }
 
-        // Gather state
-        const activeServices = Object.entries(toggles)
-            .filter(([_, toggle]) => toggle.checked)
-            .map(([service, _]) => service);
-
-        // Collect current URLs from url-text elements (populated by onWebviewUrlChanged)
-        const urls = {};
-        activeServices.forEach(service => {
-            const urlEl = document.getElementById(`url-text-${service}`);
-            if (urlEl && urlEl.dataset && urlEl.dataset.url) {
-                urls[service] = urlEl.dataset.url;
-            }
-        });
-
-        // Check if session already exists to preserve its title
+        // Load existing session early so we can preserve URLs on partial updates (prevents URL keys "disappearing")
         let existingSession = null;
         try {
             existingSession = await historyManager.getSession(currentSessionId);
         } catch (e) {
             // Session doesn't exist yet, that's fine
+        }
+
+        // Gather state based on current Chat Mode
+        let urls = {};
+        let activeServices = [];
+        let multiAiConfig = null;
+        let singleAiConfig = null;
+
+        const filterInstanceUrlsForService = (service, obj) => {
+            if (!service || !obj) return {};
+            const out = {};
+            for (let i = 0; i < SINGLE_MODE_MAX_INSTANCES; i++) {
+                const k = `${service}-${i}`;
+                if (typeof obj[k] === 'string' && obj[k]) out[k] = obj[k];
+            }
+            return out;
+        };
+
+        const filterMultiUrls = (obj) => {
+            if (!obj) return {};
+            const out = {};
+            MULTI_SERVICE_ORDER.forEach((svc) => {
+                if (typeof obj[svc] === 'string' && obj[svc]) out[svc] = obj[svc];
+            });
+            return out;
+        };
+
+        // Check if a URL is a "conversation URL" (has /c/, /chat/, conversation ID, etc.)
+        const isConversationUrl = (url) => {
+            if (!url || typeof url !== 'string') return false;
+            // ChatGPT: /c/..., Claude: /chat/..., Gemini: ...
+            // Check for common conversation patterns
+            return /\/c\/[a-f0-9-]+/i.test(url) ||       // ChatGPT
+                   /\/chat\/[a-f0-9-]+/i.test(url) ||    // Claude
+                   /conversation.*[a-f0-9-]{8,}/i.test(url) || // General pattern
+                   /\/share\/[a-f0-9-]+/i.test(url);     // Shared conversations
+        };
+
+        // Smart merge: prefer conversation URLs over base URLs
+        const smartMergeUrls = (oldUrls, newUrls) => {
+            const merged = { ...oldUrls };
+            Object.keys(newUrls).forEach(key => {
+                const newUrl = newUrls[key];
+                const oldUrl = oldUrls[key];
+                // If new URL is a conversation URL, always use it
+                if (isConversationUrl(newUrl)) {
+                    merged[key] = newUrl;
+                }
+                // If new URL is base URL but old URL is conversation URL, keep old
+                else if (isConversationUrl(oldUrl) && !isConversationUrl(newUrl)) {
+                    // Keep old conversation URL
+                    console.log(`[Session] Preserving conversation URL for ${key}:`, oldUrl, 'over base:', newUrl);
+                }
+                // Otherwise use new URL
+                else {
+                    merged[key] = newUrl;
+                }
+            });
+            return merged;
+        };
+
+        if (chatMode === 'single') {
+            // Single AI Mode: collect instance URLs (prefer main process webContents for accuracy)
+            let mainUrls = null;
+            try {
+                mainUrls = await window.electronAPI.getCurrentUrls?.();
+                console.log('[Session Save] getCurrentUrls response:', JSON.stringify(mainUrls));
+            } catch (e) { 
+                console.error('[Session Save] getCurrentUrls failed:', e);
+            }
+            const map = (mainUrls && mainUrls.mode === 'single' && mainUrls.urls) ? mainUrls.urls : null;
+            console.log('[Session Save] URL map for Single mode:', JSON.stringify(map));
+
+            // IMPORTANT: do not rely on activeServiceKeys here (can be stale during app close).
+            // Build instance keys from state to ensure we always attempt to save all active instances.
+            const instanceKeys = (singleAiService ? Array.from({length: SINGLE_MODE_MAX_INSTANCES}, (_, i) => `${singleAiService}-${i}`) : []);
+            instanceKeys.forEach((key, idx) => {
+                if (!singleAiActiveInstances[idx]) return;
+                const v = map && map[key] ? map[key] : null;
+                if (v) {
+                    urls[key] = v;
+                    return;
+                }
+                const urlEl = document.getElementById(`url-text-${key}`);
+                if (urlEl && urlEl.dataset && urlEl.dataset.url) {
+                    urls[key] = urlEl.dataset.url;
+                }
+            });
+
+            // Preserve previous URLs if this save is partial (prevents losing chatgpt-2/chatgpt-3)
+            // IMPORTANT: filter by instanceKey only (avoid mixing multi keys like 'chatgpt'/'claude')
+            // Use smart merge to prefer conversation URLs over base URLs
+            const prevSingleUrls = filterInstanceUrlsForService(
+                singleAiService,
+                existingSession?.singleAiConfig?.urls || existingSession?.urls || {}
+            );
+            console.log('[Session Save] prevSingleUrls:', JSON.stringify(prevSingleUrls));
+            console.log('[Session Save] urls before merge:', JSON.stringify(urls));
+            urls = smartMergeUrls(prevSingleUrls, filterInstanceUrlsForService(singleAiService, urls));
+            console.log('[Session Save] urls after smart merge:', JSON.stringify(urls));
+            
+            singleAiConfig = {
+                service: singleAiService,
+                activeInstances: [...singleAiActiveInstances],
+                urls: urls
+            };
+
+            // Backwards compatibility field: keep only instance URLs in single mode
+            // (avoid contaminating session.urls with multi keys)
+            urls = singleAiConfig.urls;
+        } else {
+            // Multi AI Mode: collect service URLs
+            activeServices = enforceMultiToggleLimit();
+
+            let mainUrls = null;
+            try {
+                mainUrls = await window.electronAPI.getCurrentUrls?.();
+            } catch (e) { /* ignore */ }
+            const map = (mainUrls && mainUrls.mode === 'multi' && mainUrls.urls) ? mainUrls.urls : null;
+
+            activeServices.forEach(service => {
+                const v = map && map[service] ? map[service] : null;
+                if (v) {
+                    urls[service] = v;
+                } else {
+                    const urlEl = document.getElementById(`url-text-${service}`);
+                    if (urlEl && urlEl.dataset && urlEl.dataset.url) {
+                        urls[service] = urlEl.dataset.url;
+                    }
+                }
+            });
+
+            // Preserve previous URLs on partial updates (safe; activeServices already capped to 4)
+            // Use smart merge to prefer conversation URLs over base URLs
+            const prevMultiUrls = filterMultiUrls(existingSession?.multiAiConfig?.urls || existingSession?.urls || {});
+            urls = smartMergeUrls(prevMultiUrls, filterMultiUrls(urls));
+            
+            multiAiConfig = {
+                activeServices: activeServices,
+                urls: urls
+            };
+
+            // Backwards compatibility field: keep only service URLs in multi mode
+            urls = multiAiConfig.urls;
         }
 
         // Use existing title if available, otherwise generate from prompt or timestamp
@@ -2873,11 +3491,14 @@ async function saveCurrentSession() {
             id: currentSessionId,
             title: title,
             layout: currentLayout,
-            activeServices: activeServices,
+            chatMode: chatMode,
+            activeServices: activeServices, // For backwards compatibility
+            singleAiConfig: singleAiConfig,
+            multiAiConfig: multiAiConfig,
             prompt: masterInput.value,
             isAnonymousMode: isAnonymousMode,
             isScrollSyncEnabled: isScrollSyncEnabled,
-            urls: urls,
+            urls: urls, // For backwards compatibility
             createdAt: existingSession?.createdAt || new Date().toISOString(),
         };
 
@@ -2897,13 +3518,12 @@ async function saveCurrentSession() {
 async function loadSession(session) {
     if (!session) return;
 
-    console.log('[History] Switching to session:', session.id);
+    console.log('[History] Switching to session:', session.id, 'chatMode:', session.chatMode || 'multi');
 
     // Set loading flag to prevent URL change saves during transition
     isSessionLoading = true;
 
     // Save current session before switching (if different session)
-
     if (currentSessionId && currentSessionId !== session.id) {
         // Cancel any pending debounce timer to prevent race conditions
         if (urlChangeDebounceTimer) {
@@ -2921,26 +3541,126 @@ async function loadSession(session) {
         maximizedBtns.forEach(btn => btn.click());
     }
 
-    // FIX: Pre-reset URLs to prevent stale data from overwriting new session
-    const allServices = ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity', 'genspark'];
-    allServices.forEach(service => {
-        const urlEl = document.getElementById(`url-text-${service}`);
-        if (urlEl) {
-            // Pre-fill with new session URL or clear
-            const storedUrls = session.urls || session.serviceUrls || {};
-            const newUrl = storedUrls[service] || '';
-            const displayUrl = newUrl.length > 80 ? newUrl.substring(0, 77) + '...' : newUrl;
-
-            urlEl.textContent = displayUrl;
-            urlEl.dataset.url = newUrl;
-            urlEl.title = newUrl;
-        }
-    });
-
     // Update currentSessionId and persist it ONLY if session.id is present
     if (session.id) {
         currentSessionId = session.id;
         localStorage.setItem(currentSessionIdKey, currentSessionId);
+    }
+
+    // Determine session chat mode (legacy sessions without chatMode are treated as Multi AI)
+    const sessionChatMode = session.chatMode || 'multi';
+    
+    // Handle Chat Mode switching (REQ-MODE-060~066)
+    if (sessionChatMode === 'single') {
+        // Single AI Mode Session
+        const singleConfig = session.singleAiConfig || {};
+        const targetService = singleConfig.service;
+        // Ensure max SINGLE_MODE_MAX_INSTANCES (migration from older 4-instance sessions)
+        const rawInstances = singleConfig.activeInstances || [true, true, true];
+        const targetInstances = rawInstances.slice(0, SINGLE_MODE_MAX_INSTANCES);
+        const instanceUrls = singleConfig.urls || session.urls || {};
+        
+        if (targetService) {
+            console.log(`[History] Restoring Single AI Mode: ${targetService}, instances:`, targetInstances, 'urls:', instanceUrls);
+            
+            // Switch to Single AI Mode via API with URLs for session restoration
+            // This sets lastKnownInstanceUrls in main process to prevent stale URL issues
+            const result = await window.electronAPI.setChatMode('single', {
+                service: targetService,
+                activeInstances: targetInstances,
+                urls: instanceUrls  // Pass saved URLs to main process
+            });
+            
+            if (result.success) {
+                chatMode = 'single';
+                singleAiService = targetService;
+                singleAiActiveInstances = targetInstances;
+                updateToggleUI();
+                
+                // Navigate instances to saved URLs after delay
+                // NOTE: Single Mode instances are created with staggered delays in main to reduce bot-detection bursts.
+                // Wait long enough so instances exist before sending navigate.
+                setTimeout(() => {
+                    Object.entries(instanceUrls).forEach(([instanceKey, url]) => {
+                        if (url) {
+                            console.log(`[History] Navigating ${instanceKey} to saved URL: ${url}`);
+                            window.electronAPI.navigateInstance(instanceKey, url);
+                        }
+                    });
+                    // Refresh URL bars after navigation requests (allow time for page load)
+                    if (window.electronAPI.requestCurrentUrls) {
+                        setTimeout(() => window.electronAPI.requestCurrentUrls(), 1000);
+                        // Second refresh for slow-loading pages
+                        setTimeout(() => window.electronAPI.requestCurrentUrls(), 3000);
+                    }
+                    isSessionLoading = false;
+                }, 1400);
+            } else {
+                console.error('[History] Failed to switch to Single AI Mode:', result.error);
+                isSessionLoading = false;
+            }
+        } else {
+            console.error('[History] Single AI session missing service config');
+            isSessionLoading = false;
+        }
+    } else {
+        // Multi AI Mode Session (including legacy sessions)
+        console.log('[History] Restoring Multi AI Mode session');
+        
+        // If currently in Single AI Mode, switch back to Multi AI
+        if (chatMode === 'single') {
+            const result = await window.electronAPI.setChatMode('multi');
+            if (result.success) {
+                chatMode = 'multi';
+                singleAiService = null;
+                updateToggleUI();
+            }
+        }
+        
+        // Pre-reset URLs
+        const allServices = ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity', 'genspark'];
+        const storedUrls = session.urls || session.serviceUrls || session.multiAiConfig?.urls || {};
+        allServices.forEach(service => {
+            const urlEl = document.getElementById(`url-text-${service}`);
+            if (urlEl) {
+                const newUrl = storedUrls[service] || '';
+                const displayUrl = newUrl.length > 80 ? newUrl.substring(0, 77) + '...' : newUrl;
+                urlEl.textContent = displayUrl;
+                urlEl.dataset.url = newUrl;
+                urlEl.title = newUrl;
+            }
+        });
+
+        // Restore Services (cap to 4 as per spec)
+        const activeServices = clampMultiActiveServices(session.activeServices || session.multiAiConfig?.activeServices || []);
+        if (activeServices.length > 0) {
+            // First turn off all
+            allServices.forEach(s => {
+                if (toggles[s]) toggles[s].checked = false;
+                window.electronAPI.toggleService(s, false);
+            });
+
+            // Then turn on saved
+            activeServices.forEach(s => {
+                if (toggles[s]) toggles[s].checked = true;
+                window.electronAPI.toggleService(s, true);
+            });
+        }
+
+        // Navigate webviews to saved URLs (with delay for service initialization)
+        if (storedUrls && Object.keys(storedUrls).length > 0) {
+            setTimeout(() => {
+                Object.entries(storedUrls).forEach(([service, url]) => {
+                    if (url && activeServices.includes(service)) {
+                        console.log(`[History] Navigating ${service} to saved URL: ${url}`);
+                        window.electronAPI.navigateToUrl(service, url);
+                    }
+                });
+                isSessionLoading = false;
+            }, 500);
+        } else {
+            isSessionLoading = false;
+        }
     }
 
     // Refresh history list to show updated active state (preserve scroll/loaded pages)
@@ -2949,7 +3669,6 @@ async function loadSession(session) {
     // Restore Prompt
     if (session.prompt !== undefined) {
         masterInput.value = session.prompt;
-        // Trigger input event to resize if needed
         masterInput.dispatchEvent(new Event('input'));
     }
 
@@ -2958,27 +3677,12 @@ async function loadSession(session) {
         setLayout(session.layout);
     }
 
-    // Restore Services
-    if (session.activeServices) {
-        // First turn off all
-        // First turn off all
-        ['chatgpt', 'claude', 'gemini', 'grok', 'perplexity', 'genspark'].forEach(s => {
-            if (toggles[s]) toggles[s].checked = false;
-            window.electronAPI.toggleService(s, false);
-        });
-
-        // Then turn on saved
-        session.activeServices.forEach(s => {
-            if (toggles[s]) toggles[s].checked = true;
-            window.electronAPI.toggleService(s, true);
-        });
-    }
-
-    // Restore Modes
+    // Restore Anonymous Mode
     if (session.isAnonymousMode !== undefined && session.isAnonymousMode !== isAnonymousMode) {
         toggleAnonymousMode();
     }
 
+    // Restore Scroll Sync
     if (session.isScrollSyncEnabled !== undefined && session.isScrollSyncEnabled !== isScrollSyncEnabled) {
         const syncToggle = document.getElementById('scroll-sync-toggle');
         if (syncToggle) {
@@ -2989,26 +3693,6 @@ async function loadSession(session) {
     }
 
     updateLayoutState();
-
-    // Navigate webviews to saved URLs (with delay for service initialization)
-    const storedUrls = session.urls || session.serviceUrls;
-    if (storedUrls && Object.keys(storedUrls).length > 0) {
-        setTimeout(() => {
-            Object.entries(storedUrls).forEach(([service, url]) => {
-                if (url && session.activeServices && session.activeServices.includes(service)) {
-                    console.log(`[History] Navigating ${service} to saved URL: ${url}`);
-                    window.electronAPI.navigateToUrl(service, url);
-                }
-            });
-            // Clear loading flag after navigation completes
-            isSessionLoading = false;
-        }, 500); // Delay to allow services to initialize
-    } else {
-        // Clear loading flag if no URLs to navigate
-        isSessionLoading = false;
-    }
-
-    // Close sidebar on mobile/small screens? Optional.
 }
 
 // Hook into Send Action to save session
@@ -3229,30 +3913,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.addEventListener('beforeunload', saveHistoryScrollState);
 
+// Ensure we persist the latest session URLs on app close (main will wait briefly via app-will-close handshake).
+if (window.electronAPI.onAppWillClose) {
+    window.electronAPI.onAppWillClose(async () => {
+        try {
+            // Force one last save with URLs fetched from main webContents
+            await saveCurrentSession();
+        } catch (e) {
+            console.error('[Session] Final saveCurrentSession failed:', e);
+        } finally {
+            try {
+                await window.electronAPI.appCloseReady?.();
+            } catch (e) { /* ignore */ }
+        }
+    });
+}
+
 function setupSessionPersistence() {
     // 1. Listen for Apply Saved State from Main Process (Startup)
     if (window.electronAPI.onApplySavedState) {
         window.electronAPI.onApplySavedState((state) => {
             console.log('[Session] Applying saved state from Main:', state);
             if (state) {
-                // Use loadSession logic but adapt for Main's state structure
-                // Main sends 'serviceUrls', renderer expects 'urls'. 
-                // We already patched loadSession to handle 'serviceUrls'.
-
-                // We construct a pseudo-session object
-                const restorationSession = {
-                    id: currentSessionId || localStorage.getItem(currentSessionIdKey), // Use existing ID if available
-                    activeServices: state.activeServices,
-                    layout: state.layout,
-                    urls: state.serviceUrls,
-                    isAnonymousMode: state.isAnonymousMode,
-                    isScrollSyncEnabled: state.isScrollSyncEnabled
-                };
-
                 // Set flag to prevent setupHistory from overwriting
                 hasAppliedMainState = true;
-
-                loadSession(restorationSession);
+                
+                // Restore Chat Mode state first
+                const savedChatMode = state.chatMode || 'multi';
+                console.log('[Session] Restoring chat mode:', savedChatMode);
+                
+                if (savedChatMode === 'single' && state.singleAiConfig) {
+                    // Restore Single AI Mode
+                    chatMode = 'single';
+                    singleAiService = state.singleAiConfig.service;
+                    // Ensure max 3 instances (migration from older 4-instance sessions)
+                    const restoredInstances = state.singleAiConfig.activeInstances || [true, true, true];
+                    singleAiActiveInstances = restoredInstances.slice(0, SINGLE_MODE_MAX_INSTANCES);
+                    
+                    console.log('[Session] Restored Single AI Mode:', singleAiService, singleAiActiveInstances);
+                    
+                    // Update UI for Single AI Mode
+                    updateToggleUI();
+                    
+                    // Construct a pseudo-session object for Single AI Mode
+                    const restorationSession = {
+                        id: currentSessionId || localStorage.getItem(currentSessionIdKey),
+                        chatMode: 'single',
+                        singleAiConfig: state.singleAiConfig,
+                        layout: state.layout,
+                        isAnonymousMode: state.isAnonymousMode,
+                        isScrollSyncEnabled: state.isScrollSyncEnabled
+                    };
+                    
+                    loadSession(restorationSession);
+                } else {
+                    // Restore Multi AI Mode
+                    chatMode = 'multi';
+                    singleAiService = null;
+                    
+                    // Update UI for Multi AI Mode
+                    updateToggleUI();
+                    
+                    // Construct a pseudo-session object for Multi AI Mode
+                    const restorationSession = {
+                        id: currentSessionId || localStorage.getItem(currentSessionIdKey),
+                        chatMode: 'multi',
+                        activeServices: clampMultiActiveServices(state.activeServices || []),
+                        layout: state.layout,
+                        urls: state.serviceUrls,
+                        isAnonymousMode: state.isAnonymousMode,
+                        isScrollSyncEnabled: state.isScrollSyncEnabled
+                    };
+                    
+                    loadSession(restorationSession);
+                }
             }
         });
     }
@@ -3272,3 +4006,4 @@ function setupSessionPersistence() {
         }
     }
 }
+

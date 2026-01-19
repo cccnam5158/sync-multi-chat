@@ -114,3 +114,5 @@ Conversation History Sidebar에서 **챗 세션을 복수개 선택하여 삭제
 - 스크롤 위치가 과도하게 흔들리지 않음
 
 
+
+

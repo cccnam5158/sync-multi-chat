@@ -14,7 +14,7 @@ const translations = {
         "nav.getStarted": "Get Started",
 
         // Hero Section
-        "hero.badge": "New: Genspark Integration Added",
+        "hero.badge": "New: Single AI Mode – Compare models from one provider",
         "hero.title1": "One Prompt.",
         "hero.title2": "Six Minds Simultaneously.",
         "hero.tagline": "Stop switching tabs. Broadcast your prompts to ChatGPT, Claude, Gemini, Grok, Perplexity, and Genspark at once. Compare, cross-check, and iterate faster.",
@@ -135,7 +135,12 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "Release History",
-        "releaseNotes.lastUpdated": "Last updated: Jan 08, 2026",
+        "releaseNotes.lastUpdated": "Last updated: Jan 19, 2026",
+        "releaseNotes.v060.feature1": "Single AI Mode: For users who subscribe to only one AI service—open up to 3 instances of the same provider and compare responses from different models.",
+        "releaseNotes.v060.feature2": "Anti-Bot Detection: Staggered timing for instance creation and prompt delivery to reduce bot detection. Human-like typing simulation included.",
+        "releaseNotes.v060.feature3": "Chat Mode Settings: New gear icon (⚙️) and modal UI for switching between Multi AI Mode and Single AI Mode.",
+        "releaseNotes.v060.fix1": "Memory Leak Fix: BrowserView instances are now properly cleaned up when switching modes.",
+        "releaseNotes.v060.fix2": "URL Persistence: Improved conversation URL tracking for Single Mode instances.",
         "releaseNotes.current": "Current",
         "releaseNotes.newFeatures": "New Features",
         "releaseNotes.bugFixes": "Bug Fixes",
@@ -192,7 +197,7 @@ const translations = {
         "nav.getStarted": "시작하기",
 
         // Hero Section
-        "hero.badge": "신규: Genspark 통합 추가",
+        "hero.badge": "신규: 싱글 AI 모드 – 하나의 서비스에서 여러 모델 비교",
         "hero.title1": "하나의 질문,",
         "hero.title2": "여섯 개의 AI가 동시에.",
         "hero.tagline": "탭 전환은 이제 그만. ChatGPT, Claude, Gemini, Grok, Perplexity, Genspark에 프롬프트를 한 번에 전송하세요. 비교하고, 교차 검증하고, 더 빠르게 반복하세요.",
@@ -313,7 +318,12 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "릴리스 히스토리",
-        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 1월 8일",
+        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 1월 19일",
+        "releaseNotes.v060.feature1": "싱글 AI 모드: 하나의 AI 서비스만 구독하는 사용자를 위해—동일 서비스의 최대 3개 인스턴스를 열어 다양한 모델의 응답을 비교할 수 있습니다.",
+        "releaseNotes.v060.feature2": "봇 탐지 방지: 인스턴스 생성 및 프롬프트 전달 타이밍을 조절하여 봇 탐지를 줄입니다. 사람과 유사한 타이핑 시뮬레이션 포함.",
+        "releaseNotes.v060.feature3": "채팅 모드 설정: Multi AI 모드와 Single AI 모드 전환을 위한 새로운 기어 아이콘(⚙️)과 모달 UI.",
+        "releaseNotes.v060.fix1": "메모리 누수 수정: 모드 전환 시 BrowserView 인스턴스가 올바르게 정리됩니다.",
+        "releaseNotes.v060.fix2": "URL 저장 개선: Single Mode 인스턴스의 대화 URL 추적 및 복원 개선.",
         "releaseNotes.current": "현재",
         "releaseNotes.newFeatures": "새로운 기능",
         "releaseNotes.bugFixes": "버그 수정",
@@ -370,7 +380,7 @@ const translations = {
         "nav.getStarted": "始める",
 
         // Hero Section
-        "hero.badge": "新機能: Genspark統合追加",
+        "hero.badge": "新機能: シングルAIモード – 1つのサービスで複数モデルを比較",
         "hero.title1": "1つのプロンプト、",
         "hero.title2": "6つのAIが同時に。",
         "hero.tagline": "タブの切り替えはもう不要。ChatGPT、Claude、Gemini、Grok、Perplexity、Genspark にプロンプトを一度に送信。比較、クロスチェック、そして高速な反復を。",
@@ -491,7 +501,12 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "リリース履歴",
-        "releaseNotes.lastUpdated": "最終更新: 2026年1月8日",
+        "releaseNotes.lastUpdated": "最終更新: 2026年1月19日",
+        "releaseNotes.v060.feature1": "シングルAIモード: 1つのAIサービスのみを利用するユーザー向け—同一サービスの最大3インスタンスを開き、異なるモデルの回答を比較できます。",
+        "releaseNotes.v060.feature2": "ボット検知防止: インスタンス作成とプロンプト送信のタイミングを調整してボット検知を軽減。人間のようなタイピングシミュレーション付き。",
+        "releaseNotes.v060.feature3": "チャットモード設定: マルチAIモードとシングルAIモードを切り替えるための新しいギアアイコン(⚙️)とモーダルUI。",
+        "releaseNotes.v060.fix1": "メモリリーク修正: モード切替時にBrowserViewインスタンスが正しくクリーンアップされるようになりました。",
+        "releaseNotes.v060.fix2": "URL永続化改善: シングルモードインスタンスの会話URL追跡と復元を改善。",
         "releaseNotes.current": "現在",
         "releaseNotes.newFeatures": "新機能",
         "releaseNotes.bugFixes": "バグ修正",

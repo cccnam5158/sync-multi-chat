@@ -79,6 +79,20 @@ let currentZoomLevel = 0.9; // Default zoom level
 let savedSessionUrls = {}; // URLs to load on startup
 let isAnonymousMode = false; // Track anonymous mode for session save
 
+// ========================================
+// Single AI Mode State (REQ-MODE)
+// ========================================
+let chatMode = 'multi'; // 'multi' | 'single'
+let singleAiService = null; // 'chatgpt' | 'claude' | etc.
+const SINGLE_MODE_MAX_INSTANCES = 3; // Reduced to 3 for bot detection mitigation
+let singleAiActiveInstances = [true, true, true]; // Up to 3 instances
+const singleModeViews = {}; // { 'chatgpt-0': { view, enabled }, 'chatgpt-1': { view, enabled }, ... }
+let isClosingWindow = false;
+
+// Track SPA URL changes (e.g. ChatGPT pushState) per view.
+const lastKnownMultiUrls = {}; // { chatgpt: 'https://...' }
+const lastKnownInstanceUrls = {}; // { 'chatgpt-0': 'https://...' }
+
 // Load selectors
 try {
     const configPath = path.join(__dirname, '../config/selectors.json');
@@ -162,14 +176,75 @@ function createWindow() {
             console.log('[Icon] setIcon() called after ready-to-show');
         }
         mainWindow.show();
-        services.forEach(service => {
-            createServiceView(service);
-        });
+        
+        // Create views based on chat mode
+        if (chatMode === 'single' && singleAiService) {
+            console.log(`[Session] Restoring Single AI Mode: ${singleAiService}`);
+            // Create Single AI instances (staggered) - limit to SINGLE_MODE_MAX_INSTANCES
+            const maxInstances = Math.min(singleAiActiveInstances.length, SINGLE_MODE_MAX_INSTANCES);
+            for (let i = 0; i < maxInstances; i++) {
+                if (singleAiActiveInstances[i]) {
+                    const instanceKey = `${singleAiService}-${i}`;
+                    const savedUrl = lastKnownInstanceUrls[instanceKey] || null;
+                    const delay = i * SINGLE_VIEW_CREATE_BASE_DELAY_MS + jitterMs(SINGLE_VIEW_CREATE_BASE_DELAY_MS, SINGLE_VIEW_CREATE_JITTER_MS);
+                    createSingleModeInstanceView(singleAiService, i, delay, savedUrl);
+                }
+            }
+            // Also create Multi AI views in background (hidden) for mode switching
+            services.forEach(service => {
+                createServiceView(service);
+                // Immediately hide them since we're in Single AI Mode
+                if (views[service] && views[service].view) {
+                    views[service].enabled = false;
+                    try {
+                        mainWindow.removeBrowserView(views[service].view);
+                    } catch (e) { /* ignore */ }
+                }
+            });
+        } else {
+            // Multi AI Mode (default)
+            services.forEach(service => {
+                createServiceView(service);
+            });
+        }
     });
 
     // Save session state when window is closed (catches Alt+F4, X button, etc.)
-    mainWindow.on('close', () => {
-        saveSessionState();
+    // Also give renderer a chance to persist IndexedDB chat history with up-to-date URLs.
+    mainWindow.on('close', async (e) => {
+        if (isClosingWindow) {
+            return;
+        }
+        isClosingWindow = true;
+
+        // Prevent immediate close; we'll close after renderer confirms (or timeout).
+        e.preventDefault();
+
+        try {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('app-will-close');
+            }
+        } catch (err) {
+            console.error('[Session] Failed to notify renderer on close:', err);
+        }
+
+        // Wait up to 2500ms for renderer to finish saving history
+        const waitForRenderer = new Promise((resolve) => {
+            ipcMain.once('__app-close-ready__', () => resolve(true));
+        });
+        await Promise.race([waitForRenderer, new Promise(r => setTimeout(r, 2500))]);
+
+        // Persist electron-store sessionState no matter what
+        try { saveSessionState(); } catch (err) { console.error('[Session] saveSessionState failed:', err); }
+
+        // Now actually close
+        try {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.destroy();
+            }
+        } finally {
+            isClosingWindow = false;
+        }
     });
 
     // Initial Layout is now handled by renderer sending bounds
@@ -177,14 +252,28 @@ function createWindow() {
 
 // Centralized handler for request-config to avoid listener accumulation
 ipcMain.on('request-config', (event) => {
+    // Multi AI Mode: match sender to service view
     for (const [service, viewData] of Object.entries(views)) {
         if (viewData && viewData.view && !viewData.view.webContents.isDestroyed() && event.sender === viewData.view.webContents) {
             if (selectorsConfig[service]) {
+                console.log(`[Config] Sending set-config to Multi AI service: ${service}`);
                 viewData.view.webContents.send('set-config', { config: selectorsConfig[service], service });
             }
             return;
         }
     }
+    // Single AI Mode: match sender to instance view
+    for (const [instanceKey, viewData] of Object.entries(singleModeViews)) {
+        if (viewData && viewData.view && !viewData.view.webContents.isDestroyed() && event.sender === viewData.view.webContents) {
+            const service = viewData.service;
+            if (selectorsConfig[service]) {
+                console.log(`[Config] Sending set-config to Single AI instance: ${instanceKey} (service: ${service})`);
+                viewData.view.webContents.send('set-config', { config: selectorsConfig[service], service, instanceKey });
+            }
+            return;
+        }
+    }
+    console.log('[Config] request-config received but no matching view found. singleModeViews keys:', Object.keys(singleModeViews), 'views keys:', Object.keys(views));
 });
 
 function createServiceView(service) {
@@ -256,6 +345,15 @@ function createServiceView(service) {
     const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
     view.webContents.setUserAgent(userAgent);
 
+    // Helper: Check if URL is a conversation URL
+    const isConversationUrl = (u) => {
+        if (!u || typeof u !== 'string') return false;
+        return /\/c\/[a-f0-9-]+/i.test(u) ||       // ChatGPT
+               /\/chat\/[a-f0-9-]+/i.test(u) ||    // Claude
+               /conversation.*[a-f0-9-]{8,}/i.test(u) ||
+               /\/share\/[a-f0-9-]+/i.test(u);
+    };
+
     // Send config when page finishes loading
     view.webContents.on('did-finish-load', () => {
 
@@ -267,15 +365,24 @@ function createServiceView(service) {
         }
 
         // Defensive URL update: ensure URL bar shows current URL after page loads
+        // (with conversation URL protection)
         const currentUrl = view.webContents.getURL();
+        const existingUrl = lastKnownMultiUrls[service];
+        if (isConversationUrl(currentUrl) || !isConversationUrl(existingUrl)) {
+            lastKnownMultiUrls[service] = currentUrl;
+        }
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('webview-url-changed', { service, url: currentUrl });
         }
     });
 
-    // URL Bar: Track URL changes (URLBAR-003)
+    // URL Bar: Track URL changes (URLBAR-003) with conversation URL protection
     const sendUrlUpdate = () => {
         const currentUrl = view.webContents.getURL();
+        const existingUrl = lastKnownMultiUrls[service];
+        if (isConversationUrl(currentUrl) || !isConversationUrl(existingUrl)) {
+            lastKnownMultiUrls[service] = currentUrl;
+        }
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('webview-url-changed', { service, url: currentUrl });
         }
@@ -324,21 +431,376 @@ function createServiceView(service) {
     views[service] = { view, enabled: true };
 }
 
+// ========================================
+// Single AI Mode Functions (REQ-MODE)
+// ========================================
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function jitterMs(base, spread) {
+    const r = Math.random();
+    return Math.max(0, Math.round(base + (r - 0.5) * 2 * spread));
+}
+
+// Tunables: Anti-bot detection - conservative delays to mimic human behavior
+// Webview creation: 1~1.5 seconds between instances
+const SINGLE_VIEW_CREATE_BASE_DELAY_MS = 1000;
+const SINGLE_VIEW_CREATE_JITTER_MS = 500;
+// Prompt sending: 1.5~4 seconds between instances
+const SINGLE_PROMPT_STAGGER_BASE_DELAY_MS = 1500;
+const SINGLE_PROMPT_STAGGER_JITTER_MS = 2500;
+
+/**
+ * Create a Single AI Mode instance view
+ * @param {string} service - The AI service (e.g., 'chatgpt')
+ * @param {number} instanceIndex - Instance index (0-3)
+ * @param {number} loadDelayMs - Optional delay before loadURL (stagger startup)
+ * @param {string} savedUrl - Optional saved URL to load instead of default service URL
+ */
+function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, savedUrl = null) {
+    const instanceKey = `${service}-${instanceIndex}`;
+    
+    // Cleanup existing view if it exists
+    if (singleModeViews[instanceKey] && singleModeViews[instanceKey].view) {
+        try {
+            if (mainWindow) {
+                mainWindow.removeBrowserView(singleModeViews[instanceKey].view);
+            }
+            // Destroy webContents to free memory
+            if (!singleModeViews[instanceKey].view.webContents.isDestroyed()) {
+                singleModeViews[instanceKey].view.webContents.close();
+            }
+        } catch (e) {
+            console.error(`Error cleaning up single mode view ${instanceKey}:`, e);
+        }
+        delete singleModeViews[instanceKey];
+    }
+
+    const view = new BrowserView({
+        webPreferences: {
+            preload: path.join(__dirname, '../preload/service-preload.js'),
+            // Use shared partition by default (REQ-MODE-018)
+            partition: `persist:service-${service}`,
+            contextIsolation: true,
+            nodeIntegration: false,
+            webSecurity: true
+        }
+    });
+
+    mainWindow.addBrowserView(view);
+
+    // Use saved URL if available, otherwise fall back to default service URL
+    const urlToLoad = savedUrl || serviceUrls[service];
+    console.log(`[SingleAI] Creating instance ${instanceKey} with URL: ${urlToLoad}`);
+
+    setTimeout(() => {
+        // Check if view still exists and is not destroyed before loading URL
+        if (view && view.webContents && !view.webContents.isDestroyed()) {
+            view.webContents.loadURL(urlToLoad);
+        }
+    }, Math.max(0, loadDelayMs));
+
+    // Apply same headers/security as multi-AI mode
+    view.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+        const responseHeaders = Object.assign({}, details.responseHeaders);
+        delete responseHeaders['x-frame-options'];
+        delete responseHeaders['X-Frame-Options'];
+        delete responseHeaders['content-security-policy'];
+        delete responseHeaders['Content-Security-Policy'];
+        callback({ cancel: false, responseHeaders });
+    });
+
+    // User Agent
+    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+    view.webContents.setUserAgent(userAgent);
+
+    // Helper: Check if URL is a conversation URL (reused from service-url-updated handler)
+    const isConversationUrl = (u) => {
+        if (!u || typeof u !== 'string') return false;
+        return /\/c\/[a-f0-9-]+/i.test(u) ||       // ChatGPT
+               /\/chat\/[a-f0-9-]+/i.test(u) ||    // Claude
+               /conversation.*[a-f0-9-]{8,}/i.test(u) ||
+               /\/share\/[a-f0-9-]+/i.test(u);
+    };
+
+    // On page load
+    view.webContents.on('did-finish-load', () => {
+        view.webContents.setZoomFactor(currentZoomLevel);
+        view.webContents.send('scroll-sync-state', isScrollSyncEnabled);
+        
+        if (selectorsConfig[service]) {
+            view.webContents.send('set-config', { config: selectorsConfig[service], service, instanceKey });
+        }
+
+        // Send URL update (with conversation URL protection)
+        const currentUrl = view.webContents.getURL();
+        const existingUrl = lastKnownInstanceUrls[instanceKey];
+        // Only store if new URL is conversation URL OR existing is not conversation URL
+        if (isConversationUrl(currentUrl) || !isConversationUrl(existingUrl)) {
+            lastKnownInstanceUrls[instanceKey] = currentUrl;
+        }
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('single-instance-url-changed', { 
+                instanceKey, 
+                service,
+                instanceIndex,
+                url: currentUrl 
+            });
+        }
+    });
+
+    // URL change tracking (with conversation URL protection)
+    const sendUrlUpdate = () => {
+        const currentUrl = view.webContents.getURL();
+        const existingUrl = lastKnownInstanceUrls[instanceKey];
+        // Only store if new URL is conversation URL OR existing is not conversation URL
+        if (isConversationUrl(currentUrl) || !isConversationUrl(existingUrl)) {
+            lastKnownInstanceUrls[instanceKey] = currentUrl;
+        }
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('single-instance-url-changed', { 
+                instanceKey,
+                service,
+                instanceIndex,
+                url: currentUrl 
+            });
+        }
+    };
+    view.webContents.on('did-navigate', sendUrlUpdate);
+    view.webContents.on('did-navigate-in-page', sendUrlUpdate);
+
+    // External link handling
+    const isAllowedDomain = (url) => {
+        try {
+            const urlObj = new URL(url);
+            const hostname = urlObj.hostname.toLowerCase();
+            const allowedDomains = serviceDomains[service] || [];
+            return allowedDomains.some(domain =>
+                hostname === domain || hostname.endsWith('.' + domain)
+            );
+        } catch (e) {
+            return true;
+        }
+    };
+
+    view.webContents.on('will-navigate', (event, url) => {
+        if (!isAllowedDomain(url)) {
+            event.preventDefault();
+            shell.openExternal(url);
+        }
+    });
+
+    view.webContents.setWindowOpenHandler(({ url }) => {
+        if (!isAllowedDomain(url)) {
+            shell.openExternal(url);
+            return { action: 'deny' };
+        }
+        return { action: 'allow' };
+    });
+
+    singleModeViews[instanceKey] = { view, enabled: true, service, instanceIndex };
+    return view;
+}
+
+/**
+ * Switch to Single AI Mode
+ * @param {string} service - The AI service to use
+ * @param {boolean[]} activeInstances - Array of up to SINGLE_MODE_MAX_INSTANCES booleans for instance states
+ * @param {Object|null} urls - Optional URLs for each instance (e.g., { 'chatgpt-0': 'https://...' })
+ *                             If null/undefined, clears lastKnownInstanceUrls for this service (new session)
+ *                             If provided, uses these URLs for session restoration
+ */
+function switchToSingleAiMode(service, activeInstances = [true, true, true], urls = null) {
+    console.log(`[ChatMode] Switching to Single AI Mode: ${service}, urls:`, urls);
+    
+    // Hide all Multi AI views
+    Object.keys(views).forEach(svc => {
+        if (views[svc] && views[svc].view) {
+            views[svc].view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+            views[svc].enabled = false;
+        }
+    });
+
+    // Clear existing Single AI views and destroy webContents to free memory
+    Object.keys(singleModeViews).forEach(key => {
+        if (singleModeViews[key] && singleModeViews[key].view) {
+            try {
+                mainWindow.removeBrowserView(singleModeViews[key].view);
+                // Destroy webContents to free memory
+                if (!singleModeViews[key].view.webContents.isDestroyed()) {
+                    singleModeViews[key].view.webContents.close();
+                }
+            } catch (e) {
+                console.error(`Error removing single mode view ${key}:`, e);
+            }
+        }
+        delete singleModeViews[key];
+    });
+
+    // Clear lastKnownInstanceUrls for this service to prevent stale URLs from being used
+    // If urls are provided (session restoration), set them; otherwise clear them (new session)
+    for (let i = 0; i < SINGLE_MODE_MAX_INSTANCES; i++) {
+        const instanceKey = `${service}-${i}`;
+        if (urls && urls[instanceKey]) {
+            lastKnownInstanceUrls[instanceKey] = urls[instanceKey];
+            console.log(`[ChatMode] Set lastKnownInstanceUrls[${instanceKey}] = ${urls[instanceKey]}`);
+        } else {
+            delete lastKnownInstanceUrls[instanceKey];
+            console.log(`[ChatMode] Cleared lastKnownInstanceUrls[${instanceKey}]`);
+        }
+    }
+
+    // Update state
+    chatMode = 'single';
+    singleAiService = service;
+    singleAiActiveInstances = activeInstances;
+
+    // Create instances (staggered)
+    for (let i = 0; i < SINGLE_MODE_MAX_INSTANCES; i++) {
+        if (activeInstances[i]) {
+            const instanceKey = `${service}-${i}`;
+            // Use URL from urls parameter if available (for session restoration)
+            const savedUrl = (urls && urls[instanceKey]) ? urls[instanceKey] : null;
+            const delay = i * SINGLE_VIEW_CREATE_BASE_DELAY_MS + jitterMs(SINGLE_VIEW_CREATE_BASE_DELAY_MS, SINGLE_VIEW_CREATE_JITTER_MS);
+            createSingleModeInstanceView(service, i, delay, savedUrl);
+        }
+    }
+
+    // Notify renderer
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('chat-mode-changed', {
+            mode: 'single',
+            service,
+            activeInstances
+        });
+    }
+}
+
+/**
+ * Switch to Multi AI Mode
+ */
+function switchToMultiAiMode() {
+    console.log(`[ChatMode] Switching to Multi AI Mode`);
+    
+    // Hide, remove and destroy all Single AI views to free memory
+    Object.keys(singleModeViews).forEach(key => {
+        if (singleModeViews[key] && singleModeViews[key].view) {
+            try {
+                mainWindow.removeBrowserView(singleModeViews[key].view);
+                // Destroy webContents to free memory
+                if (!singleModeViews[key].view.webContents.isDestroyed()) {
+                    singleModeViews[key].view.webContents.close();
+                }
+            } catch (e) {
+                console.error(`Error removing single mode view ${key}:`, e);
+            }
+        }
+        delete singleModeViews[key];
+    });
+
+    // Update state
+    chatMode = 'multi';
+    singleAiService = null;
+    singleAiActiveInstances = [true, true, true]; // Reset to 3 instances
+
+    // Re-enable Multi AI views and add them back to window
+    Object.keys(views).forEach(service => {
+        if (views[service]) {
+            views[service].enabled = true;
+            // Add view back to window
+            if (views[service].view && !views[service].view.webContents.isDestroyed()) {
+                try {
+                    mainWindow.addBrowserView(views[service].view);
+                    console.log(`[ChatMode] Re-added view for ${service}`);
+                } catch (e) {
+                    console.error(`Error adding view ${service}:`, e);
+                }
+            }
+        }
+    });
+
+    // Notify renderer
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('chat-mode-changed', {
+            mode: 'multi',
+            service: null,
+            activeInstances: null
+        });
+    }
+}
+
+/**
+ * Toggle a Single AI Mode instance
+ */
+function toggleSingleInstance(instanceIndex, enabled) {
+    if (chatMode !== 'single' || !singleAiService) return;
+    
+    const instanceKey = `${singleAiService}-${instanceIndex}`;
+    singleAiActiveInstances[instanceIndex] = enabled;
+
+    if (enabled) {
+        // Create the instance if it doesn't exist
+        if (!singleModeViews[instanceKey]) {
+            createSingleModeInstanceView(singleAiService, instanceIndex);
+        } else {
+            singleModeViews[instanceKey].enabled = true;
+        }
+    } else {
+        // Hide the instance
+        if (singleModeViews[instanceKey] && singleModeViews[instanceKey].view) {
+            singleModeViews[instanceKey].view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+            singleModeViews[instanceKey].enabled = false;
+        }
+    }
+}
+
+/**
+ * Get active views based on current chat mode
+ */
+function getActiveViews() {
+    if (chatMode === 'single') {
+        return Object.entries(singleModeViews)
+            .filter(([_, v]) => v && v.enabled)
+            .map(([key, v]) => ({ key, view: v.view, service: v.service, instanceIndex: v.instanceIndex }));
+    } else {
+        return Object.entries(views)
+            .filter(([_, v]) => v && v.enabled)
+            .map(([service, v]) => ({ key: service, view: v.view, service }));
+    }
+}
+
 // Layout Management
 ipcMain.on('update-view-bounds', (event, boundsMap) => {
     if (!mainWindow) return;
 
-    // Apply bounds to each service view
-    Object.entries(boundsMap).forEach(([service, rect]) => {
-        if (views[service] && views[service].view) {
-            views[service].view.setBounds({
-                x: rect.x,
-                y: rect.y,
-                width: rect.width,
-                height: rect.height
-            });
-        }
-    });
+    // Apply bounds based on chat mode
+    if (chatMode === 'single') {
+        // Single AI Mode: Apply bounds to instance views
+        Object.entries(boundsMap).forEach(([instanceKey, rect]) => {
+            if (singleModeViews[instanceKey] && singleModeViews[instanceKey].view) {
+                singleModeViews[instanceKey].view.setBounds({
+                    x: rect.x,
+                    y: rect.y,
+                    width: rect.width,
+                    height: rect.height
+                });
+            }
+        });
+    } else {
+        // Multi AI Mode: Apply bounds to service views
+        Object.entries(boundsMap).forEach(([service, rect]) => {
+            if (views[service] && views[service].view) {
+                views[service].view.setBounds({
+                    x: rect.x,
+                    y: rect.y,
+                    width: rect.width,
+                    height: rect.height
+                });
+            }
+        });
+    }
 });
 
 ipcMain.on('set-layout', (event, layout) => {
@@ -751,7 +1213,21 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
 
 ipcMain.on('confirm-send', (event) => {
     console.log('Received confirm-send event');
-    // Iterate over all active views and trigger send button click
+    if (chatMode === 'single' && singleAiService) {
+        const selectors = selectorsConfig[singleAiService];
+        if (!selectors) return;
+        getEnabledSingleInstances().forEach(({ instanceKey, wc }) => {
+            try {
+                wc.send('click-send-button', { selectors });
+                console.log(`Sent click-send-button to ${instanceKey}`);
+            } catch (e) {
+                console.error(`Failed click-send-button to ${instanceKey}:`, e);
+            }
+        });
+        return;
+    }
+
+    // Multi AI Mode: Iterate over all active views and trigger send button click
     Object.keys(views).forEach(service => {
         if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
             const selectors = selectorsConfig[service];
@@ -816,17 +1292,92 @@ ipcMain.on('toggle-service', (event, service, isEnabled) => {
 });
 
 // Request current URLs for all services (URLBAR - for layout/toggle changes)
-ipcMain.on('request-current-urls', () => {
+ipcMain.on('request-current-urls', async () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
 
-    services.forEach(service => {
-        if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
-            const currentUrl = views[service].view.webContents.getURL();
-            if (currentUrl) {
-                mainWindow.webContents.send('webview-url-changed', { service, url: currentUrl });
+    // Helper: Check if URL is a conversation URL
+    const isConversationUrl = (url) => {
+        if (!url || typeof url !== 'string') return false;
+        return /\/c\/[a-f0-9-]+/i.test(url) ||       // ChatGPT
+               /\/chat\/[a-f0-9-]+/i.test(url) ||    // Claude
+               /conversation.*[a-f0-9-]{8,}/i.test(url) ||
+               /\/share\/[a-f0-9-]+/i.test(url) ||
+               /app\/[a-f0-9]+/i.test(url);          // Gemini
+    };
+
+    if (chatMode === 'single') {
+        for (const { instanceKey, service, instanceIndex, wc } of getEnabledSingleInstances()) {
+            try {
+                // Try executeJavaScript for SPA accuracy
+                const actualUrl = await wc.executeJavaScript('window.location.href', true);
+                const wcUrl = wc.getURL();
+                const cachedUrl = lastKnownInstanceUrls[instanceKey];
+                
+                // Pick best URL: prefer conversation URLs
+                let bestUrl = wcUrl;
+                if (isConversationUrl(actualUrl)) {
+                    bestUrl = actualUrl;
+                } else if (isConversationUrl(cachedUrl)) {
+                    bestUrl = cachedUrl;
+                } else if (actualUrl) {
+                    bestUrl = actualUrl;
+                }
+                
+                console.log(`[URL Request] ${instanceKey}: actualUrl=${actualUrl}, cached=${cachedUrl}, picked=${bestUrl}`);
+                
+                if (bestUrl) {
+                    mainWindow.webContents.send('single-instance-url-changed', {
+                        instanceKey,
+                        service,
+                        instanceIndex,
+                        url: bestUrl
+                    });
+                }
+            } catch (e) {
+                // Fallback
+                const url = lastKnownInstanceUrls[instanceKey] || wc.getURL();
+                if (url) {
+                    mainWindow.webContents.send('single-instance-url-changed', {
+                        instanceKey,
+                        service,
+                        instanceIndex,
+                        url
+                    });
+                }
             }
         }
-    });
+        return;
+    }
+
+    // Multi AI Mode
+    for (const service of services) {
+        if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
+            try {
+                const wc = views[service].view.webContents;
+                const actualUrl = await wc.executeJavaScript('window.location.href', true);
+                const wcUrl = wc.getURL();
+                const cachedUrl = lastKnownMultiUrls[service];
+                
+                let bestUrl = wcUrl;
+                if (isConversationUrl(actualUrl)) {
+                    bestUrl = actualUrl;
+                } else if (isConversationUrl(cachedUrl)) {
+                    bestUrl = cachedUrl;
+                } else if (actualUrl) {
+                    bestUrl = actualUrl;
+                }
+                
+                if (bestUrl) {
+                    mainWindow.webContents.send('webview-url-changed', { service, url: bestUrl });
+                }
+            } catch (e) {
+                const url = lastKnownMultiUrls[service] || views[service].view.webContents.getURL();
+                if (url) {
+                    mainWindow.webContents.send('webview-url-changed', { service, url });
+                }
+            }
+        }
+    }
 });
 
 // Helper: canonical "reset/new chat" URL for each service
@@ -842,9 +1393,35 @@ function getServiceResetUrl(service) {
 }
 
 ipcMain.on('new-chat', () => {
+    if (chatMode === 'single' && singleAiService) {
+        const url = getServiceResetUrl(singleAiService);
+        console.log(`[SingleAI] Resetting chat for all instances of ${singleAiService} to ${url}`);
+
+        // Clear cached URLs for all instances - this is crucial for new chat
+        for (let i = 0; i < SINGLE_MODE_MAX_INSTANCES; i++) {
+            const instanceKey = `${singleAiService}-${i}`;
+            delete lastKnownInstanceUrls[instanceKey];
+            console.log(`[SingleAI] Cleared lastKnownInstanceUrls[${instanceKey}] for new chat`);
+        }
+
+        getEnabledSingleInstances().forEach(({ instanceKey, wc }) => {
+            try {
+                console.log(`[SingleAI] Resetting chat for ${instanceKey} to ${url}`);
+                wc.loadURL(url);
+            } catch (e) {
+                console.error(`[SingleAI] Failed to reset ${instanceKey}:`, e);
+            }
+        });
+        return;
+    }
+
     services.forEach(service => {
         if (views[service]) {
             const url = getServiceResetUrl(service);
+
+            // Clear cached URL for this service
+            delete lastKnownMultiUrls[service];
+            console.log(`[MultiAI] Cleared lastKnownMultiUrls[${service}] for new chat`);
 
             console.log(`Resetting chat for ${service} to ${url}`);
             if (views[service].view && !views[service].view.webContents.isDestroyed()) {
@@ -857,6 +1434,10 @@ ipcMain.on('new-chat', () => {
 ipcMain.on('new-chat-for-service', (event, service) => {
     if (views[service]) {
         const url = getServiceResetUrl(service);
+
+        // Clear cached URL for this service
+        delete lastKnownMultiUrls[service];
+        console.log(`[MultiAI] Cleared lastKnownMultiUrls[${service}] for new chat`);
 
         console.log(`Resetting chat for ${service} to ${url}`);
         if (views[service].view && !views[service].view.webContents.isDestroyed()) {
@@ -890,14 +1471,17 @@ ipcMain.on('open-url-in-chrome', (event, url) => {
 
 // Helper to extract FULL conversation thread from a service (for Copy Chat Thread)
 async function extractContentFromService(service, options = {}) {
-    if (!views[service] || !views[service].enabled) return null;
+    const wcOverride = options && options.__wcOverride ? options.__wcOverride : null;
+    if (!wcOverride) {
+        if (!views[service] || !views[service].enabled) return null;
+    }
 
     const config = selectorsConfig[service];
     if (!config) return null;
 
     let content = null;
     let method = 'none';
-    const wc = views[service].view.webContents;
+    const wc = wcOverride || views[service].view.webContents;
 
     try {
         // Service-specific extraction scripts based on reference exporters
@@ -1342,16 +1926,30 @@ async function extractContentFromService(service, options = {}) {
     return { service, content, method };
 }
 
+function getEnabledSingleInstances() {
+    return Object.entries(singleModeViews)
+        .filter(([_, v]) => v && v.enabled && v.view && !v.view.webContents.isDestroyed())
+        .map(([instanceKey, v]) => ({
+            instanceKey,
+            service: v.service,
+            instanceIndex: v.instanceIndex,
+            wc: v.view.webContents
+        }));
+}
+
 // Helper to extract ONLY the last AI response from a service (for Cross Check)
 async function extractLastResponseFromService(service, options = {}) {
-    if (!views[service] || !views[service].enabled) return null;
+    const wcOverride = options && options.__wcOverride ? options.__wcOverride : null;
+    if (!wcOverride) {
+        if (!views[service] || !views[service].enabled) return null;
+    }
 
     const config = selectorsConfig[service];
     if (!config) return null;
 
     let content = null;
     let method = 'none';
-    const wc = views[service].view.webContents;
+    const wc = wcOverride || views[service].view.webContents;
 
     // Service-specific overrides
     if (service === 'claude') {
@@ -1575,10 +2173,54 @@ async function extractLastResponseFromService(service, options = {}) {
 ipcMain.on('copy-chat-thread', async (event, options = {}) => {
     const { format = 'markdown', anonymousMode = false } = options;
 
-    // Get all enabled services
-    const enabledServices = services.filter(service => views[service] && views[service].enabled);
+    // Single AI Mode: copy across enabled instances
+    if (chatMode === 'single' && singleAiService) {
+        const enabledInstances = getEnabledSingleInstances().sort((a, b) => a.instanceIndex - b.instanceIndex);
+        const promises = enabledInstances.map(inst =>
+            extractContentFromService(inst.service, { format, __wcOverride: inst.wc })
+                .then(r => (r ? { ...r, instanceKey: inst.instanceKey, instanceIndex: inst.instanceIndex } : null))
+        );
+        const results = (await Promise.all(promises)).filter(Boolean);
 
-    // Process all services in parallel (no more native copy, so no clipboard race conditions)
+        const aliases = ['(A)', '(B)', '(C)', '(D)'];
+        let finalOutput = '';
+
+        if (format === 'json') {
+            const jsonOutput = results.map(r => ({
+                instance: anonymousMode ? (aliases[r.instanceIndex] || `(${r.instanceIndex})`) : `#${r.instanceIndex + 1}`,
+                service: r.service,
+                content: r.content,
+                method: r.method,
+                timestamp: new Date().toISOString()
+            }));
+            finalOutput = JSON.stringify(jsonOutput, null, 2);
+        } else {
+            results.forEach(r => {
+                const label = anonymousMode ? (aliases[r.instanceIndex] || `(${r.instanceIndex})`) : `#${r.instanceIndex + 1}`;
+                const title = `${r.service.toUpperCase()} ${label}`;
+                if (format === 'markdown') {
+                    finalOutput += `# ${title}\n\n${r.content}\n\n---\n\n`;
+                } else {
+                    finalOutput += `=== ${title} ===\n${r.content}\n\n${'-'.repeat(40)}\n\n`;
+                }
+            });
+        }
+
+        if (finalOutput) {
+            clipboard.writeText(finalOutput);
+            if (mainWindow) {
+                mainWindow.webContents.send('chat-thread-copied', {
+                    success: results.map(r => r.instanceKey),
+                    failed: [],
+                    format
+                });
+            }
+        }
+        return;
+    }
+
+    // Multi AI Mode
+    const enabledServices = services.filter(service => views[service] && views[service].enabled);
     const promises = enabledServices.map(service => extractContentFromService(service, { format }));
     const results = await Promise.all(promises);
 
@@ -1653,14 +2295,24 @@ ipcMain.on('copy-chat-thread', async (event, options = {}) => {
 ipcMain.on('copy-single-chat-thread', async (event, service, options = {}) => {
     const { format = 'markdown', anonymousMode = false } = options;
 
-    if (!views[service] || !views[service].enabled) {
-        if (mainWindow) {
-            mainWindow.webContents.send('single-chat-thread-copied', { service, success: false });
-        }
-        return;
-    }
+    // Support both:
+    // - Multi AI Mode: `service` is provider key (chatgpt/claude/...)
+    // - Single AI Mode: `service` can be instanceKey (e.g. chatgpt-0)
+    const isInstanceKey = typeof service === 'string' && /-\d$/.test(service);
+    let result = null;
 
-    const result = await extractContentFromService(service, { format });
+    if (isInstanceKey && singleModeViews[service] && singleModeViews[service].enabled) {
+        const inst = singleModeViews[service];
+        result = await extractContentFromService(inst.service, { format, __wcOverride: inst.view.webContents });
+    } else {
+        if (!views[service] || !views[service].enabled) {
+            if (mainWindow) {
+                mainWindow.webContents.send('single-chat-thread-copied', { service, success: false });
+            }
+            return;
+        }
+        result = await extractContentFromService(service, { format });
+    }
 
     if (result && result.content) {
         const aliases = {
@@ -1713,6 +2365,53 @@ ipcMain.on('copy-single-chat-thread', async (event, service, options = {}) => {
 // Copy last response from ALL active services
 ipcMain.on('copy-last-response', async (event, options = {}) => {
     const { format = 'markdown', anonymousMode = false } = options;
+
+    if (chatMode === 'single' && singleAiService) {
+        const enabledInstances = getEnabledSingleInstances().sort((a, b) => a.instanceIndex - b.instanceIndex);
+        const promises = enabledInstances.map(inst =>
+            extractLastResponseFromService(inst.service, { __wcOverride: inst.wc })
+                .then(r => (r ? { ...r, instanceKey: inst.instanceKey, instanceIndex: inst.instanceIndex } : null))
+        );
+        const results = (await Promise.all(promises)).filter(Boolean);
+
+        const aliases = ['(A)', '(B)', '(C)', '(D)'];
+        let finalOutput = '';
+
+        if (format === 'json') {
+            const jsonOutput = results.filter(r => r && r.content).map(r => ({
+                instance: anonymousMode ? (aliases[r.instanceIndex] || `(${r.instanceIndex})`) : `#${r.instanceIndex + 1}`,
+                service: r.service,
+                content: r.content,
+                method: r.method,
+                timestamp: new Date().toISOString()
+            }));
+            finalOutput = JSON.stringify(jsonOutput, null, 2);
+        } else {
+            results.forEach(r => {
+                if (r && r.content) {
+                    const label = anonymousMode ? (aliases[r.instanceIndex] || `(${r.instanceIndex})`) : `#${r.instanceIndex + 1}`;
+                    const title = `${r.service.toUpperCase()} ${label}`;
+                    if (format === 'markdown') {
+                        finalOutput += `# ${title}\n\n${r.content}\n\n---\n\n`;
+                    } else {
+                        finalOutput += `=== ${title} ===\n${r.content}\n\n${'-'.repeat(40)}\n\n`;
+                    }
+                }
+            });
+        }
+
+        if (finalOutput) {
+            clipboard.writeText(finalOutput);
+            if (mainWindow) {
+                mainWindow.webContents.send('last-response-copied', {
+                    success: results.filter(r => r && r.content).map(r => r.instanceKey),
+                    failed: results.filter(r => !r || !r.content).map(r => r ? r.instanceKey : 'unknown'),
+                    format
+                });
+            }
+        }
+        return;
+    }
 
     const enabledServices = services.filter(service => views[service] && views[service].enabled);
     const promises = enabledServices.map(service => extractLastResponseFromService(service, {}));
@@ -1782,6 +2481,49 @@ ipcMain.on('copy-last-response', async (event, options = {}) => {
 ipcMain.on('cross-check', async (event, isAnonymousMode, promptPrefix) => {
     console.log('Starting Cross Check... Anonymous:', isAnonymousMode, 'Prefix:', promptPrefix ? 'Yes' : 'No');
 
+    if (chatMode === 'single' && singleAiService) {
+        const enabledInstances = getEnabledSingleInstances().sort((a, b) => a.instanceIndex - b.instanceIndex);
+        const aliases = ['(A)', '(B)', '(C)', '(D)'];
+
+        // 1) Extract last response from each instance
+        const results = {};
+        for (const inst of enabledInstances) {
+            const r = await extractLastResponseFromService(inst.service, { __wcOverride: inst.wc });
+            if (r && r.content) {
+                results[inst.instanceKey] = { content: r.content, instanceIndex: inst.instanceIndex };
+            }
+        }
+
+        // 2) Construct and send prompt to each instance with others' responses
+        const selectors = selectorsConfig[singleAiService];
+        if (!selectors) return;
+
+        for (const target of enabledInstances) {
+            let prompt = '';
+            if (promptPrefix) prompt += `${promptPrefix}\n\n`;
+
+            for (const source of enabledInstances) {
+                if (source.instanceKey === target.instanceKey) continue;
+                const src = results[source.instanceKey];
+                if (!src || !src.content) continue;
+
+                const header = isAnonymousMode
+                    ? (aliases[source.instanceIndex] || `(X)`)
+                    : `#${source.instanceIndex + 1}`;
+                prompt += `=== ${header} ===\n${src.content.trim()}\n\n`;
+            }
+
+            if (prompt) {
+                try {
+                    target.wc.send('inject-prompt', { text: prompt, selectors, autoSend: true });
+                } catch (e) {
+                    console.error(`[SingleAI] Cross-check send failed to ${target.instanceKey}:`, e);
+                }
+            }
+        }
+        return;
+    }
+
     const aliases = {
         'chatgpt': '(A)',
         'claude': '(B)',
@@ -1843,23 +2585,24 @@ ipcMain.on('cross-check', async (event, isAnonymousMode, promptPrefix) => {
     }
 });
 
-ipcMain.on('copy-single-chat-thread', async (event, text) => {
-    if (text) {
-        clipboard.writeText(text);
-        // Reply to the sender (the webview)
-        event.sender.send('single-chat-thread-copied');
-    }
-});
+// NOTE: legacy handler removed (duplicate channel name caused both listeners to fire).
+// If you need raw-text copy in the future, add a new IPC channel name, e.g. 'copy-raw-text'.
 
 // Scroll Sync State
 let isScrollSyncEnabled = false;
 
 ipcMain.on('toggle-scroll-sync', (event, isEnabled) => {
     isScrollSyncEnabled = isEnabled;
-    // Broadcast to all views
+    // Broadcast to all views (multi + single)
     services.forEach(service => {
         if (views[service] && views[service].view) {
             views[service].view.webContents.send('scroll-sync-state', isScrollSyncEnabled);
+        }
+    });
+    Object.keys(singleModeViews).forEach(instanceKey => {
+        const v = singleModeViews[instanceKey];
+        if (v && v.view && !v.view.webContents.isDestroyed()) {
+            v.view.webContents.send('scroll-sync-state', isScrollSyncEnabled);
         }
     });
 });
@@ -1867,13 +2610,21 @@ ipcMain.on('toggle-scroll-sync', (event, isEnabled) => {
 ipcMain.on('sync-scroll', (event, { deltaX, deltaY }) => {
     if (!isScrollSyncEnabled) return;
 
-    // Broadcast to all OTHER views
+    // Broadcast to all OTHER views (multi + single)
     services.forEach(service => {
         if (views[service] && views[service].view) {
             // Don't send back to sender (optional optimization, but simple broadcast is fine if logic handles it)
             // But here we are in Main, we don't know easily which view sent it unless we check event.sender
             if (views[service].view.webContents !== event.sender) {
                 views[service].view.webContents.send('apply-scroll', { deltaX, deltaY });
+            }
+        }
+    });
+    Object.keys(singleModeViews).forEach(instanceKey => {
+        const v = singleModeViews[instanceKey];
+        if (v && v.view && !v.view.webContents.isDestroyed()) {
+            if (v.view.webContents !== event.sender) {
+                v.view.webContents.send('apply-scroll', { deltaX, deltaY });
             }
         }
     });
@@ -2296,35 +3047,385 @@ ipcMain.handle('save-predefined-prompt', async (event, promptText) => {
     }
 });
 
+// ===========================================
+// Chat Mode IPC Handlers (Single AI / Multi AI)
+// ===========================================
+
+ipcMain.handle('set-chat-mode', async (event, mode, config = {}) => {
+    try {
+        console.log(`[ChatMode] set-chat-mode called: mode=${mode}`, config);
+        
+        if (mode === 'single') {
+            const { service, activeInstances: rawInstances = [true, true, true], urls = null } = config;
+            // Ensure max SINGLE_MODE_MAX_INSTANCES
+            const activeInstances = rawInstances.slice(0, SINGLE_MODE_MAX_INSTANCES);
+            
+            if (!service || !services.includes(service)) {
+                console.error(`[ChatMode] Invalid service: ${service}`);
+                return { success: false, error: 'Invalid service' };
+            }
+            switchToSingleAiMode(service, activeInstances, urls);
+            return { success: true, mode: 'single', service, activeInstances };
+        } else {
+            switchToMultiAiMode();
+            return { success: true, mode: 'multi' };
+        }
+    } catch (e) {
+        console.error('[ChatMode] Error setting chat mode:', e);
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('get-chat-mode', async () => {
+    return {
+        mode: chatMode,
+        service: singleAiService,
+        activeInstances: singleAiActiveInstances
+    };
+});
+
+// Return current URLs directly from BrowserView webContents using executeJavaScript for SPA accuracy
+ipcMain.handle('get-current-urls', async () => {
+    console.log('[Session] get-current-urls called, chatMode:', chatMode);
+    console.log('[Session] lastKnownInstanceUrls:', JSON.stringify(lastKnownInstanceUrls));
+    console.log('[Session] lastKnownMultiUrls:', JSON.stringify(lastKnownMultiUrls));
+    
+    // Helper: Check if URL is a conversation URL (not just base URL)
+    const isConversationUrl = (url) => {
+        if (!url || typeof url !== 'string') return false;
+        return /\/c\/[a-f0-9-]+/i.test(url) ||       // ChatGPT
+               /\/chat\/[a-f0-9-]+/i.test(url) ||    // Claude
+               /conversation.*[a-f0-9-]{8,}/i.test(url) ||
+               /\/share\/[a-f0-9-]+/i.test(url);
+    };
+    
+    // Helper: Pick the best URL (prefer conversation URLs over base URLs)
+    const pickBestUrl = (actualUrl, cachedUrl, wcUrl) => {
+        // If actual URL is a conversation URL, use it
+        if (isConversationUrl(actualUrl)) return actualUrl;
+        // If cached URL is a conversation URL, prefer it over base actualUrl
+        if (isConversationUrl(cachedUrl)) return cachedUrl;
+        // Otherwise fall back to actualUrl or wcUrl
+        return actualUrl || cachedUrl || wcUrl;
+    };
+    
+    try {
+        if (chatMode === 'single') {
+            const urls = {};
+            const entries = Object.entries(singleModeViews).filter(([_, v]) => 
+                v && v.enabled && v.view && !v.view.webContents.isDestroyed()
+            );
+            
+            console.log('[Session] Single mode entries count:', entries.length);
+            
+            // Use executeJavaScript to get actual location.href (handles SPA pushState)
+            for (const [instanceKey, v] of entries) {
+                try {
+                    // Try to get actual location.href from page context
+                    const actualUrl = await v.view.webContents.executeJavaScript('window.location.href', true);
+                    const wcUrl = v.view.webContents.getURL();
+                    const cachedUrl = lastKnownInstanceUrls[instanceKey];
+                    
+                    // Pick the best URL (prefer conversation URL)
+                    const bestUrl = pickBestUrl(actualUrl, cachedUrl, wcUrl);
+                    urls[instanceKey] = bestUrl;
+                    
+                    console.log(`[Session] ${instanceKey}: executeJS=${actualUrl}, cached=${cachedUrl}, picked=${bestUrl}`);
+                    
+                    // Update lastKnown only if we got a conversation URL
+                    if (isConversationUrl(actualUrl)) {
+                        lastKnownInstanceUrls[instanceKey] = actualUrl;
+                    }
+                } catch (e) {
+                    console.error(`[Session] executeJavaScript failed for ${instanceKey}:`, e.message);
+                    // Fallback if executeJavaScript fails
+                    urls[instanceKey] = lastKnownInstanceUrls[instanceKey] || v.view.webContents.getURL();
+                }
+            }
+            
+            console.log('[Session] get-current-urls (single) result:', JSON.stringify(urls));
+            return { mode: 'single', urls };
+        }
+
+        const urls = {};
+        const activeServices = services.filter(service => 
+            views[service] && views[service].enabled && views[service].view && !views[service].view.webContents.isDestroyed()
+        );
+        
+        console.log('[Session] Multi mode active services:', activeServices);
+        
+        // Use executeJavaScript for Multi AI Mode as well
+        for (const service of activeServices) {
+            try {
+                const actualUrl = await views[service].view.webContents.executeJavaScript('window.location.href', true);
+                const wcUrl = views[service].view.webContents.getURL();
+                const cachedUrl = lastKnownMultiUrls[service];
+                
+                const bestUrl = pickBestUrl(actualUrl, cachedUrl, wcUrl);
+                urls[service] = bestUrl;
+                
+                console.log(`[Session] ${service}: executeJS=${actualUrl}, cached=${cachedUrl}, picked=${bestUrl}`);
+                
+                if (isConversationUrl(actualUrl)) {
+                    lastKnownMultiUrls[service] = actualUrl;
+                }
+            } catch (e) {
+                console.error(`[Session] executeJavaScript failed for ${service}:`, e.message);
+                urls[service] = lastKnownMultiUrls[service] || views[service].view.webContents.getURL();
+            }
+        }
+        
+        console.log('[Session] get-current-urls (multi) result:', JSON.stringify(urls));
+        return { mode: 'multi', urls };
+    } catch (e) {
+        console.error('[Session] get-current-urls failed:', e);
+        return { mode: chatMode, urls: {} };
+    }
+});
+
+// SPA-safe URL updates from service-preload (pushState/replaceState/popstate polling)
+ipcMain.on('service-url-updated', (event, payload) => {
+    try {
+        const { service, instanceKey, url } = payload || {};
+        console.log(`[URL] service-url-updated received: service=${service}, instanceKey=${instanceKey}, url=${url}`);
+        if (!url) return;
+        
+        // Helper: Check if URL is a conversation URL
+        const isConversationUrl = (u) => {
+            if (!u || typeof u !== 'string') return false;
+            return /\/c\/[a-f0-9-]+/i.test(u) ||       // ChatGPT
+                   /\/chat\/[a-f0-9-]+/i.test(u) ||    // Claude
+                   /conversation.*[a-f0-9-]{8,}/i.test(u) ||
+                   /\/share\/[a-f0-9-]+/i.test(u);
+        };
+        
+        if (instanceKey) {
+            // Only update cache if new URL is a conversation URL OR if there's no cached URL
+            const existingUrl = lastKnownInstanceUrls[instanceKey];
+            const shouldUpdate = isConversationUrl(url) || !isConversationUrl(existingUrl);
+            
+            if (shouldUpdate) {
+                console.log(`[URL] Storing in lastKnownInstanceUrls[${instanceKey}] = ${url}`);
+                lastKnownInstanceUrls[instanceKey] = url;
+            } else {
+                console.log(`[URL] NOT storing base URL over conversation URL for ${instanceKey}. Keeping: ${existingUrl}`);
+            }
+            
+            const viewObj = singleModeViews[instanceKey];
+            const instanceIndex = viewObj?.instanceIndex;
+            const svc = service || viewObj?.service;
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('single-instance-url-changed', {
+                    instanceKey,
+                    service: svc,
+                    instanceIndex,
+                    url
+                });
+            }
+        } else if (service) {
+            // Only update cache if new URL is a conversation URL OR if there's no cached URL
+            const existingUrl = lastKnownMultiUrls[service];
+            const shouldUpdate = isConversationUrl(url) || !isConversationUrl(existingUrl);
+            
+            if (shouldUpdate) {
+                console.log(`[URL] Storing in lastKnownMultiUrls[${service}] = ${url}`);
+                lastKnownMultiUrls[service] = url;
+            } else {
+                console.log(`[URL] NOT storing base URL over conversation URL for ${service}. Keeping: ${existingUrl}`);
+            }
+            
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('webview-url-changed', { service, url });
+            }
+        } else {
+            console.log('[URL] No instanceKey or service provided, URL not stored');
+        }
+    } catch (e) {
+        console.error('[URL] service-url-updated failed:', e);
+    }
+});
+
+ipcMain.on('toggle-single-instance', (event, instanceIndex, enabled) => {
+    console.log(`[ChatMode] toggle-single-instance: index=${instanceIndex}, enabled=${enabled}`);
+    toggleSingleInstance(instanceIndex, enabled);
+});
+
+// Single AI Mode: Send prompt to instances
+ipcMain.on('send-prompt-to-instances', async (event, text, instanceKeys, filePaths = []) => {
+    console.log(`[SingleAI] Sending prompt to instances:`, instanceKeys, 'hasFiles:', filePaths?.length > 0);
+    
+    const hasFiles = filePaths && filePaths.length > 0;
+
+    // Send sequentially with jitter to avoid "bot-like burst" behavior
+    const orderedKeys = [...instanceKeys].sort();
+    for (const instanceKey of orderedKeys) {
+        const viewObj = singleModeViews[instanceKey];
+        if (!(viewObj && viewObj.view && viewObj.enabled && !viewObj.view.webContents.isDestroyed())) {
+            continue;
+        }
+
+        // Small stagger between instances
+        await sleep(jitterMs(SINGLE_PROMPT_STAGGER_BASE_DELAY_MS, SINGLE_PROMPT_STAGGER_JITTER_MS));
+
+        try {
+            const service = viewObj.service;
+            const selectors = selectorsConfig[service];
+
+            if (!selectors) {
+                console.error(`[SingleAI] No selectors config for service: ${service}`);
+                continue;
+            }
+
+            const wc = viewObj.view.webContents;
+
+            // 1) File uploads (if present)
+            if (hasFiles && selectors.fileInputSelector) {
+                try {
+                    console.log(`[SingleAI] Uploading files to ${instanceKey}...`);
+                    try {
+                        wc.debugger.attach('1.3');
+                    } catch (err) {
+                        console.log(`[SingleAI] Debugger already attached for ${instanceKey}`);
+                    }
+
+                    await wc.debugger.sendCommand('DOM.enable');
+                    const { root } = await wc.debugger.sendCommand('DOM.getDocument');
+
+                    let nodeId = null;
+                    for (const selector of selectors.fileInputSelector) {
+                        try {
+                            const result = await wc.debugger.sendCommand('DOM.querySelector', {
+                                nodeId: root.nodeId,
+                                selector: selector
+                            });
+                            if (result.nodeId) {
+                                nodeId = result.nodeId;
+                                break;
+                            }
+                        } catch (e) { /* ignore */ }
+                    }
+
+                    if (nodeId) {
+                        await wc.debugger.sendCommand('DOM.setFileInputFiles', {
+                            nodeId: nodeId,
+                            files: filePaths
+                        });
+                        console.log(`[SingleAI] Files set for ${instanceKey}`);
+                        await sleep(jitterMs(1400, 300));
+                    } else {
+                        console.warn(`[SingleAI] File input not found for ${instanceKey}`);
+                    }
+
+                    try { wc.debugger.detach(); } catch (e) { /* ignore */ }
+                } catch (uploadErr) {
+                    console.error(`[SingleAI] Error uploading files to ${instanceKey}:`, uploadErr);
+                    try { wc.debugger.detach(); } catch (e) { /* ignore */ }
+                }
+            }
+
+            // 2) Inject prompt
+            wc.send('inject-prompt', { text, selectors, autoSend: !hasFiles });
+            console.log(`[SingleAI] Sent prompt to ${instanceKey}`);
+
+        } catch (e) {
+            console.error(`[SingleAI] Failed to send to ${instanceKey}:`, e);
+        }
+    }
+    
+    if (hasFiles) {
+        // Notify file upload complete
+        event.sender.send('file-upload-complete');
+    }
+});
+
+ipcMain.on('navigate-instance', (event, instanceKey, url) => {
+    if (singleModeViews[instanceKey] && singleModeViews[instanceKey].view && 
+        !singleModeViews[instanceKey].view.webContents.isDestroyed()) {
+        console.log(`[SingleAI] Navigating ${instanceKey} to ${url}`);
+        singleModeViews[instanceKey].view.webContents.loadURL(url);
+    }
+});
+
+ipcMain.on('reload-instance', (event, instanceKey) => {
+    if (singleModeViews[instanceKey] && singleModeViews[instanceKey].view &&
+        singleModeViews[instanceKey].enabled && !singleModeViews[instanceKey].view.webContents.isDestroyed()) {
+        console.log(`[SingleAI] Reloading ${instanceKey}`);
+        singleModeViews[instanceKey].view.webContents.reload();
+    }
+});
+
+ipcMain.on('new-chat-for-instance', (event, instanceKey) => {
+    if (singleModeViews[instanceKey] && singleModeViews[instanceKey].view &&
+        !singleModeViews[instanceKey].view.webContents.isDestroyed()) {
+        const service = singleModeViews[instanceKey].service;
+        const url = getServiceResetUrl(service);
+        console.log(`[SingleAI] New chat for ${instanceKey}: ${url}`);
+        singleModeViews[instanceKey].view.webContents.loadURL(url);
+    }
+});
+
+// Update view bounds to handle Single AI Mode
+ipcMain.on('update-single-view-bounds', (event, boundsMap) => {
+    if (!mainWindow || chatMode !== 'single') return;
+
+    Object.entries(boundsMap).forEach(([instanceKey, rect]) => {
+        if (singleModeViews[instanceKey] && singleModeViews[instanceKey].view) {
+            singleModeViews[instanceKey].view.setBounds({
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height
+            });
+        }
+    });
+});
+
 ipcMain.on('status-update', (event, { isLoggedIn }) => {
     // Optional: Handle status updates from renderer if needed
 });
 
 ipcMain.on('set-service-visibility', (event, isVisible) => {
-    console.log(`Setting service visibility to: ${isVisible}`);
-    Object.keys(views).forEach(service => {
-        if (views[service] && views[service].enabled && views[service].view) {
-            if (isVisible) {
-                // Add back if it was removed (or ensure it's there)
-                try {
-                    // Check if already attached to avoid error
-                    // mainWindow.addBrowserView(views[service].view); 
-                    // Electron addBrowserView moves it to top.
-                    // We just add it.
-                    mainWindow.addBrowserView(views[service].view);
-                } catch (e) {
-                    console.error(`Failed to show view for ${service}:`, e);
-                }
-            } else {
-                // Remove to hide
-                try {
-                    mainWindow.removeBrowserView(views[service].view);
-                } catch (e) {
-                    console.error(`Failed to hide view for ${service}:`, e);
+    console.log(`Setting service visibility to: ${isVisible}, chatMode: ${chatMode}`);
+    
+    if (chatMode === 'single') {
+        // Single AI Mode: Handle singleModeViews
+        Object.keys(singleModeViews).forEach(instanceKey => {
+            if (singleModeViews[instanceKey] && singleModeViews[instanceKey].enabled && singleModeViews[instanceKey].view) {
+                if (isVisible) {
+                    try {
+                        mainWindow.addBrowserView(singleModeViews[instanceKey].view);
+                    } catch (e) {
+                        console.error(`Failed to show single view for ${instanceKey}:`, e);
+                    }
+                } else {
+                    try {
+                        mainWindow.removeBrowserView(singleModeViews[instanceKey].view);
+                    } catch (e) {
+                        console.error(`Failed to hide single view for ${instanceKey}:`, e);
+                    }
                 }
             }
-        }
-    });
+        });
+    } else {
+        // Multi AI Mode: Handle views
+        Object.keys(views).forEach(service => {
+            if (views[service] && views[service].enabled && views[service].view) {
+                if (isVisible) {
+                    try {
+                        mainWindow.addBrowserView(views[service].view);
+                    } catch (e) {
+                        console.error(`Failed to show view for ${service}:`, e);
+                    }
+                } else {
+                    try {
+                        mainWindow.removeBrowserView(views[service].view);
+                    } catch (e) {
+                        console.error(`Failed to hide view for ${service}:`, e);
+                    }
+                }
+            }
+        });
+    }
 });
 
 app.whenReady().then(() => {
@@ -2333,7 +3434,26 @@ app.whenReady().then(() => {
     currentLayout = savedState.layout || '1x4';
     savedSessionUrls = savedState.serviceUrls || {}; // Load saved URLs for createServiceView
     isAnonymousMode = savedState.isAnonymousMode || false;
+    
+    // Restore Chat Mode state
+    chatMode = savedState.chatMode || 'multi';
+    if (chatMode === 'single' && savedState.singleAiConfig) {
+        singleAiService = savedState.singleAiConfig.service;
+        // Ensure max 3 instances (migration from older 4-instance sessions)
+        const restored = savedState.singleAiConfig.activeInstances || [true, true, true];
+        singleAiActiveInstances = restored.slice(0, SINGLE_MODE_MAX_INSTANCES);
+        
+        // Pre-populate lastKnownInstanceUrls with saved URLs to enable URL protection
+        if (savedState.singleAiConfig.urls) {
+            for (const [instanceKey, url] of Object.entries(savedState.singleAiConfig.urls)) {
+                lastKnownInstanceUrls[instanceKey] = url;
+                console.log(`[Session] Pre-populated lastKnownInstanceUrls[${instanceKey}] = ${url}`);
+            }
+        }
+    }
+    
     console.log('[Session] Loaded saved state:', savedState);
+    console.log('[Session] Chat mode:', chatMode, 'singleAiService:', singleAiService);
 
     createWindow();
 
@@ -2363,18 +3483,54 @@ function saveSessionState() {
         layout: currentLayout,
         activeServices: [],
         isAnonymousMode: isAnonymousMode,
-        isScrollSyncEnabled: isScrollSyncEnabled
+        isScrollSyncEnabled: isScrollSyncEnabled,
+        // Chat Mode state
+        chatMode: chatMode,
+        singleAiConfig: null,
+        multiAiConfig: null
     };
 
-    // Collect current URLs from all BrowserViews (SESS-002)
-    services.forEach(service => {
-        if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
-            sessionState.serviceUrls[service] = views[service].view.webContents.getURL();
-            if (views[service].enabled) {
-                sessionState.activeServices.push(service);
+    if (chatMode === 'single' && singleAiService) {
+        // Single AI Mode: Save instance URLs (limited to SINGLE_MODE_MAX_INSTANCES)
+        const instanceUrls = {};
+        Object.entries(singleModeViews).forEach(([instanceKey, viewObj]) => {
+            if (viewObj && viewObj.view && !viewObj.view.webContents.isDestroyed()) {
+                // Only save instances within the limit
+                const idx = parseInt(instanceKey.split('-').pop(), 10);
+                if (idx < SINGLE_MODE_MAX_INSTANCES) {
+                    instanceUrls[instanceKey] = viewObj.view.webContents.getURL();
+                }
             }
+        });
+        
+        sessionState.singleAiConfig = {
+            service: singleAiService,
+            // Ensure only SINGLE_MODE_MAX_INSTANCES are saved
+            activeInstances: singleAiActiveInstances.slice(0, SINGLE_MODE_MAX_INSTANCES),
+            urls: instanceUrls
+        };
+        console.log('[Session] Single AI Mode config:', sessionState.singleAiConfig);
+    } else {
+        // Multi AI Mode: Collect URLs from all BrowserViews (SESS-002)
+        services.forEach(service => {
+            if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
+                sessionState.serviceUrls[service] = views[service].view.webContents.getURL();
+                if (views[service].enabled) {
+                    sessionState.activeServices.push(service);
+                }
+            }
+        });
+
+        // Enforce max 4 active services for persisted state
+        if (sessionState.activeServices.length > 4) {
+            sessionState.activeServices = services.filter(s => sessionState.activeServices.includes(s)).slice(0, 4);
         }
-    });
+        
+        sessionState.multiAiConfig = {
+            activeServices: [...sessionState.activeServices],
+            urls: { ...sessionState.serviceUrls }
+        };
+    }
 
     store.set('sessionState', sessionState);
     console.log('[Session] Saved state:', sessionState);
@@ -2392,18 +3548,25 @@ ipcMain.on('report-ui-state', (event, uiState) => {
 
     // Update the session state with UI control states
     const savedState = store.get('sessionState', defaultSessionState);
+    const cappedActive = Array.isArray(uiState.activeServices) ? uiState.activeServices.slice(0, 4) : uiState.activeServices;
     store.set('sessionState', {
         ...savedState,
         isAnonymousMode: uiState.isAnonymousMode,
         isScrollSyncEnabled: uiState.isScrollSyncEnabled,
         layout: uiState.layout,
-        activeServices: uiState.activeServices
+        activeServices: cappedActive
     });
 });
 
 // IPC handler to get current saved state (SESS-003)
 ipcMain.handle('get-saved-session', () => {
     return store.get('sessionState', defaultSessionState);
+});
+
+// Renderer calls this when it finished saving IndexedDB history during app close.
+ipcMain.handle('app-close-ready', async () => {
+    ipcMain.emit('__app-close-ready__');
+    return { ok: true };
 });
 
 app.on('window-all-closed', () => {

@@ -32,6 +32,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onApplySavedState: (callback) => ipcRenderer.on('apply-saved-state', (event, state) => callback(state)),
     reportUiState: (state) => ipcRenderer.send('report-ui-state', state),
     getSavedSession: () => ipcRenderer.invoke('get-saved-session'),
+    getCurrentUrls: () => ipcRenderer.invoke('get-current-urls'),
+    onAppWillClose: (callback) => ipcRenderer.on('app-will-close', () => callback()),
+    appCloseReady: () => ipcRenderer.invoke('app-close-ready'),
     // Auto Update APIs
     checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
     downloadUpdate: () => ipcRenderer.invoke('download-update'),
@@ -42,5 +45,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getCustomPrompts: () => ipcRenderer.invoke('get-custom-prompts'),
     saveCustomPrompts: (prompts) => ipcRenderer.invoke('save-custom-prompts', prompts),
     getPredefinedPrompt: () => ipcRenderer.invoke('get-predefined-prompt'),
-    savePredefinedPrompt: (promptText) => ipcRenderer.invoke('save-predefined-prompt', promptText)
+    savePredefinedPrompt: (promptText) => ipcRenderer.invoke('save-predefined-prompt', promptText),
+    // Chat Mode APIs (Single AI / Multi AI)
+    setChatMode: (mode, config) => ipcRenderer.invoke('set-chat-mode', mode, config),
+    getChatMode: () => ipcRenderer.invoke('get-chat-mode'),
+    toggleSingleInstance: (instanceIndex, enabled) => ipcRenderer.send('toggle-single-instance', instanceIndex, enabled),
+    onChatModeChanged: (callback) => ipcRenderer.on('chat-mode-changed', (event, data) => callback(data)),
+    onSingleInstanceUrlChanged: (callback) => ipcRenderer.on('single-instance-url-changed', (event, data) => callback(data)),
+    // Single AI Mode specific
+    sendPromptToInstances: (text, instanceKeys, filePaths) => ipcRenderer.send('send-prompt-to-instances', text, instanceKeys, filePaths),
+    navigateInstance: (instanceKey, url) => ipcRenderer.send('navigate-instance', instanceKey, url),
+    reloadInstance: (instanceKey) => ipcRenderer.send('reload-instance', instanceKey),
+    newChatForInstance: (instanceKey) => ipcRenderer.send('new-chat-for-instance', instanceKey),
+    updateSingleViewBounds: (bounds) => ipcRenderer.send('update-single-view-bounds', bounds)
 });

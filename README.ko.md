@@ -11,6 +11,7 @@
 ## 주요 기능
 
 -   **멀티 패널 인터페이스**: 최대 4개의 AI 서비스(ChatGPT, Claude, Gemini, Grok, Perplexity)를 그리드 레이아웃에서 동시에 보고 상호작용할 수 있습니다.
+-   **싱글 AI 모드** *(v0.6.0 신규)*: 하나의 AI 서비스만 구독하는 사용자를 위해—동일 서비스의 최대 3개 인스턴스를 열어 다양한 모델의 응답을 비교할 수 있습니다.
 -   **동시 프롬프트 전송**: 중앙의 "마스터 입력창"에서 메시지를 보내면 활성화된 모든 AI 서비스에 즉시 전송됩니다.
 -   **폭넓은 서비스 지원**: ChatGPT, Claude, Gemini, Grok (xAI), Perplexity, **Genspark**를 지원합니다.
 -   **채팅 기록 관리**: 활성화된 서비스, 레이아웃, URL을 포함한 전체 채팅 세션을 저장하고 복원할 수 있습니다.
@@ -27,13 +28,13 @@
 
 ## 버전
 
--   **현재 버전**: v0.5.13
+-   **현재 버전**: v0.6.0
 
 ## 설치 방법
 
 이 애플리케이션은 **Windows 설치 프로그램**으로 배포되며, **자동 업데이트 기능**을 지원합니다.
 
-1.  최신 설치 파일을 다운로드합니다: [Sync-Multi-Chat-Setup-0.5.13.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.5.13/Sync-Multi-Chat-Setup-0.5.13.exe)
+1.  최신 설치 파일을 다운로드합니다: [Sync-Multi-Chat-Setup-0.6.0.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.6.0/Sync-Multi-Chat-Setup-0.6.0.exe)
 2.  설치 프로그램을 실행하고 설치 마법사를 따라 진행합니다.
 3.  앱은 시작 시 자동으로 업데이트를 확인합니다.
 

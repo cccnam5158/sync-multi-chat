@@ -1,5 +1,30 @@
 # Release Notes
 
+## v0.6.0 (2026-01-19)
+
+### ✨ New Features
+*   **Single AI Mode**: A new mode for users who subscribe to only one AI service but want to leverage multi-view capabilities.
+    *   Select one AI provider (e.g., ChatGPT, Claude, Gemini) and open up to **3 instances** simultaneously.
+    *   Each instance can use a **different AI model** within the same service, allowing diverse responses from one provider.
+    *   Access via the **gear icon** (⚙️) next to the service toggle buttons.
+    *   **Note**: Each instance remembers its last selected model. When starting a new chat, manually select your desired model in each instance if needed.
+*   **Anti-Bot Detection for Single Mode**: Staggered timing for instance creation and prompt delivery to reduce the likelihood of bot detection by AI services.
+    *   Instance creation delay: 1-1.5 seconds (randomized)
+    *   Prompt transmission delay: 1.5-4 seconds (randomized)
+    *   Human-like typing simulation for prompt input
+
+### ⬆️ Improvements
+*   **Chat Mode Settings Modal**: New modal UI for switching between Multi AI Mode and Single AI Mode with intuitive card-based selection.
+*   **Session Persistence**: Single AI Mode state (selected service, active instances, URLs) is saved and restored across app restarts.
+*   **Full Feature Compatibility**: All existing features work in Single AI Mode including layouts, scroll sync, cross-check, anonymous mode, file upload, and history management.
+
+### 🔧 Fixes
+*   **Memory Leak Fix**: Fixed BrowserView instances not being properly cleaned up when switching modes or starting new chats.
+*   **URL Persistence**: Improved conversation URL tracking and restoration for Single Mode instances.
+*   **New Chat Session Handling**: Fixed issue where new chat sessions could be overwritten by previous conversation URLs.
+
+---
+
 ## v0.5.13 (2026-01-08)
 
 ### 🔧 Fixes & Improvements

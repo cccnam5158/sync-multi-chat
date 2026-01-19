@@ -22,7 +22,7 @@
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     Sync Multi Chat                     <span class="version-badge"
-                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.5.12</span>
+                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.6.0</span>
                 </a>
                 <div class="nav-links">
                     <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
@@ -83,18 +83,41 @@
             style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 60px; max-width: 900px; margin-left: auto; margin-right: auto; padding-left: 20px;">
             <h2 style="margin-bottom: 0;" data-i18n="releaseNotes.title">Release History</h2>
             <span style="color: var(--text-tertiary); font-size: 0.9rem;" data-i18n="releaseNotes.lastUpdated">Last
-                updated: Jan 08, 2026</span>
+                updated: Jan 19, 2026</span>
         </div>
 
         <div class="timeline">
 
-            <!-- v0.5.13 (Active) -->
+            <!-- v0.6.0 (Active) -->
             <div class="timeline-item active">
                 <div class="timeline-dot"></div>
 
                 <div class="version-header">
-                    <span class="version-number">v0.5.13</span>
+                    <span class="version-number">v0.6.0</span>
                     <span class="badge-current" data-i18n="releaseNotes.current">Current</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ <span data-i18n="releaseNotes.newFeatures">New Features</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v060.feature1"><strong>Single AI Mode</strong>: For users who subscribe to only one AI service—open up to 3 instances of the same provider and compare responses from different models.</li>
+                        <li data-i18n="releaseNotes.v060.feature2"><strong>Anti-Bot Detection</strong>: Staggered timing for instance creation and prompt delivery to reduce bot detection. Human-like typing simulation included.</li>
+                        <li data-i18n="releaseNotes.v060.feature3"><strong>Chat Mode Settings</strong>: New gear icon (⚙️) and modal UI for switching between Multi AI Mode and Single AI Mode.</li>
+                    </ul>
+                    <h3>🔧 <span data-i18n="releaseNotes.bugFixes">Fixes</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v060.fix1"><strong>Memory Leak Fix</strong>: BrowserView instances are now properly cleaned up when switching modes.</li>
+                        <li data-i18n="releaseNotes.v060.fix2"><strong>URL Persistence</strong>: Improved conversation URL tracking for Single Mode instances.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.5.13 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.5.13</span>
                 </div>
 
                 <div class="release-card-content">

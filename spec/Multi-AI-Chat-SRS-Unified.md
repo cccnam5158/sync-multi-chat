@@ -1,24 +1,31 @@
 # Multi-AI Chat Service - Unified Software Requirements Specification (SRS)
 
 ## 1. Introduction
-This document defines the unified software requirements for the Multi-AI Chat application. It consolidates requirements from initial concepts through recent feature additions including Conversation History, Session Persistence, Advanced Cross Check, File Uploads, and comprehensive UI enhancements.
+This document defines the unified software requirements for the Multi-AI Chat application. It consolidates requirements from initial concepts through recent feature additions including Conversation History, Session Persistence, Advanced Cross Check, File Uploads, Chat Mode (Single AI / Multi AI), and comprehensive UI enhancements.
 The requirements are written using **EARS** (Easy Approach to Requirements Syntax) to ensure clarity and testability.
 
 ## 2. Terminology
-- **Service**: An individual AI provider (ChatGPT, Claude, Gemini, Grok, Perplexity).
+- **Service**: An individual AI provider (ChatGPT, Claude, Gemini, Grok, Perplexity, Genspark).
 - **Webview**: The BrowserView instance rendering a specific Service.
 - **Prompt Input**: The unified text entry area at the bottom of the application.
 - **Cross Check**: The feature allowing users to send the same prompt to multiple services or compare their responses.
 - **Anonymous Mode**: A mode where service names are masked (e.g., "(A)", "(B)") to reduce bias.
 - **Session**: A specific state of the application including active services, layouts, URLs, and prompt history.
 - **History Sidebar**: The UI component displaying the list of saved sessions.
+- **Chat Mode**: The operational mode determining how Webviews are configured; either **Multi AI Mode** or **Single AI Mode**.
+- **Multi AI Mode**: The default mode where users can select up to 4 different AI services simultaneously.
+- **Single AI Mode**: A mode where users select one AI service and create up to 4 independent instances of that service.
+- **Instance**: In Single AI Mode, an individual Webview of the selected AI service (e.g., "ChatGPT #1", "ChatGPT #2").
 
 ## 3. Functional Requirements
 
 ### 3.1 Core Multi-Service Management
 - **REQ-CORE-001**: The system shall support the following AI services: ChatGPT, Claude, Gemini, Grok, Perplexity, and Genspark.
-- **REQ-CORE-002**: When the application launches, the system shall restore the previously active services and their last visited URLs (Session Persistence).
+- **REQ-CORE-002**: When the application launches, the system shall restore the previously active Chat Mode, services/instances, and their last visited URLs (Session Persistence).
 - **REQ-CORE-003**: While a service requires authentication, if the user cannot log in via the embedded view, the system shall provide an "Open in Chrome" or "External Login" option to facilitate authentication using a separate browser instance.
+- **REQ-CORE-004 (Chat Mode)**: The system shall support two operational modes: **Multi AI Mode** (default) and **Single AI Mode**.
+- **REQ-CORE-005**: The system shall provide a "Chat Mode Settings" button (gear icon) in the service toggle area to access mode configuration.
+- **REQ-CORE-006**: When the "Chat Mode Settings" button is clicked, the system shall display a modal with options to select Multi AI Mode or Single AI Mode.
 
 ### 3.2 Layout & View Controls
 - **REQ-LAYOUT-001**: The system shall provide the following layout options: **1x3** (Vertical Stack), **3x1** (Horizontal Stack), **1x4** (Horizontal Stack), and **2x2** (Grid).
@@ -61,7 +68,7 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **REQ-HIST-004 (History List)**: The system shall display a list of past conversation sessions in the sidebar, sorted by "Last Updated" timestamp (newest first).
 - **REQ-HIST-005 (Lazy Loading)**: When scrolling through a large number of history items, the system shall load additional items dynamically (infinite scroll or pagination) to maintain performance.
 - **REQ-HIST-006 (History Item Display)**: The system shall display each history item with a Title (defaulting to "YYYY-MM-DD HH:mm:ss" of creation/update) and a Context Menu trigger ("..." button).
-- **REQ-HIST-007 (Item Interaction)**: When a history item is clicked, the system shall restore the full state of that session (URLs, Prompt, Layout) and collapse the sidebar (if configured to do so).
+- **REQ-HIST-007 (Item Interaction)**: When a history item is clicked, the system shall restore the full state of that session (Chat Mode, URLs, Prompt, Layout) and collapse the sidebar (if configured to do so). See REQ-MODE-060~066 for mode switching behavior.
 - **REQ-HIST-008 (Context Menu)**: When the user hovers over a history item or clicks the context menu trigger, the system shall provide options to "Rename" and "Delete" the session.
 - **REQ-HIST-009 (Rename)**: When "Rename" is selected, the system shall allow the user to modify the title of the history item inline or via a modal.
 - **REQ-HIST-010 (Delete)**: When "Delete" is selected, the system shall require confirmation before permanently removing the session from the database.
@@ -79,27 +86,111 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **REQ-EXT-002**: The system shall allow the user to Copy the current URL or Open it in the system default browser (Chrome).
 - **REQ-EXT-003 (Link Navigation)**: When a user clicks a link within a Webview that targets a domain not belonging to the Service (i.e., external link), the system shall intercept the navigation and open the URL in the system default browser.
 
+### 3.7 Chat Mode (Single AI / Multi AI)
+
+#### 3.7.1 Multi AI Mode (Default)
+- **REQ-MODE-001**: While in **Multi AI Mode**, the system shall display service toggles for all supported AI services (ChatGPT, Claude, Gemini, Grok, Perplexity, Genspark).
+- **REQ-MODE-002**: While in **Multi AI Mode**, the system shall allow the user to activate up to 4 different AI services simultaneously.
+- **REQ-MODE-003**: While in **Multi AI Mode**, when more than 4 services are attempted to be activated, the system shall disable unchecked service toggles.
+
+#### 3.7.2 Single AI Mode
+- **REQ-MODE-010 (Mode Selection)**: When **Single AI Mode** is selected in the Chat Mode Settings modal, the system shall display a service selection interface (icon grid or dropdown).
+- **REQ-MODE-011**: The system shall allow the user to select exactly one AI service for Single AI Mode.
+- **REQ-MODE-012**: When an AI service is selected and "Apply" is clicked, the system shall switch to Single AI Mode with the chosen service.
+- **REQ-MODE-013 (Instance Toggles)**: While in **Single AI Mode**, the system shall replace the multi-service toggles with up to 4 instance toggles for the selected service (e.g., "ChatGPT #1", "ChatGPT #2", "ChatGPT #3", "ChatGPT #4").
+- **REQ-MODE-014**: While in **Single AI Mode**, the system shall display the selected service's icon alongside each instance label.
+- **REQ-MODE-015 (Instance Activation)**: While in **Single AI Mode**, the system shall allow the user to activate or deactivate individual instances via their respective toggles.
+- **REQ-MODE-016**: While in **Single AI Mode**, the system shall enforce a maximum of 4 active instances.
+- **REQ-MODE-017 (Instance Webviews)**: While in **Single AI Mode**, for each active instance, the system shall create an independent BrowserView loading the selected service's URL.
+- **REQ-MODE-018 (Session Partition)**: While in **Single AI Mode**, the system shall use a shared session partition (e.g., `persist:service-{service}`) by default, allowing all instances to share login state.
+- **REQ-MODE-019 (Optional Independent Sessions)**: Where independent sessions are configured, the system shall use separate partitions (e.g., `persist:service-{service}-{index}`) for each instance.
+
+#### 3.7.3 Mode Switching
+- **REQ-MODE-020**: When switching from **Single AI Mode** to **Multi AI Mode**, the system shall remove all Single AI instances and restore the Multi AI service toggles.
+- **REQ-MODE-021**: When switching from **Multi AI Mode** to **Single AI Mode**, the system shall hide the multi-service toggles and display instance toggles for the newly selected service.
+- **REQ-MODE-022**: When the Chat Mode is switched, the system shall preserve the current layout selection if compatible with the new active view count.
+
+#### 3.7.4 Feature Compatibility in Single AI Mode
+- **REQ-MODE-030 (Prompt Sync)**: While in **Single AI Mode**, when the user sends a prompt, the system shall deliver the prompt text to all active instances simultaneously.
+- **REQ-MODE-031 (File Upload Sync)**: While in **Single AI Mode**, when files are attached and uploaded, the system shall upload files to all active instances.
+- **REQ-MODE-032 (Layout Compatibility)**: While in **Single AI Mode**, the system shall apply the same layout rules as Multi AI Mode based on the number of active instances.
+- **REQ-MODE-033 (Scroll Sync)**: While in **Single AI Mode** and **Scroll Sync** is enabled, when the user scrolls in one instance, the system shall scroll all other active instances proportionally.
+- **REQ-MODE-034 (Cross Check)**: While in **Single AI Mode**, when "Cross Check" is triggered, the system shall collect responses from all active instances and combine them for comparison.
+- **REQ-MODE-035**: While in **Single AI Mode** and **Cross Check** is performed, the system shall label instance responses as "Instance #1", "Instance #2", etc. (or "(A)", "(B)" in Anonymous Mode).
+- **REQ-MODE-036 (Anonymous Mode)**: While in **Single AI Mode** and **Anonymous Mode** is enabled, the system shall replace instance labels with aliases (e.g., "#1" -> "(A)", "#2" -> "(B)").
+- **REQ-MODE-037 (Copy Chat Thread)**: While in **Single AI Mode**, when "Copy Chat Thread" is triggered, the system shall copy chat content from all active instances.
+- **REQ-MODE-038 (Copy Last Response)**: While in **Single AI Mode**, when "Copy Last Response" is triggered, the system shall copy the last response from all active instances.
+- **REQ-MODE-039 (New Chat)**: While in **Single AI Mode**, when "New Chat" is clicked, the system shall reset all active instances to their base service URL.
+- **REQ-MODE-040 (WebView Header)**: While in **Single AI Mode**, each instance Webview shall display the standard header bar with URL display, Copy URL, Open in Chrome, Refresh, and Home buttons.
+
+#### 3.7.5 Session Persistence for Single AI Mode
+- **REQ-MODE-050**: When in **Single AI Mode** and the application exits, the system shall persist the current Chat Mode, selected service, active instances, and their URLs.
+- **REQ-MODE-051**: When the application launches and the last session was in **Single AI Mode**, the system shall restore Single AI Mode with the previously selected service and instance states.
+- **REQ-MODE-052**: When a history session recorded in **Single AI Mode** is restored, the system shall switch to Single AI Mode and load the saved instance URLs.
+- **REQ-MODE-053**: The system shall store Chat Mode configuration in the session schema with fields: `chatMode`, `singleAiConfig.service`, `singleAiConfig.activeInstances`, and `singleAiConfig.urls`.
+
+#### 3.7.6 History Session Restoration & Mode Switching
+- **REQ-MODE-060 (Mode Detection)**: When a history session is selected for restoration, the system shall read the `chatMode` field from the session data to determine the required mode.
+- **REQ-MODE-061 (Legacy Session Handling)**: When a history session does not contain a `chatMode` field (legacy session), the system shall treat it as a **Multi AI Mode** session.
+- **REQ-MODE-062 (Multi to Single Transition)**: When the current mode is **Multi AI Mode** and a **Single AI Mode** history session is restored, the system shall:
+  1. Switch to Single AI Mode with the session's saved service
+  2. Restore the saved instance states and URLs
+  3. Update the toggle UI to display instance toggles
+- **REQ-MODE-063 (Single to Multi Transition)**: When the current mode is **Single AI Mode** and a **Multi AI Mode** history session is restored, the system shall:
+  1. Switch to Multi AI Mode
+  2. Restore the saved active services and URLs
+  3. Update the toggle UI to display service toggles
+- **REQ-MODE-064 (Same Mode Restoration)**: When the current mode matches the history session's mode, the system shall restore the session state without mode switching overhead.
+- **REQ-MODE-065 (Confirmation on Mode Change)**: When restoring a history session would trigger a mode change, the system may optionally display a confirmation dialog informing the user of the mode switch.
+- **REQ-MODE-066 (History Item Mode Indicator)**: The system shall visually indicate the Chat Mode of each history item in the History Sidebar (e.g., icon badge or label showing "Multi" or "Single").
+
 ## 4. Technical Architecture
 
 ### 4.1 Data Persistence
-- **Session Store**: `electron-store` for lightweight configuration (toggles, window bounds, last active session ID).
+- **Session Store**: `electron-store` for lightweight configuration (toggles, window bounds, last active session ID, chat mode settings).
 - **History Database**: `IndexedDB` (via **idb** or similar wrapper) for storing robust conversation records.
   - **Store Name**: `conversations`
-  - **Schema**: Includes `id` (UUID), `title`, `createdAt`, `updatedAt`, `webViews` (array of service/url/active state), and `promptState` (text, files, options).
+  - **Schema (v2)**: Includes:
+    - `id` (UUID), `title`, `createdAt`, `updatedAt`
+    - `chatMode` ("multi" | "single")
+    - `multiAiConfig`: { `activeServices` (array), `urls` (object) }
+    - `singleAiConfig`: { `service` (string), `activeInstances` (boolean[4]), `urls` (object) }
+    - `layout` (string)
+    - `controls`: { `anonymousMode` (boolean), `scrollSync` (boolean) }
+    - `promptState` (text, files, options)
 
 ### 4.2 Inter-Process Communication (IPC)
 - **Renderer-to-Main**:
   - `set-layout`, `send-prompt-with-files`, `save-temp-file`, `cross-check`, `get-all-webview-urls`, `open-external-link`.
-  - **New IPCs**: `history-get-all`, `history-save`, `history-delete`, `history-rename`. (Implied by functionality, though implementation choice may vary).
+  - **History IPCs**: `history-get-all`, `history-save`, `history-delete`, `history-rename`.
+  - **Chat Mode IPCs**: `set-chat-mode`, `set-single-ai-config`, `toggle-single-instance`, `get-chat-mode`.
 - **Main-to-Renderer**:
-  - `file-upload-complete`, `url-changed`.
+  - `file-upload-complete`, `url-changed`, `chat-mode-changed`, `single-ai-instance-url-changed`.
 
 ### 4.3 External Login Implementation
 - Uses **Puppeteer** with `puppeteer-extra-plugin-stealth` for resilient external login flows.
 - Cookie synchronization from Puppeteer Chrome instance to Electron BrowserViews.
+
+### 4.4 Single AI Mode View Management
+- **Multi AI Views**: Managed in `views` object keyed by service name (e.g., `{ chatgpt: BrowserView, claude: BrowserView }`).
+- **Single AI Views**: Managed in `singleModeViews` object keyed by instance identifier (e.g., `{ 'chatgpt-0': BrowserView, 'chatgpt-1': BrowserView }`).
+- **Partition Strategy**:
+  - Shared Session (default): `persist:service-{service}` - all instances share login state.
+  - Independent Session (optional): `persist:service-{service}-{index}` - each instance has separate cookies/storage.
 
 ## 5. Non-Functional Requirements
 - **NFR-001 (Performance)**: The application shall not freeze during file uploads or large history loading; database operations shall be asynchronous.
 - **NFR-002 (Encoding)**: All persisted text files and database entries shall be **UTF-8** encoded to support international characters.
 - **NFR-003 (Privacy)**: No user data shall be transmitted to third parties other than the direct AI service providers.
 - **NFR-004 (UX)**: The UI shall follow modern design principles with responsive animations (e.g., Sidebar transitions) and intuitive interactions.
+- **NFR-005 (Memory)**: While in Single AI Mode with multiple instances, the application shall manage BrowserView resources efficiently to minimize memory overhead.
+- **NFR-006 (Backward Compatibility)**: Sessions saved in previous versions (without Chat Mode) shall be treated as Multi AI Mode sessions when restored.
+- **NFR-007 (Mode Clarity)**: The UI shall clearly indicate the current Chat Mode (Multi AI or Single AI) to prevent user confusion.
+
+## 6. Revision History
+
+| Version | Date | Description |
+|---------|------|-------------|
+| 1.0 | 2025-12-01 | Initial unified SRS |
+| 2.0 | 2026-01-08 | Added Chat Mode (Single AI / Multi AI) requirements (REQ-MODE-001~053) |
+| 2.1 | 2026-01-08 | Added History Session Restoration & Mode Switching requirements (REQ-MODE-060~066), Updated REQ-HIST-007 |
