@@ -36,3 +36,6 @@ references/
 tasks/
 
 reports/
+
+# Auto Claude data directory
+.auto-claude/
