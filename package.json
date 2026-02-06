@@ -1,6 +1,6 @@
 {
   "name": "sync-multi-chat",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Multi AI Chat Broadcaster - Broadcast prompts to multiple AI services simultaneously",
   "main": "src/main/main.js",
   "repository": {

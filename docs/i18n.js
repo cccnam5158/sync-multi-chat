@@ -135,7 +135,10 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "Release History",
-        "releaseNotes.lastUpdated": "Last updated: Jan 19, 2026",
+        "releaseNotes.lastUpdated": "Last updated: Feb 6, 2026",
+        "releaseNotes.v061.fix1": "Google CookieMismatch Fix: Resolved cookie mismatch error that prevented Google login for Gemini and Genspark services.",
+        "releaseNotes.v061.fix2": "Third-Party Cookie Policy: Disabled Chromium 134+ third-party cookie deprecation and cookie partitioning (CHIPS) that blocked Google's cross-domain authentication flow.",
+        "releaseNotes.v061.fix3": "Dynamic User-Agent: Replaced hardcoded Chrome/130 User-Agent with actual Chromium version to prevent Google's bot detection from flagging version mismatches.",
         "releaseNotes.v060.feature1": "Single AI Mode: For users who subscribe to only one AI service—open up to 3 instances of the same provider and compare responses from different models.",
         "releaseNotes.v060.feature2": "Anti-Bot Detection: Staggered timing for instance creation and prompt delivery to reduce bot detection. Human-like typing simulation included.",
         "releaseNotes.v060.feature3": "Chat Mode Settings: New gear icon (⚙️) and modal UI for switching between Multi AI Mode and Single AI Mode.",
@@ -318,7 +321,10 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "릴리스 히스토리",
-        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 1월 19일",
+        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 2월 6일",
+        "releaseNotes.v061.fix1": "Google CookieMismatch 수정: Gemini 및 Genspark 서비스에서 Google 로그인을 차단하던 쿠키 불일치 에러를 해결했습니다.",
+        "releaseNotes.v061.fix2": "서드파티 쿠키 정책: Google의 크로스 도메인 인증 플로우를 차단하던 Chromium 134+의 서드파티 쿠키 폐지 및 쿠키 파티셔닝(CHIPS)을 비활성화했습니다.",
+        "releaseNotes.v061.fix3": "동적 User-Agent: 하드코딩된 Chrome/130 User-Agent를 실제 Chromium 버전으로 교체하여 Google의 봇 탐지 버전 불일치 플래그를 방지합니다.",
         "releaseNotes.v060.feature1": "싱글 AI 모드: 하나의 AI 서비스만 구독하는 사용자를 위해—동일 서비스의 최대 3개 인스턴스를 열어 다양한 모델의 응답을 비교할 수 있습니다.",
         "releaseNotes.v060.feature2": "봇 탐지 방지: 인스턴스 생성 및 프롬프트 전달 타이밍을 조절하여 봇 탐지를 줄입니다. 사람과 유사한 타이핑 시뮬레이션 포함.",
         "releaseNotes.v060.feature3": "채팅 모드 설정: Multi AI 모드와 Single AI 모드 전환을 위한 새로운 기어 아이콘(⚙️)과 모달 UI.",
@@ -501,7 +507,10 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "リリース履歴",
-        "releaseNotes.lastUpdated": "最終更新: 2026年1月19日",
+        "releaseNotes.lastUpdated": "最終更新: 2026年2月6日",
+        "releaseNotes.v061.fix1": "Google CookieMismatch修正: GeminiおよびGensparkサービスでGoogleログインを妨げていたクッキー不一致エラーを解決しました。",
+        "releaseNotes.v061.fix2": "サードパーティクッキーポリシー: Googleのクロスドメイン認証フローをブロックしていたChromium 134+のサードパーティクッキー廃止およびクッキーパーティショニング（CHIPS）を無効化しました。",
+        "releaseNotes.v061.fix3": "動的User-Agent: ハードコードされたChrome/130 User-Agentを実際のChromiumバージョンに置き換え、Googleのボット検出によるバージョン不一致フラグを防止します。",
         "releaseNotes.v060.feature1": "シングルAIモード: 1つのAIサービスのみを利用するユーザー向け—同一サービスの最大3インスタンスを開き、異なるモデルの回答を比較できます。",
         "releaseNotes.v060.feature2": "ボット検知防止: インスタンス作成とプロンプト送信のタイミングを調整してボット検知を軽減。人間のようなタイピングシミュレーション付き。",
         "releaseNotes.v060.feature3": "チャットモード設定: マルチAIモードとシングルAIモードを切り替えるための新しいギアアイコン(⚙️)とモーダルUI。",

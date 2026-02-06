@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.6.1 (2026-02-06)
+
+### 🔧 Fixes
+*   **Google CookieMismatch Fix**: Resolved `accounts.google.com/CookieMismatch` error that prevented Google login for Gemini and Genspark services.
+    *   **Third-Party Cookie Policy**: Disabled Chromium 134+'s third-party cookie deprecation and cookie partitioning (CHIPS) that blocked Google's cross-domain authentication flow (`accounts.google.com` ↔ `gemini.google.com`).
+    *   **Header Integrity for Auth Domains**: Google authentication domains (`accounts.google.com`, `myaccount.google.com`, `accounts.youtube.com`) are now excluded from response header manipulation to preserve `Set-Cookie` header integrity and `__Host-` prefix cookie requirements.
+    *   **Dynamic User-Agent Version**: Replaced hardcoded `Chrome/130` User-Agent with the actual Chromium version (`process.versions.chrome`) to prevent Google's bot detection from flagging version mismatches.
+
+---
+
 ## v0.6.0 (2026-01-19)
 
 ### ✨ New Features

@@ -34,6 +34,14 @@ const { gfm } = require('turndown-plugin-gfm');
 // Disable automation features to avoid detection
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 
+// Fix for Google CookieMismatch error (Chromium 134+ third-party cookie phase-out)
+// Disable third-party cookie deprecation and cookie partitioning (CHIPS) so that
+// Google's cross-domain auth flow (accounts.google.com ↔ gemini.google.com) works properly.
+app.commandLine.appendSwitch(
+    'disable-features',
+    'ThirdPartyCookieDeprecationTrial,TrackingProtection3pcd,PartitionedCookies,BoundSessionCredentials'
+);
+
 // Windows taskbar grouping/icon behavior is strongly tied to AppUserModelID.
 // Setting a stable ID helps Windows associate the running process with the correct icon/shortcut.
 if (process.platform === 'win32') {
@@ -318,7 +326,16 @@ function createServiceView(service) {
     });
 
     // Modify headers for X-Frame-Options (SEC-001)
+    // Skip header manipulation for Google auth domains to preserve cookie integrity (CookieMismatch fix)
     view.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+        const url = details.url || '';
+        // Google auth domains: do NOT modify response headers (preserves Set-Cookie, CSP, etc.)
+        if (url.includes('accounts.google.com') ||
+            url.includes('myaccount.google.com') ||
+            url.includes('accounts.youtube.com')) {
+            callback({ cancel: false, responseHeaders: details.responseHeaders });
+            return;
+        }
         const responseHeaders = Object.assign({}, details.responseHeaders);
         if (responseHeaders['x-frame-options'] || responseHeaders['X-Frame-Options']) {
             delete responseHeaders['x-frame-options'];
@@ -341,8 +358,8 @@ function createServiceView(service) {
         urls: ['<all_urls>']
     });
 
-    // User Agent Spoofing (SEC-002) - Updated to newer version
-    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+    // User Agent Spoofing (SEC-002) - Use actual Chromium version to avoid detection
+    const userAgent = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`;
     view.webContents.setUserAgent(userAgent);
 
     // Helper: Check if URL is a conversation URL
@@ -503,7 +520,16 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
     }, Math.max(0, loadDelayMs));
 
     // Apply same headers/security as multi-AI mode
+    // Skip header manipulation for Google auth domains to preserve cookie integrity (CookieMismatch fix)
     view.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+        const url = details.url || '';
+        // Google auth domains: do NOT modify response headers (preserves Set-Cookie, CSP, etc.)
+        if (url.includes('accounts.google.com') ||
+            url.includes('myaccount.google.com') ||
+            url.includes('accounts.youtube.com')) {
+            callback({ cancel: false, responseHeaders: details.responseHeaders });
+            return;
+        }
         const responseHeaders = Object.assign({}, details.responseHeaders);
         delete responseHeaders['x-frame-options'];
         delete responseHeaders['X-Frame-Options'];
@@ -512,8 +538,8 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
         callback({ cancel: false, responseHeaders });
     });
 
-    // User Agent
-    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+    // User Agent - Use actual Chromium version to avoid detection
+    const userAgent = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`;
     view.webContents.setUserAgent(userAgent);
 
     // Helper: Check if URL is a conversation URL (reused from service-url-updated handler)
