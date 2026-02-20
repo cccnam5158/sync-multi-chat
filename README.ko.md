@@ -8,6 +8,15 @@
 ![Sync Multi Chat 애플리케이션 스크린샷](assets/mutli-ai-chat.png)
 *그림 1: ChatGPT, Claude, Gemini와 동시에 상호작용하는 Sync Multi Chat 인터페이스*
 
+![Sync Multi Chat 커스텀 프롬프트 빌더 스크린샷](assets/custom_prompt_builder.png)
+*그림 2: 커스텀 프롬프트 빌더*
+
+![Sync Multi Chat 메인 프롬프트 라이브 프리뷰 스크린샷](assets/main_prompt_editor_live_preview.png)
+*그림 3: 메인 프롬프트 라이브 프리뷰*
+
+![Sync Multi Chat 세션 커스텀 프롬프트 빌더 스크린샷](assets/session_custom_prompt_builder.png)
+*그림 4: 세션 커스텀 프롬프트 빌더*
+
 ## 주요 기능
 
 -   **멀티 패널 인터페이스**: 최대 4개의 AI 서비스(ChatGPT, Claude, Gemini, Grok, Perplexity)를 그리드 레이아웃에서 동시에 보고 상호작용할 수 있습니다.

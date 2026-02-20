@@ -10,6 +10,15 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 ![Sync Multi Chat Application Screenshot](assets/mutli-ai-chat.png)
 *Figure 1: Sync Multi Chat Interface showing simultaneous interactions with ChatGPT, Claude, and Gemini.*
 
+![Sync Multi Chat Custom Prompt Builder Screenshot](assets/custom_prompt_builder.png)
+*Figure 2: Custom Promp Builder*
+
+![Sync Multi Chat Main Prompt Live Preview Screenshot](assets/main_prompt_editor_live_preview.png)
+*Figure 3: Custom Promp Builder*
+
+![Sync Multi Chat Session Custom Prompt Builder Screenshot](assets/session_custom_prompt_builder.png)
+*Figure 4: Session Custom Promp Builder*
+
 ## Key Features
 
 -   **Multi-Pane Interface**: View and interact with up to 4 AI services (ChatGPT, Claude, Gemini, Grok, Perplexity) simultaneously in a grid layout.

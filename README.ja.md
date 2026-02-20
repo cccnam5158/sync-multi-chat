@@ -8,6 +8,15 @@
 ![Sync Multi Chat アプリケーションスクリーンショット](assets/mutli-ai-chat.png)
 *図 1: ChatGPT、Claude、Geminiと同時に対話しているSync Multi Chatのインターフェース*
 
+![Sync Multi Chat カスタムプロンプトビルダーのスクリーンショット](assets/custom_prompt_builder.png)
+*図 2: カスタムプロンプトビルダー*
+
+![Sync Multi Chat メインプロンプトのライブプレビュー画面](assets/main_prompt_editor_live_preview.png)
+*図 3: メインプロンプトのライブプレビュー*
+
+![Sync Multi Chat セッションカスタムプロンプトビルダーのスクリーンショット](assets/session_custom_prompt_builder.png)
+*図 4: セッションカスタムプロンプトビルダー*
+
 ## 主な機能
 
 -   **マルチパネルインターフェース**: 最大4つのAIサービス（ChatGPT、Claude、Gemini、Grok、Perplexity）をグリッドレイアウトで同時に表示・操作できます。
