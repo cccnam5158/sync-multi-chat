@@ -132,6 +132,11 @@ function setPromptCollapsed(collapsed) {
             // styles.css: #controls-container.collapsed .toggle-icon { transform: rotate(180deg); }
         }
     }
+
+    // Notify other renderer modules (e.g. CPB prompt expand handler)
+    window.dispatchEvent(new CustomEvent('smc:prompt-collapsed-changed', {
+        detail: { collapsed: isPromptCollapsed }
+    }));
 }
 
 if (promptToggleBtn) {
@@ -158,6 +163,12 @@ if (crossCheckBtn) {
 }
 
 function setBottomControlsDisabled(disabled) {
+    const chatModeSettingsControl = document.getElementById('chat-mode-settings-btn');
+    const singleModeToggleInputs = Array.from(
+        document.querySelectorAll('#single-ai-toggles input[type="checkbox"]')
+    );
+    const viewToggleInputs = Object.values(toggles || {}).filter(Boolean);
+    const layoutButtons = Object.values(layoutBtns || {}).filter(Boolean);
     const controls = [
         newChatBtn,
         copyChatBtn,
@@ -171,7 +182,11 @@ function setBottomControlsDisabled(disabled) {
         clearFilesBtn,
         sendBtn,
         masterInput,
-        fileInput
+        fileInput,
+        chatModeSettingsControl,
+        ...viewToggleInputs,
+        ...layoutButtons,
+        ...singleModeToggleInputs
     ].filter(Boolean);
 
     controls.forEach(el => {
@@ -184,6 +199,84 @@ function setBottomControlsDisabled(disabled) {
             el.removeAttribute?.('aria-disabled');
         }
     });
+}
+
+function isAnyViewMaximized() {
+    return !!document.querySelector('.view-slot.maximized');
+}
+
+function restoreAllMaximizedViews() {
+    const maximizedBtns = document.querySelectorAll('.maximized-btn');
+    maximizedBtns.forEach((btn) => btn.click());
+}
+
+function isBlockedBottomControlTarget(target) {
+    if (!target) return false;
+    const blockedSelectors = [
+        '#new-chat-btn',
+        '#copy-format-select',
+        '#copy-chat-btn',
+        '#copy-last-response-btn',
+        '#cross-check-btn',
+        '#anonymous-btn',
+        '#scroll-sync-toggle',
+        '#chat-mode-settings-btn',
+        '.layout-btn',
+        '#multi-ai-toggles .service-toggle-label',
+        '#multi-ai-toggles input[type="checkbox"]',
+        '#single-ai-toggles .service-toggle-label',
+        '#single-ai-toggles input[type="checkbox"]'
+    ];
+    return !!target.closest(blockedSelectors.join(', '));
+}
+
+function showSmcConfirm(message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('smc-confirm-modal');
+        const msgEl = document.getElementById('smc-confirm-msg');
+        const okBtn = document.getElementById('smc-confirm-ok');
+        const cancelBtn = document.getElementById('smc-confirm-cancel');
+        if (!modal || !msgEl || !okBtn || !cancelBtn) { resolve(false); return; }
+
+        msgEl.textContent = message;
+        try { window.electronAPI.setServiceVisibility(false); } catch (_) {}
+        modal.classList.add('visible');
+
+        const cleanup = (result) => {
+            modal.classList.remove('visible');
+            try { window.electronAPI.setServiceVisibility(true); } catch (_) {}
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            document.removeEventListener('keydown', onKey);
+            resolve(result);
+        };
+        const onOk = () => cleanup(true);
+        const onCancel = () => cleanup(false);
+        const onKey = (e) => {
+            if (e.key === 'Escape') cleanup(false);
+            if (e.key === 'Enter') cleanup(true);
+        };
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+        document.addEventListener('keydown', onKey);
+        okBtn.focus();
+    });
+}
+
+async function requestRestoreForBottomControl() {
+    const shouldRestore = await showSmcConfirm('A view is maximized.\nRestore it to use this control?');
+    if (!shouldRestore) return;
+    restoreAllMaximizedViews();
+}
+
+if (controlsContainer) {
+    controlsContainer.addEventListener('pointerdown', (e) => {
+        if (!isAnyViewMaximized()) return;
+        if (!isBlockedBottomControlTarget(e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        requestRestoreForBottomControl();
+    }, true);
 }
 
 copyChatBtn.addEventListener('click', () => {
@@ -743,6 +836,55 @@ masterInput.addEventListener('keydown', (e) => {
 });
 
 let pendingConfirmation = false;
+const MAIN_INPUT_PLACEHOLDER = `Type your prompt here... (Ctrl+Enter for send, Ctrl+Shift+Enter for New Chat)
+
+· Type "/" slash command to load and insert a saved custom prompt template.
+· Type "{{" to insert global/system variable.`;
+let confirmationModalIntervalId = null;
+let confirmationModalLayerState = {
+    hadModalLayer: false,
+    hadPopupLayer: false,
+    serviceVisibilityOverridden: false
+};
+
+function activateConfirmationModalLayer() {
+    const body = document.body;
+    if (!body) return;
+
+    confirmationModalLayerState.hadModalLayer = body.classList.contains('main-modal-layer-active');
+    confirmationModalLayerState.hadPopupLayer = body.classList.contains('main-popup-layer-active');
+    confirmationModalLayerState.serviceVisibilityOverridden = false;
+
+    if (!confirmationModalLayerState.hadModalLayer) {
+        body.classList.add('main-modal-layer-active');
+    }
+
+    // BrowserView is rendered above DOM in Electron, so hide services while this modal is visible.
+    if (!confirmationModalLayerState.hadModalLayer && !confirmationModalLayerState.hadPopupLayer) {
+        try {
+            window.electronAPI.setServiceVisibility(false);
+            confirmationModalLayerState.serviceVisibilityOverridden = true;
+        } catch (_) { }
+    }
+}
+
+function deactivateConfirmationModalLayer() {
+    const body = document.body;
+
+    if (body && !confirmationModalLayerState.hadModalLayer) {
+        body.classList.remove('main-modal-layer-active');
+    }
+
+    if (confirmationModalLayerState.serviceVisibilityOverridden) {
+        try { window.electronAPI.setServiceVisibility(true); } catch (_) { }
+    }
+
+    confirmationModalLayerState = {
+        hadModalLayer: false,
+        hadPopupLayer: false,
+        serviceVisibilityOverridden: false
+    };
+}
 
 // Modal Logic
 function showModal(message, duration = 3000) {
@@ -750,37 +892,76 @@ function showModal(message, duration = 3000) {
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'confirmation-modal';
+        modal.className = 'modal upload-confirm-modal';
         modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-text"></div>
-                <div class="modal-timer"></div>
+            <div class="modal-content upload-confirm-modal-content">
+                <div class="upload-confirm-body">
+                    <div class="upload-confirm-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <p class="upload-confirm-title">Files are attached to each prompt form</p>
+                    <p class="upload-confirm-text"></p>
+                    <div class="upload-confirm-countdown" aria-live="polite">
+                        <span class="upload-confirm-timer"></span>
+                        <span class="upload-confirm-hint">Time remaining before confirmation step</span>
+                    </div>
+                    <div class="upload-confirm-progress" role="progressbar" aria-label="Upload confirmation waiting progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                        <div class="upload-confirm-progress-fill"></div>
+                    </div>
+                </div>
             </div>
         `;
         document.body.appendChild(modal);
     }
 
-    const textEl = modal.querySelector('.modal-text');
-    const timerEl = modal.querySelector('.modal-timer');
+    const textEl = modal.querySelector('.upload-confirm-text');
+    const timerEl = modal.querySelector('.upload-confirm-timer');
+    const progressEl = modal.querySelector('.upload-confirm-progress-fill');
+    const progressWrapEl = modal.querySelector('.upload-confirm-progress');
 
+    if (confirmationModalIntervalId) {
+        clearInterval(confirmationModalIntervalId);
+        confirmationModalIntervalId = null;
+        modal.classList.remove('visible');
+        deactivateConfirmationModalLayer();
+    }
+
+    activateConfirmationModalLayer();
     textEl.textContent = message;
     modal.classList.add('visible');
 
-    let timeLeft = duration / 1000;
-    timerEl.textContent = timeLeft;
+    const totalDuration = Math.max(500, Number(duration) || 3000);
+    const startedAt = Date.now();
 
-    const interval = setInterval(() => {
-        timeLeft--;
-        if (timeLeft > 0) {
-            timerEl.textContent = timeLeft;
-        } else {
-            clearInterval(interval);
+    const updateCountdownUi = () => {
+        const elapsedMs = Date.now() - startedAt;
+        const remainingMs = Math.max(0, totalDuration - elapsedMs);
+        const remainingSeconds = Math.ceil(remainingMs / 1000);
+        const progress = Math.min(100, (elapsedMs / totalDuration) * 100);
+
+        if (timerEl) timerEl.textContent = `${remainingSeconds}s`;
+        if (progressEl) progressEl.style.width = `${progress}%`;
+        if (progressWrapEl) progressWrapEl.setAttribute('aria-valuenow', String(Math.round(progress)));
+
+        if (remainingMs <= 0) {
+            clearInterval(confirmationModalIntervalId);
+            confirmationModalIntervalId = null;
             modal.classList.remove('visible');
+            deactivateConfirmationModalLayer();
             // Enable inputs and set placeholder for confirmation
             setInputsEnabled(true);
             masterInput.placeholder = "Press Ctrl+Enter to confirm send...";
             masterInput.focus();
         }
-    }, 1000);
+    };
+
+    updateCountdownUi();
+
+    confirmationModalIntervalId = setInterval(updateCountdownUi, 100);
 }
 
 function setInputsEnabled(enabled) {
@@ -794,10 +975,11 @@ function setInputsEnabled(enabled) {
 if (window.electronAPI.onFileUploadComplete) {
     window.electronAPI.onFileUploadComplete(() => {
         pendingConfirmation = true;
-        showModal("파일 업로드 완료 확인 후, Ctrl + Enter를 입력하여 진행해주세요.", 3000);
+        showModal("Please verify upload completion in each AI service view,\nthen press Ctrl + Enter to send.", 3000);
     });
 }
 
+window.sendPrompt = sendPrompt;
 async function sendPrompt() {
     console.log('sendPrompt called. pendingConfirmation:', pendingConfirmation, 'chatMode:', chatMode);
 
@@ -814,7 +996,7 @@ async function sendPrompt() {
 
         // Ensure inputs are enabled and reset placeholder
         setInputsEnabled(true);
-        masterInput.placeholder = "Type your prompt here... (Ctrl+Enter to Send, Ctrl+Shift+Enter for New Chat)";
+        masterInput.placeholder = MAIN_INPUT_PLACEHOLDER;
         masterInput.focus();
         return;
     }
@@ -867,7 +1049,7 @@ async function sendPrompt() {
         attachedFiles = [];
         renderFilePreview();
         setInputsEnabled(true);
-        masterInput.placeholder = "Type your prompt here... (Ctrl+Enter to Send, Ctrl+Shift+Enter for New Chat)";
+        masterInput.placeholder = MAIN_INPUT_PLACEHOLDER;
         masterInput.focus();
     }
 }
@@ -906,6 +1088,77 @@ inputArea.addEventListener('drop', (e) => {
     const files = Array.from(e.dataTransfer.files);
     files.forEach(file => addFile(file));
 });
+
+const MULTI_LINE_THRESHOLD = 200;
+const TEXT_ATTACHMENT_CHARS_PER_LINE_EQUIVALENT = 120;
+const MULTI_LINE_CHAR_THRESHOLD = MULTI_LINE_THRESHOLD * TEXT_ATTACHMENT_CHARS_PER_LINE_EQUIVALENT;
+
+function getTextLineCount(text) {
+    return (text || '').split('\n').length;
+}
+
+function getTextCharCount(text) {
+    return Array.from(text || '').length;
+}
+
+function shouldConvertTextToAttachment(textContent, options = {}) {
+    const lineThreshold = options.lineThreshold ?? MULTI_LINE_THRESHOLD;
+    const charThreshold = options.charThreshold ?? (lineThreshold * TEXT_ATTACHMENT_CHARS_PER_LINE_EQUIVALENT);
+    const lineCount = getTextLineCount(textContent);
+    const charCount = getTextCharCount(textContent);
+
+    const lineExceeded = lineCount >= lineThreshold;
+    const charExceeded = charCount >= charThreshold;
+
+    return {
+        shouldConvert: Boolean(textContent) && (lineExceeded || charExceeded),
+        lineCount,
+        charCount,
+        lineThreshold,
+        charThreshold,
+        reason: lineExceeded ? 'line-threshold' : (charExceeded ? 'char-threshold' : 'below-threshold')
+    };
+}
+
+async function convertLongTextToAttachment(textContent, options = {}) {
+    const {
+        threshold = MULTI_LINE_THRESHOLD,
+        charThreshold = MULTI_LINE_CHAR_THRESHOLD,
+        filePrefix = 'paste',
+        source = 'text',
+        clearInputWhenConverted = false
+    } = options;
+
+    const evalResult = shouldConvertTextToAttachment(textContent, {
+        lineThreshold: threshold,
+        charThreshold
+    });
+    if (!evalResult.shouldConvert) {
+        return { converted: false, ...evalResult };
+    }
+
+    const timestamp = Date.now();
+    const fileName = `${filePrefix}-${timestamp}.txt`;
+    const encoder = new TextEncoder();
+    const buffer = encoder.encode(textContent);
+
+    try {
+        const filePath = await window.electronAPI.saveTempFile(Array.from(buffer), fileName);
+        attachedFiles.push({ name: fileName, path: filePath });
+        renderFilePreview();
+        if (clearInputWhenConverted && masterInput) {
+            masterInput.value = '';
+        }
+        console.log(`[Attachment Convert] ${source}: ${evalResult.lineCount} lines / ${evalResult.charCount} chars (${evalResult.reason}) -> ${fileName}`);
+        return { converted: true, ...evalResult, fileName, filePath };
+    } catch (err) {
+        console.error(`[Attachment Convert] Failed for ${source}:`, err);
+        return { converted: false, ...evalResult, error: err };
+    }
+}
+
+window.convertLongTextToAttachment = convertLongTextToAttachment;
+window.shouldConvertTextToAttachment = shouldConvertTextToAttachment;
 
 // Paste Handler
 document.addEventListener('paste', async (e) => {
@@ -948,32 +1201,18 @@ document.addEventListener('paste', async (e) => {
         textContent = e.clipboardData.getData('text/plain');
 
         if (textContent) {
-            const lineCount = textContent.split('\n').length;
-            const MULTI_LINE_THRESHOLD = 200; // Convert to file if 200+ lines
-
-            // If text has many lines, convert to file
-            if (lineCount >= MULTI_LINE_THRESHOLD) {
+            const decision = shouldConvertTextToAttachment(textContent);
+            if (decision.shouldConvert) {
                 e.preventDefault(); // Prevent default paste
-
-                const timestamp = Date.now();
-                const fileName = `paste-${timestamp}.txt`;
-
-                // Convert text to buffer
-                const encoder = new TextEncoder();
-                const buffer = encoder.encode(textContent);
-
-                try {
-                    const filePath = await window.electronAPI.saveTempFile(Array.from(buffer), fileName);
-                    attachedFiles.push({ name: fileName, path: filePath });
-                    renderFilePreview();
-                    console.log(`Multi-line text (${lineCount} lines) converted to file: ${fileName}`);
-                } catch (err) {
-                    console.error('Failed to save pasted text as file:', err);
+                const result = await convertLongTextToAttachment(textContent, {
+                    source: 'clipboard-paste',
+                    filePrefix: 'paste'
+                });
+                if (!result.converted) {
                     // Fallback: insert text into textarea anyway
                     masterInput.value += textContent;
                 }
             }
-            // If text is short (< 5 lines), let browser handle normal paste
         }
     }
 });
@@ -1106,6 +1345,9 @@ function updateLayoutState() {
     if (window.electronAPI.requestCurrentUrls) {
         setTimeout(() => window.electronAPI.requestCurrentUrls(), 100);
     }
+
+    // Keep control lock stable if some other action triggered layout refresh while maximized.
+    setBottomControlsDisabled(isAnyViewMaximized());
 }
 
 function setLayout(layout) {
@@ -1601,12 +1843,17 @@ resizeObserver.observe(viewsPlaceholder);
 // Initialize Layout Buttons
 Object.keys(layoutBtns).forEach(layout => {
     layoutBtns[layout].addEventListener('click', () => {
+        if (isAnyViewMaximized()) return;
         setLayout(layout);
     });
 });
 
 for (const [service, toggle] of Object.entries(toggles)) {
     toggle.addEventListener('change', (e) => {
+        if (isAnyViewMaximized()) {
+            e.target.checked = activeServiceKeys.includes(service);
+            return;
+        }
         // Enforce max 4 services in Multi mode (spec)
         if (chatMode === 'multi' && e.target.checked && !isApplyingMultiToggleClamp) {
             const checkedNow = getCheckedMultiServicesInOrder();
@@ -1997,7 +2244,17 @@ if (btnSavePredefined) {
     });
 }
 
-btnCustomPrompt.addEventListener('click', showCustomPromptView);
+btnCustomPrompt.addEventListener('click', () => {
+    // Store anonymous mode for CPB to use when sending
+    window._cpb_isAnonymousMode = isAnonymousMode;
+    // Close parent cross-check modal views (keep modal open behind CPB)
+    if (typeof window.openCustomPromptBuilder === 'function') {
+        window.openCustomPromptBuilder();
+    } else {
+        // Fallback to old view
+        showCustomPromptView();
+    }
+});
 backToOptionsBtn.addEventListener('click', showOptionsView);
 
 // Add Custom Prompt Button
@@ -3814,8 +4071,10 @@ function setupResizeHandle() {
         const deltaY = startY - e.clientY;
         const newHeight = startHeight + deltaY;
 
-        // Use initial height as minimum (prevents scrollbar), max 60% of viewport
-        const minHeight = initialControlsHeight || 200;
+        // Do not allow shrinking below the launch-time default height.
+        // This prevents toolbar controls from being clipped when dragging down.
+        const defaultMinHeight = initialControlsHeight || 200;
+        const minHeight = Math.max(200, defaultMinHeight);
         const maxHeight = window.innerHeight * 0.6;
         if (newHeight >= minHeight && newHeight < maxHeight) {
             inputContainer.style.height = `${newHeight}px`;
@@ -3996,6 +4255,10 @@ function setupSessionPersistence() {
     for (const [service, toggle] of Object.entries(toggles)) {
         if (toggle) {
             toggle.addEventListener('change', () => {
+                if (isAnyViewMaximized()) {
+                    toggle.checked = activeServiceKeys.includes(service);
+                    return;
+                }
                 // Update layout first (existing logic might be attached, but we ensure it runs)
                 updateLayoutState();
                 window.electronAPI.toggleService(service, toggle.checked);

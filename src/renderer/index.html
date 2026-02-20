@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sync Multi Chat (v0.6.1)</title>
+<title>Sync Multi Chat (v0.7.0)</title>
+    <link rel="stylesheet" href="../../node_modules/easymde/dist/easymde.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -162,10 +163,103 @@
                 <div id="input-area">
                     <div class="input-controls">
                         <div class="prompt-card">
-                            <textarea id="master-input"
-                                placeholder="Type your prompt here... (Ctrl+Enter to Send, Ctrl+Shift+Enter for New Chat)"></textarea>
+                            <div class="prompt-split-container">
+                                <div class="prompt-editor-pane">
+                                    <div class="inline-md-toolbar" id="inline-md-toolbar" style="display:none;">
+                                        <button class="md-tb-btn" data-md="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+                                        <button class="md-tb-btn" data-md="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+                                        <button class="md-tb-btn" data-md="strikethrough" title="Strikethrough"><s>S</s></button>
+                                        <span class="md-tb-sep"></span>
+                                        <button class="md-tb-btn" data-md="heading" title="Heading">H</button>
+                                        <button class="md-tb-btn" data-md="quote" title="Quote">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3z"/></svg>
+                                        </button>
+                                        <span class="md-tb-sep"></span>
+                                        <button class="md-tb-btn" data-md="ul" title="Unordered List">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/></svg>
+                                        </button>
+                                        <button class="md-tb-btn" data-md="ol" title="Ordered List">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="1" y="8" font-size="7" fill="currentColor" stroke="none" font-family="sans-serif">1</text><text x="1" y="14" font-size="7" fill="currentColor" stroke="none" font-family="sans-serif">2</text><text x="1" y="20" font-size="7" fill="currentColor" stroke="none" font-family="sans-serif">3</text></svg>
+                                        </button>
+                                        <span class="md-tb-sep"></span>
+                                        <button class="md-tb-btn" data-md="link" title="Link">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                        </button>
+                                        <button class="md-tb-btn" data-md="code" title="Code">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                                        </button>
+                                        <button class="md-tb-btn" data-md="table" title="Table">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                                        </button>
+                                        <button class="md-tb-btn" data-md="hr" title="Horizontal Rule">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                                        </button>
+                                        <span class="md-tb-sep"></span>
+                                        <button class="md-tb-btn" data-md="undo" title="Undo (Ctrl+Z)">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                                        </button>
+                                        <button class="md-tb-btn" data-md="redo" title="Redo (Ctrl+Y)">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+                                        </button>
+                                    </div>
+                                    <textarea id="master-input"
+                                        placeholder="Type your prompt here... (Ctrl+Enter for send, Ctrl+Shift+Enter for New Chat)
+
+· Type &quot;/&quot; slash command to load and insert a saved custom prompt template.
+· Type &quot;{{&quot; to insert global/system variable."></textarea>
+                                </div>
+                                <div class="prompt-inline-preview-pane" id="prompt-inline-preview-pane" style="display:none;">
+                                    <div class="prompt-inline-preview-header">
+                                        <label class="cpb-zen-toggle cpb-live-toggle inline-live-toggle" title="Live Preview">
+                                            <input type="checkbox" id="inline-live-toggle" checked />
+                                            <span class="cpb-zen-slider"></span>
+                                            <span class="cpb-zen-label">Live</span>
+                                        </label>
+                                        <div class="inline-preview-theme-switcher" id="inline-preview-theme">
+                                            <button class="inline-preview-theme-btn active" data-theme="light" title="Light">
+                                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                                            </button>
+                                            <button class="inline-preview-theme-btn" data-theme="dark" title="Dark">
+                                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="prompt-inline-preview-content cpb-preview master-preview" id="prompt-inline-preview-content"></div>
+                                </div>
+                            </div>
+                            <div id="master-ac" class="master-ac"></div>
+                            <div id="master-slash-menu" class="master-slash-menu"></div>
+                            <!-- Preview + Expand/Collapse buttons for prompt input -->
+                            <button id="master-preview-btn" class="master-preview-inline-btn" title="Toggle inline preview" aria-label="Toggle inline preview">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                            <button id="prompt-expand-btn" class="prompt-expand-btn" title="Expand prompt area"
+                                style="position:absolute!important;top:10px;right:26px;">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <polyline points="9 21 3 21 3 15"></polyline>
+                                    <polyline points="3 9 3 3 9 3"></polyline>
+                                    <polyline points="21 15 21 21 15 21"></polyline>
+                                </svg>
+                            </button>
+                            <!-- Scroll to Top Button (inside prompt card) -->
+                            <button id="scroll-to-top-btn" class="scroll-to-top-btn" title="Scroll to top" style="display: none;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <path d="M18 15l-6-6-6 6"></path>
+                                </svg>
+                            </button>
+                            <div id="main-prompt-validation" class="main-prompt-validation" style="display:none;" aria-live="polite"></div>
                             <div class="prompt-toolbar">
                                 <div class="toolbar-left">
+                                    <button id="master-expand-btn" class="master-expand-modern-btn" title="Open session prompt builder" aria-label="Open session prompt builder">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                        </svg>
+                                        <span>Prompt Builder</span>
+                                    </button>
                                     <button id="clip-btn" title="Attach files" aria-label="Attach files">
                                         <svg class="clip-icon" viewBox="0 0 24 24" aria-hidden="true">
                                             <path
@@ -189,10 +283,26 @@
                 </div>
             </div>
         </div>
-        <div id="confirmation-modal">
-            <div class="modal-content">
-                <div class="modal-text">파일 업로드 완료 확인 후,<br>Ctrl + Enter를 입력하여 진행해주세요.</div>
-                <div class="modal-timer"></div>
+        <div id="confirmation-modal" class="modal upload-confirm-modal">
+            <div class="modal-content upload-confirm-modal-content">
+                <div class="upload-confirm-body">
+                    <div class="upload-confirm-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <p class="upload-confirm-title">Files are attached to each prompt form</p>
+                    <p class="upload-confirm-text">Please verify upload completion in each AI service view.<br>Then press <b>Ctrl + Enter</b> to confirm sending.</p>
+                    <div class="upload-confirm-countdown" aria-live="polite">
+                        <span class="upload-confirm-timer">3초</span>
+                        <span class="upload-confirm-hint">Time remaining before confirmation step</span>
+                    </div>
+                    <div class="upload-confirm-progress" role="progressbar" aria-label="Upload confirmation waiting progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                        <div class="upload-confirm-progress-fill"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -265,7 +375,12 @@
                             <input type="text" id="custom-prompt-title" placeholder="Prompt Title" class="input-field">
                         </div>
                         <div class="input-group">
-                            <textarea id="custom-prompt-input" placeholder="Enter your custom prompt here..."
+                            <textarea id="custom-prompt-input" placeholder="Build a reusable custom prompt template.
+
+· Type &quot;{{&quot; to insert global/system variable. 
+  - System: {{chat_thread}}, {{last_response}}, {{current_time}} (ISO 8601)
+  - Global/Session examples: {{output_format}}, {{role}}, {{lang}}, {{timezone}}
+  - Reserved: {{main_prompt}} cannot be used in this editor."
                                 class="textarea-field"></textarea>
                         </div>
                         <div class="controls-row">
@@ -444,28 +559,323 @@
             </div>
         </div>
 
-        <!-- Scroll to Top Button -->
-        <button id="scroll-to-top-btn" class="scroll-to-top-btn" title="Scroll to top" style="display: none;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                <path d="M18 15l-6-6-6 6"></path>
-            </svg>
-        </button>
+        <!-- Generic Confirm Modal -->
+        <div id="smc-confirm-modal" class="modal smc-confirm-modal">
+            <div class="modal-content smc-confirm-modal-content">
+                <div class="smc-confirm-body">
+                    <div class="smc-confirm-icon">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <p id="smc-confirm-msg" class="smc-confirm-msg"></p>
+                </div>
+                <div class="smc-confirm-actions">
+                    <button id="smc-confirm-cancel" class="btn-ghost">Cancel</button>
+                    <button id="smc-confirm-ok" class="btn-primary">OK</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Variable Input Modal -->
+        <div id="var-input-modal" class="modal var-input-modal">
+            <div class="modal-content var-input-modal-content">
+                <div class="modal-header">
+                    <h3>Set Variables</h3>
+                    <button id="close-var-input-modal-btn" class="close-btn" aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-body var-input-modal-body">
+                    <p class="var-input-desc">Please set values for the following variables before sending:</p>
+                    <div class="var-input-stats">
+                        <span id="var-input-unresolved-stat" class="var-input-stat-pill warning">Unresolved 0</span>
+                        <span id="var-input-total-stat" class="var-input-stat-pill">Total 0</span>
+                    </div>
+                    <div id="var-input-rows"></div>
+                </div>
+                <div class="var-input-actions">
+                    <button id="var-input-cancel-btn" class="btn-ghost">Cancel</button>
+                    <button id="var-input-send-anyway-btn" class="btn-ghost">Send Anyway</button>
+                    <button id="var-input-send-btn" class="btn-primary">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Modal -->
+        <div id="preview-modal" class="modal preview-modal">
+            <div class="modal-content preview-modal-content">
+                <div class="modal-header preview-modal-header">
+                    <h3>Prompt Preview</h3>
+                    <div class="preview-modal-header-actions">
+                        <label class="cpb-zen-toggle cpb-live-toggle preview-live-toggle" title="Live Preview">
+                            <input type="checkbox" id="preview-live-toggle" checked />
+                            <span class="cpb-zen-slider"></span>
+                            <span class="cpb-zen-label">Live Preview</span>
+                        </label>
+                        <div id="preview-modal-theme" class="master-preview-theme" style="display:inline-flex;">
+                            <button class="master-preview-theme-btn active" data-theme="light" title="Light preview">Light</button>
+                            <button class="master-preview-theme-btn" data-theme="dark" title="Dark preview">Dark</button>
+                        </div>
+                        <button id="close-preview-modal-btn" class="close-btn" aria-label="Close">&times;</button>
+                    </div>
+                </div>
+                <div class="modal-body preview-modal-body">
+                    <div class="preview-modal-split">
+                        <div id="preview-modal-editor-pane" class="preview-modal-pane preview-modal-editor-pane">
+                            <textarea id="preview-modal-editor" spellcheck="false"></textarea>
+                        </div>
+                        <div id="preview-modal-preview-pane" class="preview-modal-pane preview-modal-preview-pane">
+                            <div id="preview-modal-content" class="cpb-preview master-preview"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="preview-modal-actions">
+                    <button id="preview-modal-close-btn" class="btn-ghost">Close</button>
+                    <button id="preview-modal-send-btn" class="btn-primary">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Prompt Builder Modal (CPB) -->
+        <div id="cpb-modal" class="modal cpb-modal-root">
+            <div class="cpb-app">
+                <!-- Sidebar -->
+                <aside class="cpb-sidebar" id="cpb-sidebar">
+                    <div class="cpb-sb-top">
+                        <div class="cpb-sb-title">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            Saved Prompts
+                        </div>
+                        <div class="cpb-sb-actions">
+                            <button class="cpb-btn cpb-btn-primary cpb-btn-icon-only" id="cpb-btn-new" title="New prompt">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            </button>
+                            <button class="cpb-icon-btn" id="cpb-btn-collapse-sidebar" title="Toggle sidebar">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="cpb-sb-search">
+                        <input id="cpb-search" class="cpb-input" placeholder="Search prompts..." autocomplete="off" />
+                        <div class="cpb-chip cpb-sort-chip" id="cpb-sort-btn" title="Toggle sort">Sort: Recent</div>
+                    </div>
+                    <div class="cpb-list" id="cpb-list"></div>
+                    <div class="cpb-sb-footer">
+                        <button class="cpb-btn cpb-btn-secondary" id="cpb-btn-import" title="Import JSON">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Import
+                        </button>
+                        <button class="cpb-btn cpb-btn-secondary" id="cpb-btn-export" title="Export JSON">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Export
+                        </button>
+                    </div>
+                    <div class="cpb-resize-handle cpb-resize-right" id="cpb-sb-resize"></div>
+                </aside>
+
+                <!-- Main Area -->
+                <main class="cpb-main">
+                    <!-- Topbar -->
+                    <div class="cpb-topbar">
+                        <div class="cpb-tb-title-area">
+                            <input id="cpb-prompt-title" class="cpb-input cpb-input-title" placeholder="Prompt title" />
+                        </div>
+                        <div class="cpb-tb-meta-area">
+                            <div class="cpb-status" title="Save status">
+                                <span class="cpb-dot cpb-dot-saved" id="cpb-dirty-dot"></span>
+                                <span id="cpb-dirty-text">Saved</span>
+                            </div>
+                            <span class="cpb-muted cpb-text-sm" id="cpb-meta-text"></span>
+                        </div>
+                        <div class="cpb-tb-actions">
+                            <!-- Zen toggle -->
+                            <label class="cpb-zen-toggle" title="Zen Mode">
+                                <input type="checkbox" id="cpb-zen-check" />
+                                <span class="cpb-zen-slider"></span>
+                                <span class="cpb-zen-label">Zen</span>
+                            </label>
+                            <!-- Duplicate -->
+                            <button class="cpb-btn cpb-btn-secondary cpb-btn-sm" id="cpb-btn-dup" title="Duplicate prompt">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                Duplicate
+                            </button>
+                            <!-- Save -->
+                            <button class="cpb-btn cpb-btn-secondary cpb-btn-sm" id="cpb-btn-save" title="Save (Ctrl+S)" disabled>
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                Save
+                            </button>
+                            <!-- Delete -->
+                            <button class="cpb-btn cpb-btn-danger cpb-btn-sm" id="cpb-btn-del" title="Delete prompt">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                Delete
+                            </button>
+                            <!-- Close -->
+                            <button class="cpb-icon-btn" id="cpb-close-btn" title="Close">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Workspace (Editor + Variables) -->
+                    <div class="cpb-workspace">
+                        <!-- Editor -->
+                        <section class="cpb-center">
+                            <div class="cpb-editor-shell">
+                                <div class="cpb-editor-head">
+                                    <div class="cpb-tabs2">
+                                        <span class="cpb-pill cpb-pill-active" id="cpb-tab-edit">Edit</span>
+                                        <span class="cpb-pill" id="cpb-tab-prev">Preview</span>
+                                        <label class="cpb-zen-toggle cpb-live-toggle" title="Live Preview">
+                                            <input type="checkbox" id="cpb-live-preview-check" />
+                                            <span class="cpb-zen-slider"></span>
+                                            <span class="cpb-zen-label">Live Preview</span>
+                                        </label>
+                                    </div>
+                                    <div class="cpb-toolbar">
+                                        <button class="cpb-btn cpb-btn-secondary cpb-btn-sm" id="cpb-btn-insert-var">
+                                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                            Insert Var
+                                        </button>
+                                        <button class="cpb-btn cpb-btn-secondary cpb-btn-sm" id="cpb-btn-format">
+                                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                                            Format
+                                        </button>
+                                        <span class="cpb-pill cpb-pill-active" id="cpb-hl-on">Highlight Vars</span>
+                                        <span class="cpb-pill" id="cpb-hl-missing">Unresolved Only</span>
+                                    </div>
+                                </div>
+                                <div class="cpb-editor" id="cpb-editor-wrap">
+                                    <div class="cpb-editor-highlight-wrap">
+                                        <div class="cpb-editor-highlight" id="cpb-editor-highlight"></div>
+                                        <textarea id="cpb-editor-textarea" spellcheck="false" placeholder="Build a reusable custom prompt template.
+
+· Type &quot;{{&quot; to insert global/system variable. 
+  - System: {{chat_thread}}, {{last_response}}, {{current_time}} (ISO 8601)
+  - Global/Session examples: {{output_format}}, {{role}}, {{lang}}, {{timezone}}
+  - Reserved: {{main_prompt}} cannot be used in this editor."></textarea>
+                                    </div>
+                                    <div class="cpb-preview" id="cpb-editor-preview"></div>
+                                    <div class="cpb-ac" id="cpb-ac"></div>
+                                </div>
+                                <!-- Bottom action bar -->
+                                <div class="cpb-editor-footer">
+                                    <button class="cpb-btn cpb-btn-secondary" id="cpb-btn-preview" title="Toggle preview">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        Preview
+                                    </button>
+                                    <div class="cpb-editor-footer-right">
+                                        <button class="cpb-btn cpb-btn-secondary" id="cpb-btn-copy-to-input" title="Copy prompt to main input">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                            Copy to Input
+                                        </button>
+                                        <button class="cpb-btn cpb-btn-primary" id="cpb-btn-send" title="Send cross-check (Ctrl+Enter)">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                            Send
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Variables Panel -->
+                        <aside class="cpb-vars" id="cpb-vars">
+                            <div class="cpb-vars-top">
+                                <div class="cpb-vars-title">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                    Variables
+                                </div>
+                                <button class="cpb-icon-btn" id="cpb-btn-collapse-vars" title="Toggle variables panel">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                                </button>
+                            </div>
+                            <div class="cpb-vars-body">
+                                <div class="cpb-tabs">
+                                    <div class="cpb-var-tab cpb-tab-active" data-tab="global">
+                                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                        Global
+                                    </div>
+                                    <div class="cpb-var-tab" data-tab="local" id="cpb-var-tab-local">
+                                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                        Local
+                                        <span class="cpb-tab-badge" id="cpb-local-tab-badge" style="display:none">0</span>
+                                    </div>
+                                    <div class="cpb-var-tab" data-tab="system">
+                                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                        System
+                                    </div>
+                                </div>
+
+                                <div id="cpb-panel-global">
+                                    <div class="cpb-hint">Global variables are shared across <b>all prompts</b>.<br/>e.g. {{output_format}}, {{role}}</div>
+                                    <div id="cpb-global-rows"></div>
+                                    <button class="cpb-btn cpb-btn-add-row" id="cpb-add-global">+ Add Global Variable</button>
+                                    <div class="cpb-sep"></div>
+                                    <div class="cpb-muted cpb-text-sm cpb-text-bold">Quick Insert</div>
+                                    <div class="cpb-var-chips" id="cpb-global-chips"></div>
+                                </div>
+
+                                <div id="cpb-panel-local" style="display:none">
+                                    <div class="cpb-hint">Local variables are saved only for the <b>current prompt</b>.<br/>e.g. {{analysis_depth}}, {{topic}}</div>
+                                    <div class="cpb-var-suggest-box" id="cpb-local-suggest-box" style="display:none">
+                                        <div class="cpb-var-suggest-head">
+                                            <span>Detected in editor</span>
+                                            <span class="cpb-var-suggest-count" id="cpb-local-suggest-count"></span>
+                                        </div>
+                                        <div class="cpb-var-suggest-rows" id="cpb-local-suggest-rows"></div>
+                                        <button class="cpb-btn cpb-btn-add-row cpb-var-suggest-add-all" id="cpb-add-all-local-suggest">+ Add All Detected</button>
+                                    </div>
+                                    <div id="cpb-local-rows"></div>
+                                    <button class="cpb-btn cpb-btn-add-row" id="cpb-add-local">+ Add Local Variable</button>
+                                    <div class="cpb-sep"></div>
+                                    <div class="cpb-muted cpb-text-sm cpb-text-bold">Quick Insert</div>
+                                    <div class="cpb-var-chips" id="cpb-local-chips"></div>
+                                </div>
+
+                                <div id="cpb-panel-system" style="display:none">
+                                    <div class="cpb-hint">System variables are automatically injected at runtime.</div>
+                                    <div class="cpb-var-chips" id="cpb-sys-chips"></div>
+                                    <div class="cpb-sep"></div>
+                                    <div class="cpb-muted cpb-text-sm" style="line-height:1.7">
+                                        <div><span class="cpb-chip" style="cursor:default">{{chat_thread}}</span> Full conversation thread (JSON)</div>
+                                        <div style="margin-top:8px"><span class="cpb-chip" style="cursor:default">{{last_response}}</span> Last AI response</div>
+                                        <div style="margin-top:8px"><span class="cpb-chip" style="cursor:default">{{current_time}}</span> Current time (ISO 8601)</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="cpb-vars-expand-btn" id="cpb-vars-expand-btn" title="Expand variables panel">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                            </button>
+                            <div class="cpb-resize-handle cpb-resize-left" id="cpb-vars-resize"></div>
+                        </aside>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <script src="../../node_modules/marked/lib/marked.umd.js"></script>
+        <script src="../../node_modules/easymde/dist/easymde.min.js"></script>
+        <script src="../../node_modules/prettier/standalone.js"></script>
+        <script src="../../node_modules/prettier/plugins/markdown.js"></script>
         <script src="history-manager.js"></script>
         <script src="renderer.js"></script>
+        <script src="custom-prompt-builder.js"></script>
         <script>
-            // Scroll to Top Button Logic (wrapped in IIFE to avoid variable conflicts)
+            // Scroll to Top Button Logic — monitors the master-input textarea scroll
             (function() {
                 const scrollTopBtn = document.getElementById('scroll-to-top-btn');
-                const controlsEl = document.getElementById('controls-container');
+                const masterInput = document.getElementById('master-input');
 
-                if (controlsEl && scrollTopBtn) {
-                    controlsEl.addEventListener('scroll', function () {
+                if (masterInput && scrollTopBtn) {
+                    masterInput.addEventListener('scroll', function () {
                         const scrollTop = this.scrollTop;
                         const scrollHeight = this.scrollHeight;
                         const clientHeight = this.clientHeight;
 
-                        // Show button when scrolled down more than 100px or near bottom
-                        if (scrollTop > 100 || (scrollTop + clientHeight >= scrollHeight - 50)) {
+                        // Only show when textarea has scrollable content and user has scrolled down
+                        const hasScrollableContent = scrollHeight > clientHeight + 20;
+
+                        if (hasScrollableContent && scrollTop > 80) {
                             scrollTopBtn.style.display = 'flex';
                         } else {
                             scrollTopBtn.style.display = 'none';
@@ -473,7 +883,12 @@
                     });
 
                     scrollTopBtn.addEventListener('click', function () {
-                        controlsEl.scrollTo({ top: 0, behavior: 'smooth' });
+                        masterInput.scrollTop = 0;
+                        const previewContent = document.getElementById('prompt-inline-preview-content');
+                        const splitContainer = document.querySelector('.prompt-split-container');
+                        if (previewContent && splitContainer && splitContainer.classList.contains('split-active')) {
+                            previewContent.scrollTop = 0;
+                        }
                     });
                 }
             })();

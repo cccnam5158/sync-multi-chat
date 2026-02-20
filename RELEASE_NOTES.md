@@ -1,5 +1,32 @@
 # Release Notes
 
+## v0.7.0 (2026-02-20)
+
+### ✨ New Features
+*   **Custom Prompt Builder**: Full-screen modal for creating and managing custom prompts with variable substitution.
+    *   **3-Panel Layout**: Saved Prompts Sidebar (left), Editor (center), Variables Panel (right) with collapsible panels and Zen mode.
+    *   **Three-Tier Variables**: System (`{{chat_thread}}`, `{{last_response}}`, `{{current_time}}`), Global (shared across prompts), and Local (per-prompt) with autocomplete, quick-insert chips, and variable insert palette.
+    *   **Edit/Preview Toggle**: Preview mode with variable substitution and optional variable/unresolved highlighting.
+    *   **Send & Copy to Input**: Send resolved prompt to all active webviews; or copy to main Prompt Input with selective substitution (System/Global remain as placeholders).
+    *   **Import/Export**: Export prompts and global variables as JSON; import with validation and overwrite confirmation.
+    *   **Persistence**: Prompts and UI state (panel widths, sort, Zen) saved to electron-store and localStorage; debounced save and auto-save on close.
+*   **Slash Command in Main Input**: Type `/` in the Prompt Input to open a list of saved custom prompts; filter by typing after `/`, keyboard navigation (↑/↓/Enter/Tab/Esc), and mouse selection to insert.
+*   **Inline Variable Form**: When the main input contains `{{variable}}` tokens, an inline mini variable form is auto-generated for non-system variables.
+*   **Unresolved Variable Handling**: On send attempt with unresolved variables, a confirmation dialog offers: review variables before send (focus jumps to first unresolved field), send anyway, or cancel.
+
+### ⬆️ Improvements
+*   **Popup Layer Visibility**: When Slash list, variable autocomplete, or unresolved-variable dialog is open, input context UI is shown above webview layers without temporarily resizing BrowserViews; application-level dim/blur over the webview region keeps popups readable.
+*   **File Upload Confirmation Modal**: Modal is no longer hidden behind webviews; BrowserView visibility is controlled while the modal is open. Countdown and progress bar UX improved; all modal text in English.
+*   **Perplexity**: Reduced duplicate prompt injection and faster file+prompt flow (shorter timeouts and polling; instant-type delay reduced; Lexical editor preferred for input target).
+*   **Gemini One-Login**: External Chrome login flow improved so one sign-in can reflect in the app webview: first sync only when on service domain (`gemini.google.com/app`), re-sync when cookie count increases on service domain, and fallback sync on Chrome close when auth cookies were observed.
+*   **Preview + Collapse**: When Live Preview is ON, "Collapse controls" now correctly collapses the prompt input area (min-height override for collapsed state).
+
+### 🔧 Fixes
+*   **File Upload Modal Timer**: Prevented duplicate timer runs and ensured modal layer state is restored correctly when another popup is already active.
+*   **Upload Confirm Text**: Newline and spacing in modal message cleaned for consistent display.
+
+---
+
 ## v0.6.1 (2026-02-06)
 
 ### 🔧 Fixes

@@ -1,6 +1,6 @@
 {
   "name": "sync-multi-chat",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Multi AI Chat Broadcaster - Broadcast prompts to multiple AI services simultaneously",
   "main": "src/main/main.js",
   "repository": {
@@ -39,10 +39,13 @@
   "dependencies": {
     "axios": "^1.13.2",
     "chrome-launcher": "^1.2.1",
+    "easymde": "^2.20.0",
     "electron-log": "^5.0.0",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.6.2",
     "idb": "^8.0.3",
+    "marked": "^17.0.1",
+    "prettier": "^3.8.1",
     "puppeteer-core": "^24.31.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",

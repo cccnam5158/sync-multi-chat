@@ -46,6 +46,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveCustomPrompts: (prompts) => ipcRenderer.invoke('save-custom-prompts', prompts),
     getPredefinedPrompt: () => ipcRenderer.invoke('get-predefined-prompt'),
     savePredefinedPrompt: (promptText) => ipcRenderer.invoke('save-predefined-prompt', promptText),
+    // Custom Prompt Builder
+    saveCustomPromptGlobalVars: (vars) => ipcRenderer.invoke('save-custom-prompt-global-vars', vars),
+    getCustomPromptGlobalVars: () => ipcRenderer.invoke('get-custom-prompt-global-vars'),
+    getSystemVarsForCPB: (options = {}) => ipcRenderer.invoke('get-system-vars-for-cpb', options),
+    shrinkViewsForPopup: (popupHeight) => ipcRenderer.send('shrink-views-for-popup', popupHeight),
+    restoreViewsFromPopup: () => ipcRenderer.send('restore-views-from-popup'),
     // Chat Mode APIs (Single AI / Multi AI)
     setChatMode: (mode, config) => ipcRenderer.invoke('set-chat-mode', mode, config),
     getChatMode: () => ipcRenderer.invoke('get-chat-mode'),

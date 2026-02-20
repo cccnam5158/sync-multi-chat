@@ -72,9 +72,9 @@ installSpaUrlHooks();
 // Low-frequency poll as a safety net (covers frameworks that mutate location in unusual ways)
 setInterval(() => reportUrlIfChanged(false), 1000);
 
-ipcRenderer.on('inject-prompt', (event, { text, selectors, autoSend }) => {
-    console.log('[inject-prompt] Received:', { text, selectors, autoSend, service: currentService });
-    injectPrompt(text, selectors, autoSend);
+ipcRenderer.on('inject-prompt', (event, { text, selectors, autoSend, typingMode = 'human' }) => {
+    console.log('[inject-prompt] Received:', { text, selectors, autoSend, typingMode, service: currentService });
+    injectPrompt(text, selectors, autoSend, { typingMode });
 });
 
 /**
@@ -265,21 +265,47 @@ async function humanLikeTyping(element, text, isProseMirror = false, isContentEd
     console.log('[humanLikeTyping] Typing simulation complete');
 }
 
-async function injectPrompt(text, selectors, autoSend = false) {
+async function injectPrompt(text, selectors, autoSend = false, options = {}) {
     console.log('[injectPrompt] Starting injection. Service:', currentService);
     console.log('[injectPrompt] Text length:', text.length);
     console.log('[injectPrompt] Selectors:', selectors);
+    const typingMode = options.typingMode || 'human';
+    const useHumanTyping = typingMode !== 'instant';
 
     // Try to find input element using provided selectors with retry
+    // Perplexity can expose both hidden textarea and visible lexical editor.
+    // Prefer the visible contenteditable editor to avoid duplicated text insertion.
+    const isPerplexityService = currentService === 'perplexity';
     let inputEl = null;
+    let fallbackInputEl = null;
     for (let i = 0; i < 15; i++) { // Retry up to 3 seconds
         for (const selector of selectors.inputSelector) {
-            inputEl = document.querySelector(selector);
+            const candidate = document.querySelector(selector);
+            if (!candidate) continue;
+
+            if (isPerplexityService) {
+                const isEditable = candidate.isContentEditable || candidate.getAttribute('contenteditable') === 'true';
+                const rect = candidate.getBoundingClientRect();
+                const style = window.getComputedStyle(candidate);
+                const isVisible = rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+
+                if (!fallbackInputEl) fallbackInputEl = candidate;
+                if (isEditable && isVisible) {
+                    inputEl = candidate;
+                }
+            } else {
+                inputEl = candidate;
+            }
+
             if (inputEl) {
                 console.log('[injectPrompt] Input element found with selector:', selector);
                 console.log('[injectPrompt] Element type:', inputEl.tagName, 'contentEditable:', inputEl.contentEditable, 'classList:', Array.from(inputEl.classList || []));
                 break;
             }
+        }
+        if (!inputEl && isPerplexityService && fallbackInputEl) {
+            inputEl = fallbackInputEl;
+            console.log('[injectPrompt] Perplexity fallback input selected:', inputEl.tagName);
         }
         if (inputEl) break;
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -295,14 +321,17 @@ async function injectPrompt(text, selectors, autoSend = false) {
     if (currentService === 'perplexity') {
         console.log('[injectPrompt] Perplexity detected: Clicking and waiting for editor activation...');
         inputEl.click();
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const perplexityActivationDelayMs = useHumanTyping ? 300 : 80;
+        await new Promise(resolve => setTimeout(resolve, perplexityActivationDelayMs));
     }
 
     inputEl.focus();
     console.log('[injectPrompt] Input focused');
     
-    // Small delay after focus (human behavior)
-    await new Promise(r => setTimeout(r, 100 + Math.random() * 200));
+    // Small delay after focus only for human-like typing mode
+    if (useHumanTyping) {
+        await new Promise(r => setTimeout(r, 100 + Math.random() * 200));
+    }
 
     // 2. Set Value based on element type with human-like typing
     const isProseMirror = inputEl.classList.contains('ProseMirror');
@@ -314,28 +343,66 @@ async function injectPrompt(text, selectors, autoSend = false) {
 
         // Clear existing content first
         inputEl.innerHTML = '';
-        
-        // Use human-like typing
-        await humanLikeTyping(inputEl, text, isProseMirror, isContentEditable);
-        console.log('[injectPrompt] Human-like typing completed for ContentEditable');
+
+        if (useHumanTyping) {
+            // Use human-like typing
+            await humanLikeTyping(inputEl, text, isProseMirror, isContentEditable);
+            console.log('[injectPrompt] Human-like typing completed for ContentEditable');
+        } else {
+            // Multi mode: set text immediately for fast injection
+            const inserted = document.execCommand('insertText', false, text);
+            if (!inserted) inputEl.textContent = text;
+
+            if (isPerplexityService) {
+                // Perplexity lexical editor can duplicate text when synthetic InputEvent carries full data payload.
+                inputEl.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+            } else {
+                inputEl.dispatchEvent(new InputEvent('input', {
+                    bubbles: true,
+                    cancelable: true,
+                    inputType: 'insertFromPaste',
+                    data: text,
+                    view: window
+                }));
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            console.log('[injectPrompt] Instant injection completed for ContentEditable');
+        }
     } else {
         // Textarea (ChatGPT)
         console.log('[injectPrompt] Using Textarea injection (for ChatGPT)');
-        
+
         // Clear existing content
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
             window.HTMLTextAreaElement.prototype, 'value'
         ).set;
         nativeInputValueSetter.call(inputEl, '');
-        
-        // Use human-like typing
-        await humanLikeTyping(inputEl, text, false, false);
-        console.log('[injectPrompt] Human-like typing completed for Textarea');
+
+        if (useHumanTyping) {
+            // Use human-like typing
+            await humanLikeTyping(inputEl, text, false, false);
+            console.log('[injectPrompt] Human-like typing completed for Textarea');
+        } else {
+            nativeInputValueSetter.call(inputEl, text);
+            if (isPerplexityService) {
+                inputEl.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+            } else {
+                inputEl.dispatchEvent(new InputEvent('input', {
+                    bubbles: true,
+                    cancelable: true,
+                    inputType: 'insertFromPaste',
+                    data: text,
+                    view: window
+                }));
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            console.log('[injectPrompt] Instant injection completed for Textarea');
+        }
     }
 
     // 3. Trigger Enter key if needed or Click Send
     if (autoSend) {
-        clickSendButton(selectors, inputEl);
+        clickSendButton(selectors, inputEl, { sendDelayMs: useHumanTyping ? 1000 : 0 });
     } else {
         console.log('[injectPrompt] autoSend is false, skipping send button click');
     }
@@ -343,7 +410,7 @@ async function injectPrompt(text, selectors, autoSend = false) {
     console.log('[injectPrompt] Injection complete');
 }
 
-ipcRenderer.on('click-send-button', (event, { selectors }) => {
+ipcRenderer.on('click-send-button', (event, { selectors, sendDelayMs } = {}) => {
     console.log('[click-send-button] Received request to click send button');
     // Find input element again for context
     let inputEl = null;
@@ -351,10 +418,11 @@ ipcRenderer.on('click-send-button', (event, { selectors }) => {
         inputEl = document.querySelector(selector);
         if (inputEl) break;
     }
-    clickSendButton(selectors, inputEl);
+    clickSendButton(selectors, inputEl, { sendDelayMs });
 });
 
-function clickSendButton(selectors, providedInputEl = null) {
+function clickSendButton(selectors, providedInputEl = null, options = {}) {
+    const delayMs = Number.isFinite(options.sendDelayMs) ? Math.max(0, options.sendDelayMs) : 1000;
     // Some apps (like Claude) might need a small delay for the state to update before the button becomes enabled
     setTimeout(() => {
         console.log('[clickSendButton] Looking for send button...');
@@ -426,7 +494,7 @@ function clickSendButton(selectors, providedInputEl = null) {
                 console.error('[clickSendButton] Could not find input element for keyboard fallback');
             }
         }
-    }, 1000); // Increased delay to 1000ms to ensure button state updates
+    }, delayMs);
 }
 
 //===========================================
@@ -446,28 +514,86 @@ ipcRenderer.on('set-config', (event, payload) => {
 // Request config immediately (Handshake)
 ipcRenderer.send('request-config');
 
-setInterval(() => {
-    if (!currentConfig) return;
+let lastStableLoggedInState = false;
+let consecutiveLoggedOutChecks = 0;
+const GEMINI_LOGOUT_GRACE_CHECKS = 3; // 2s interval * 3 = up to ~6s grace for transient DOM misses
 
-    let isLoggedIn = false;
+function detectLoggedInBySelectors(config) {
+    if (!config) return false;
 
     // 1. Check for explicit loggedInSelector if available (Best)
-    if (currentConfig.loggedInSelector) {
-        for (const selector of currentConfig.loggedInSelector) {
+    if (config.loggedInSelector) {
+        for (const selector of config.loggedInSelector) {
             if (document.querySelector(selector)) {
-                isLoggedIn = true;
-                break;
+                return true;
             }
         }
     }
 
-    // 2. Fallback to inputSelector if not determined yet
-    if (!isLoggedIn) {
-        for (const selector of currentConfig.inputSelector) {
+    // 2. Fallback to inputSelector
+    if (config.inputSelector) {
+        for (const selector of config.inputSelector) {
             if (document.querySelector(selector)) {
-                isLoggedIn = true;
-                break;
+                return true;
             }
+        }
+    }
+
+    return false;
+}
+
+function isGeminiExplicitlyLoggedOut() {
+    const pageText = (document.body?.innerText || '').toLowerCase();
+    const loggedOutTextHints = [
+        '로그아웃된 상태입니다',
+        '다시 로그인하세요',
+        'signed out',
+        'sign in again'
+    ];
+
+    for (const hint of loggedOutTextHints) {
+        if (pageText.includes(hint)) return true;
+    }
+    return false;
+}
+
+function isGeminiLikelyLoggedIn() {
+    const hints = [
+        "button[aria-label*='Google 계정']",
+        "button[aria-label*='Google Account']",
+        "button[aria-label*='계정']",
+        "img[alt*='Google Account']",
+        "img[alt*='프로필']",
+        "div[data-test-id='chat-history-button']",
+        "bard-sidenav button",
+        "chat-window"
+    ];
+
+    for (const selector of hints) {
+        if (document.querySelector(selector)) return true;
+    }
+
+    // If we're on Gemini app URL and no explicit logged-out signal is present,
+    // treat it as likely logged-in to avoid false "로그인 필요" badge flicker.
+    const onGeminiApp = window.location.hostname.includes('gemini.google.com') &&
+        window.location.pathname.startsWith('/app');
+    if (onGeminiApp && !isGeminiExplicitlyLoggedOut()) return true;
+
+    return false;
+}
+
+setInterval(() => {
+    if (!currentConfig) return;
+
+    let isLoggedIn = detectLoggedInBySelectors(currentConfig);
+    let forceLoggedOut = false;
+
+    if (currentService === 'gemini') {
+        if (isGeminiExplicitlyLoggedOut()) {
+            isLoggedIn = false;
+            forceLoggedOut = true;
+        } else if (isGeminiLikelyLoggedIn()) {
+            isLoggedIn = true;
         }
     }
 
@@ -480,6 +606,26 @@ setInterval(() => {
                 break;
             }
         }
+    }
+
+    // 4. Hysteresis for Gemini: avoid immediate false-negative during SPA rerender/transient DOM states
+    if (currentService === 'gemini') {
+        if (isLoggedIn) {
+            lastStableLoggedInState = true;
+            consecutiveLoggedOutChecks = 0;
+        } else if (lastStableLoggedInState && !forceLoggedOut) {
+            consecutiveLoggedOutChecks += 1;
+            if (consecutiveLoggedOutChecks < GEMINI_LOGOUT_GRACE_CHECKS) {
+                isLoggedIn = true;
+            } else {
+                lastStableLoggedInState = false;
+            }
+        } else {
+            lastStableLoggedInState = false;
+        }
+    } else {
+        lastStableLoggedInState = isLoggedIn;
+        consecutiveLoggedOutChecks = 0;
     }
 
     ipcRenderer.send('status-update', { isLoggedIn });

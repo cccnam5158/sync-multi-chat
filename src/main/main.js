@@ -18,7 +18,8 @@ const defaultSessionState = {
 // User data persistence (prompts)
 const PROMPT_STORE_KEYS = {
     customPrompts: 'customPrompts',
-    predefinedPrompt: 'predefinedPrompt'
+    predefinedPrompt: 'predefinedPrompt',
+    customPromptGlobalVars: 'customPromptGlobalVars'
 };
 
 let robot;
@@ -317,6 +318,17 @@ function createServiceView(service) {
     const partition = `persist:service-${service}`;
     console.log(`[Session] Loading ${service} with URL: ${urlToLoad}`);
     console.log(`[Session] Partition: ${partition}`);
+
+    // Log persisted auth cookies on startup (helps diagnose login persistence issues)
+    if (service === 'gemini') {
+        view.webContents.session.cookies.get({ domain: '.google.com' })
+            .then(cookies => {
+                const authNames = ['SID', '__Secure-1PSID', '__Secure-3PSID', 'SIDTS', '__Secure-1PSIDTS', '__Secure-3PSIDTS'];
+                const found = cookies.filter(c => authNames.includes(c.name));
+                console.log(`[Session][gemini] Persisted auth cookies on startup: ${found.map(c => c.name).join(', ') || '(none)'}`);
+            })
+            .catch(() => {});
+    }
 
     // Ensure BrowserView is ready before loading URL to prevent origin context mismatch
     // Use setImmediate to ensure BrowserView is fully attached and ready
@@ -834,6 +846,50 @@ ipcMain.on('set-layout', (event, layout) => {
     // We don't calculate layout here anymore, we wait for 'update-view-bounds' from renderer
 });
 
+// Temporarily shrink BrowserView heights to make room for popup overlays
+let _savedViewBounds = null;
+let _shrinkRefCount = 0;
+
+ipcMain.on('shrink-views-for-popup', (event, popupHeight) => {
+    if (!mainWindow) return;
+    _shrinkRefCount++;
+    if (_savedViewBounds) return; // Already shrunk, just bump ref count
+    _savedViewBounds = {};
+
+    const shrink = (key, viewObj) => {
+        if (!viewObj || !viewObj.view || !viewObj.enabled) return;
+        const b = viewObj.view.getBounds();
+        _savedViewBounds[key] = { ...b };
+        const newHeight = Math.max(0, b.height - popupHeight);
+        viewObj.view.setBounds({ x: b.x, y: b.y, width: b.width, height: newHeight });
+    };
+
+    if (chatMode === 'single') {
+        Object.entries(singleModeViews).forEach(([k, v]) => shrink('s_' + k, v));
+    } else {
+        Object.entries(views).forEach(([k, v]) => shrink('m_' + k, v));
+    }
+});
+
+ipcMain.on('restore-views-from-popup', () => {
+    if (!mainWindow || !_savedViewBounds) return;
+    _shrinkRefCount = Math.max(0, _shrinkRefCount - 1);
+    if (_shrinkRefCount > 0) return; // Other popups still open
+
+    const restore = (key, viewObj) => {
+        const savedKey = (chatMode === 'single' ? 's_' : 'm_') + key;
+        if (!viewObj || !viewObj.view || !_savedViewBounds[savedKey]) return;
+        viewObj.view.setBounds(_savedViewBounds[savedKey]);
+    };
+
+    if (chatMode === 'single') {
+        Object.entries(singleModeViews).forEach(([k, v]) => restore(k, v));
+    } else {
+        Object.entries(views).forEach(([k, v]) => restore(k, v));
+    }
+    _savedViewBounds = null;
+});
+
 // IPC Handlers
 ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) => {
     const serviceKeys = Object.keys(activeServices);
@@ -1124,6 +1180,7 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                     // Sanitize arguments for Electron 39 strictness
                                     const sanitizedFiles = filePaths.map(p => String(p));
                                     const sanitizedNodeId = parseInt(nodeId, 10);
+                                    const isPerplexity = service === 'perplexity';
 
                                     console.log(`[CDP] Calling DOM.setFileInputFiles with nodeId: ${sanitizedNodeId}, files:`, sanitizedFiles);
 
@@ -1138,7 +1195,7 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                         console.log(`[${service}] Verifying upload via UI indicators...`);
                                         let uploadConfirmed = false;
                                         const startTime = Date.now();
-                                        const timeout = 5000; // 5 seconds timeout
+                                        const timeout = isPerplexity ? 1200 : 5000;
 
                                         while (Date.now() - startTime < timeout) {
                                             try {
@@ -1159,7 +1216,7 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                                     break;
                                                 }
                                             } catch (e) { /* ignore */ }
-                                            await new Promise(resolve => setTimeout(resolve, 500));
+                                            await new Promise(resolve => setTimeout(resolve, isPerplexity ? 200 : 500));
                                         }
 
                                         if (!uploadConfirmed) {
@@ -1168,33 +1225,39 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                                     }
 
                                     // Wait longer for upload to process
-                                    const uploadDelay = service === 'grok' ? 4000 : 2000; // Extra time for Grok
+                                    // Perplexity: keep delay short so prompt text can be filled quickly while provider-side upload finalizes.
+                                    const uploadDelay = service === 'grok' ? 4000 : (isPerplexity ? 250 : 2000);
                                     await new Promise(resolve => setTimeout(resolve, uploadDelay));
 
                                     // Wait for send button to be enabled (check up to 5 times)
-                                    for (let i = 0; i < 5; i++) {
-                                        try {
-                                            let sendBtnEnabled = false;
-                                            for (const btnSelector of selectors.sendButtonSelector) {
-                                                const btnResult = await wc.debugger.sendCommand('DOM.querySelector', {
-                                                    nodeId: root.nodeId,
-                                                    selector: btnSelector
-                                                });
-                                                if (btnResult.nodeId) {
-                                                    const attrs = await wc.debugger.sendCommand('DOM.getAttributes', {
-                                                        nodeId: btnResult.nodeId
+                                    // Skip this on Perplexity to avoid delaying prompt injection.
+                                    if (!isPerplexity) {
+                                        for (let i = 0; i < 5; i++) {
+                                            try {
+                                                let sendBtnEnabled = false;
+                                                for (const btnSelector of selectors.sendButtonSelector) {
+                                                    const btnResult = await wc.debugger.sendCommand('DOM.querySelector', {
+                                                        nodeId: root.nodeId,
+                                                        selector: btnSelector
                                                     });
-                                                    // Check if button is not disabled
-                                                    if (!attrs.attributes.includes('disabled')) {
-                                                        sendBtnEnabled = true;
-                                                        console.log(`Send button enabled for ${service}`);
-                                                        break;
+                                                    if (btnResult.nodeId) {
+                                                        const attrs = await wc.debugger.sendCommand('DOM.getAttributes', {
+                                                            nodeId: btnResult.nodeId
+                                                        });
+                                                        // Check if button is not disabled
+                                                        if (!attrs.attributes.includes('disabled')) {
+                                                            sendBtnEnabled = true;
+                                                            console.log(`Send button enabled for ${service}`);
+                                                            break;
+                                                        }
                                                     }
                                                 }
-                                            }
-                                            if (sendBtnEnabled) break;
-                                        } catch (e) { /* ignore */ }
-                                        await new Promise(resolve => setTimeout(resolve, 500));
+                                                if (sendBtnEnabled) break;
+                                            } catch (e) { /* ignore */ }
+                                            await new Promise(resolve => setTimeout(resolve, 500));
+                                        }
+                                    } else {
+                                        console.log('[perplexity] Skipping send-button readiness wait to speed up prompt injection.');
                                     }
                                 } else {
                                     console.warn(`File input not found for ${service}`);
@@ -1220,7 +1283,7 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
                         }
 
                         // 2. Inject Prompt
-                        wc.send('inject-prompt', { text, selectors, autoSend: !hasFiles });
+                        wc.send('inject-prompt', { text, selectors, autoSend: !hasFiles, typingMode: 'instant' });
                         console.log(`Sent prompt to ${service}`);
                     }
                 }
@@ -1244,7 +1307,7 @@ ipcMain.on('confirm-send', (event) => {
         if (!selectors) return;
         getEnabledSingleInstances().forEach(({ instanceKey, wc }) => {
             try {
-                wc.send('click-send-button', { selectors });
+                wc.send('click-send-button', { selectors, sendDelayMs: 1000 });
                 console.log(`Sent click-send-button to ${instanceKey}`);
             } catch (e) {
                 console.error(`Failed click-send-button to ${instanceKey}:`, e);
@@ -1258,7 +1321,7 @@ ipcMain.on('confirm-send', (event) => {
         if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
             const selectors = selectorsConfig[service];
             if (selectors) {
-                views[service].view.webContents.send('click-send-button', { selectors });
+                views[service].view.webContents.send('click-send-button', { selectors, sendDelayMs: 0 });
                 console.log(`Sent click-send-button to ${service}`);
             }
         }
@@ -2196,6 +2259,94 @@ async function extractLastResponseFromService(service, options = {}) {
     return { service, content, method };
 }
 
+async function buildChatThreadJsonForCPB({ anonymousMode = false } = {}) {
+    if (chatMode === 'single' && singleAiService) {
+        const enabledInstances = getEnabledSingleInstances().sort((a, b) => a.instanceIndex - b.instanceIndex);
+        const aliases = ['(A)', '(B)', '(C)', '(D)'];
+        const results = (await Promise.all(
+            enabledInstances.map((inst) =>
+                extractContentFromService(inst.service, { format: 'json', __wcOverride: inst.wc })
+                    .then((r) => (r ? { ...r, instanceIndex: inst.instanceIndex } : null))
+            )
+        )).filter(Boolean);
+
+        const jsonOutput = results.map((r) => ({
+            instance: anonymousMode ? (aliases[r.instanceIndex] || `(${r.instanceIndex})`) : `#${r.instanceIndex + 1}`,
+            service: r.service,
+            content: r.content,
+            method: r.method,
+            timestamp: new Date().toISOString()
+        }));
+        return JSON.stringify(jsonOutput, null, 2);
+    }
+
+    const enabledServices = services.filter((service) => views[service] && views[service].enabled);
+    const results = await Promise.all(enabledServices.map((service) => extractContentFromService(service, { format: 'json' })));
+    results.sort((a, b) => services.indexOf(a.service) - services.indexOf(b.service));
+    const aliases = {
+        'chatgpt': 'Service A',
+        'claude': 'Service B',
+        'gemini': 'Service C',
+        'grok': 'Service D',
+        'perplexity': 'Service E',
+        'genspark': 'Service F'
+    };
+
+    const jsonOutput = results.map((r) => ({
+        service: anonymousMode ? (aliases[r.service] || r.service) : r.service,
+        content: r.content,
+        method: r.method,
+        timestamp: new Date().toISOString()
+    }));
+    return JSON.stringify(jsonOutput, null, 2);
+}
+
+async function buildLastResponseJsonForCPB({ anonymousMode = false } = {}) {
+    if (chatMode === 'single' && singleAiService) {
+        const enabledInstances = getEnabledSingleInstances().sort((a, b) => a.instanceIndex - b.instanceIndex);
+        const aliases = ['(A)', '(B)', '(C)', '(D)'];
+        const results = (await Promise.all(
+            enabledInstances.map((inst) =>
+                extractLastResponseFromService(inst.service, { __wcOverride: inst.wc })
+                    .then((r) => (r ? { ...r, instanceIndex: inst.instanceIndex } : null))
+            )
+        )).filter(Boolean);
+
+        const jsonOutput = results
+            .filter((r) => r && r.content)
+            .map((r) => ({
+                instance: anonymousMode ? (aliases[r.instanceIndex] || `(${r.instanceIndex})`) : `#${r.instanceIndex + 1}`,
+                service: r.service,
+                content: r.content,
+                method: r.method,
+                timestamp: new Date().toISOString()
+            }));
+        return jsonOutput.length ? JSON.stringify(jsonOutput, null, 2) : '';
+    }
+
+    const enabledServices = services.filter((service) => views[service] && views[service].enabled);
+    const results = await Promise.all(enabledServices.map((service) => extractLastResponseFromService(service, {})));
+    results.sort((a, b) => services.indexOf(a.service) - services.indexOf(b.service));
+    const aliases = {
+        'chatgpt': 'Service A',
+        'claude': 'Service B',
+        'gemini': 'Service C',
+        'grok': 'Service D',
+        'perplexity': 'Service E',
+        'genspark': 'Service F'
+    };
+
+    const jsonOutput = results
+        .filter((r) => r && r.content)
+        .map((r) => ({
+            service: anonymousMode ? (aliases[r.service] || r.service) : r.service,
+            content: r.content,
+            method: r.method,
+            timestamp: new Date().toISOString()
+        }));
+    return jsonOutput.length ? JSON.stringify(jsonOutput, null, 2) : '';
+}
+
 ipcMain.on('copy-chat-thread', async (event, options = {}) => {
     const { format = 'markdown', anonymousMode = false } = options;
 
@@ -2541,7 +2692,7 @@ ipcMain.on('cross-check', async (event, isAnonymousMode, promptPrefix) => {
 
             if (prompt) {
                 try {
-                    target.wc.send('inject-prompt', { text: prompt, selectors, autoSend: true });
+                    target.wc.send('inject-prompt', { text: prompt, selectors, autoSend: true, typingMode: 'human' });
                 } catch (e) {
                     console.error(`[SingleAI] Cross-check send failed to ${target.instanceKey}:`, e);
                 }
@@ -2604,7 +2755,7 @@ ipcMain.on('cross-check', async (event, isAnonymousMode, promptPrefix) => {
                 const selectors = selectorsConfig[targetService];
                 if (selectors) {
                     // Send with autoSend: true
-                    views[targetService].view.webContents.send('inject-prompt', { text: prompt, selectors, autoSend: true });
+                    views[targetService].view.webContents.send('inject-prompt', { text: prompt, selectors, autoSend: true, typingMode: 'instant' });
                 }
             }
         }
@@ -2698,13 +2849,14 @@ ipcMain.on('external-login', async (event, service) => {
                 // ignore
             }
 
-            // Google-based login cookies
+            // Google-based login cookies (accounts + gemini domains for one-shot sync)
             if (service === 'gemini' || service === 'genspark') {
                 try {
                     const googleCookies = await page.cookies(
                         'https://accounts.google.com',
                         'https://google.com',
-                        'https://www.google.com'
+                        'https://www.google.com',
+                        'https://gemini.google.com'
                     );
                     cookies = [...cookies, ...googleCookies];
                 } catch (e) {
@@ -2788,9 +2940,48 @@ ipcMain.on('external-login', async (event, service) => {
             return false;
         };
 
+        const clearConflictingAuthCookies = async (service) => {
+            if (!views[service] || !views[service].view) return;
+            const electronCookies = views[service].view.webContents.session.cookies;
+
+            // Each service uses its own partition, so this cleanup is scoped to that service only.
+            // For Gemini/Genspark we remove likely-conflicting old auth cookies before importing fresh ones.
+            const domainsForService = (() => {
+                if (service === 'gemini') {
+                    return ['gemini.google.com', 'accounts.google.com', 'google.com', 'www.google.com'];
+                }
+                if (service === 'genspark') {
+                    return ['genspark.ai', 'www.genspark.ai', 'accounts.google.com', 'google.com'];
+                }
+                return [];
+            })();
+            if (domainsForService.length === 0) return;
+
+            try {
+                const existing = await electronCookies.get({});
+                for (const cookie of existing) {
+                    const domain = (cookie.domain || '').replace(/^\./, '').toLowerCase();
+                    const shouldRemove = domainsForService.some(d => domain === d || domain.endsWith(`.${d}`));
+                    if (!shouldRemove) continue;
+
+                    const cookieUrl = `${cookie.secure ? 'https' : 'http'}://${domain || 'localhost'}${cookie.path || '/'}`;
+                    try {
+                        await electronCookies.remove(cookieUrl, cookie.name);
+                    } catch (e) {
+                        // ignore individual remove failures
+                    }
+                }
+            } catch (e) {
+                console.warn(`[${service}] Failed to clear conflicting cookies:`, e?.message || e);
+            }
+        };
+
         const syncCookiesToElectron = async (service, cookies) => {
             if (!views[service] || !views[service].view) return;
             const electronCookies = views[service].view.webContents.session.cookies;
+
+            // Clear old/invalid auth cookies first to avoid mixed-cookie state (important for Gemini)
+            await clearConflictingAuthCookies(service);
 
             for (const cookie of cookies) {
                 try {
@@ -2823,10 +3014,15 @@ ipcMain.on('external-login', async (event, service) => {
                         sameSite: mapSameSite(cookie.sameSite, cookie.secure)
                     };
 
-                    // Only set expirationDate for persistent cookies.
-                    // Puppeteer uses -1 for session cookies; Electron expects a unix timestamp (seconds).
+                    // Persist ALL cookies across app restarts (including session cookies).
+                    // Google's SIDTS family cookies are session-only (expires: -1) but required
+                    // for authentication. Electron/Chromium discards session cookies on exit,
+                    // so we convert them to persistent cookies with a 30-day expiry.
+                    // This mirrors Chrome's "Continue where you left off" behavior.
                     if (typeof cookie.expires === 'number' && cookie.expires > 0) {
                         cookieDetails.expirationDate = cookie.expires;
+                    } else {
+                        cookieDetails.expirationDate = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
                     }
 
                     // Fix for __Host- prefix: Must NOT have a domain attribute
@@ -2838,6 +3034,30 @@ ipcMain.on('external-login', async (event, service) => {
                 } catch (err) {
                     console.error(`Failed to set cookie ${cookie.name}:`, err?.message || err);
                 }
+            }
+
+            // Ensure cookie writes are flushed to disk before reloading service URL.
+            try {
+                await electronCookies.flushStore();
+                const sessionConverted = cookies.filter(c => !(typeof c.expires === 'number' && c.expires > 0)).length;
+                console.log(`[${service}] Cookie sync complete: ${cookies.length} total, ${sessionConverted} session→persistent converted, flushed to disk`);
+            } catch (e) {
+                console.warn(`[${service}] Cookie flush warning:`, e?.message || e);
+            }
+        };
+
+        const clearGeminiRuntimeCaches = async (service) => {
+            if (service !== 'gemini') return;
+            if (!views[service] || !views[service].view) return;
+
+            try {
+                const ses = views[service].view.webContents.session;
+                await ses.clearStorageData({
+                    origin: 'https://gemini.google.com',
+                    storages: ['serviceworkers', 'cachestorage']
+                });
+            } catch (e) {
+                console.warn('[gemini] Failed to clear runtime caches:', e?.message || e);
             }
         };
 
@@ -2891,8 +3111,12 @@ ipcMain.on('external-login', async (event, service) => {
         let lastSeenCookies = [];
         let lastAuthCookies = [];
         let didSyncCookies = false;
+        let lastSyncedCookieCount = 0; // Re-sync when Chrome has more cookies (e.g. after full login → gemini.google.com)
         // Track if user actually completed login in Chrome (not just had old cookies in profile)
         let loginConfirmedInChrome = false;
+        let lastObservedUrl = '';
+        let lastObservedIsNotLoginPage = false;
+        let loginCheckInFlight = false;
 
         // NOTE: We do NOT sync cookies on framenavigated anymore.
         // Problem: Chrome profile may have stale/invalid cookies from previous sessions.
@@ -2912,13 +3136,25 @@ ipcMain.on('external-login', async (event, service) => {
         console.log(`[${service}] Waiting ${stabilizeDelay}ms for page to stabilize...`);
         await new Promise(resolve => setTimeout(resolve, stabilizeDelay));
 
-        // 3. Monitor for Login Success (Cookie Check)
-        const checkLogin = setInterval(async () => {
+        const isOnServiceDomain = (url) => {
+            if (service === 'gemini') return url.includes('gemini.google.com');
+            if (service === 'genspark') return url.includes('genspark.ai');
+            if (service === 'chatgpt') return url.includes('chatgpt.com') || url.includes('chat.openai.com');
+            if (service === 'claude') return url.includes('claude.ai');
+            if (service === 'grok') return url.includes('grok.com') || url.includes('x.com');
+            if (service === 'perplexity') return url.includes('perplexity.ai');
+            return !url.includes('accounts.google.com');
+        };
+
+        const geminiLoginDebug = process.env.SMC_GEMINI_LOGIN_DEBUG === '1' || process.env.SMC_GEMINI_LOGIN_DEBUG === 'true';
+
+        // Shared login evaluation so both polling and fast navigation events can confirm login.
+        const evaluateLoginState = async (source) => {
+            if (loginCheckInFlight) return false;
+            loginCheckInFlight = true;
+
             try {
-                if (browser.process().killed) {
-                    clearInterval(checkLogin);
-                    return;
-                }
+                if (!browser || !browser.isConnected()) return false;
 
                 const cookies = await collectLoginCookies(page, service);
                 lastSeenCookies = cookies;
@@ -2927,59 +3163,92 @@ ipcMain.on('external-login', async (event, service) => {
                     lastAuthCookies = cookies;
                 }
 
-                // Check URL to ensure we are on the actual service domain (not login pages)
                 const url = page.url();
-                // CRITICAL: For Google-based services, we must confirm Chrome is ON the service domain.
-                // - accounts.google.com = still logging in, NOT confirmed
-                // - gemini.google.com/app = on service, can confirm if cookies valid
-                // - genspark.ai/... = on service, can confirm if cookies valid
-                const isOnServiceDomain = (() => {
-                    if (service === 'gemini') return url.includes('gemini.google.com');
-                    if (service === 'genspark') return url.includes('genspark.ai');
-                    if (service === 'chatgpt') return url.includes('chatgpt.com') || url.includes('chat.openai.com');
-                    if (service === 'claude') return url.includes('claude.ai');
-                    if (service === 'grok') return url.includes('grok.com') || url.includes('x.com');
-                    if (service === 'perplexity') return url.includes('perplexity.ai');
-                    return !url.includes('accounts.google.com');
-                })();
-                const isNotLoginPage = isOnServiceDomain && 
-                    !url.includes('/auth/login') && 
+                lastObservedUrl = url;
+                const isNotLoginPage = isOnServiceDomain(url) &&
+                    !url.includes('/auth/login') &&
                     !url.includes('/signin') &&
-                    !url.includes('accounts.google.com') && 
+                    !url.includes('accounts.google.com') &&
                     !url.includes('sso');
+                lastObservedIsNotLoginPage = isNotLoginPage;
 
-                if (isLoggedIn && isNotLoginPage) {
-                    clearInterval(checkLogin);
-                    console.log(`${service} login detected in Chrome! Syncing cookies...`);
-
-                    // Mark that login was actually confirmed in Chrome (not just stale profile cookies)
+                // For Gemini/Genspark: accept login as soon as auth cookies are present, even if still on accounts.google.com
+                // (avoids requiring redirect to gemini.google.com before we sync — enables one-shot login)
+                const acceptLogin = isLoggedIn && (
+                    isNotLoginPage ||
+                    (service === 'gemini' || service === 'genspark')
+                );
+                if (geminiLoginDebug && (service === 'gemini' || service === 'genspark')) {
+                    const urlShort = url.length > 64 ? url.substring(0, 64) + '...' : url;
+                    console.log(`[${service}-debug] ${source} url=${urlShort} isLoggedIn=${isLoggedIn} isNotLoginPage=${isNotLoginPage} acceptLogin=${acceptLogin} cookies=${cookies.length}`);
+                }
+                if (acceptLogin) {
+                    if (!loginConfirmedInChrome) {
+                        console.log(`${service} login detected in Chrome via ${source}! Syncing cookies...`);
+                    }
                     loginConfirmedInChrome = true;
 
-                    // Sync cookies to Electron session
-                    console.log(`[${service}] Syncing ${cookies.length} cookies...`);
-                    await syncCookiesToElectron(service, cookies);
-                    didSyncCookies = true;
-                    console.log(`Cookies synced for ${service}`);
+                    // Sync when: first time on service domain, OR (Gemini/Genspark) we're on service domain with more cookies than last sync.
+                    // For Gemini/Genspark: do NOT sync on accounts.google.com (account chooser); sync only after landing on service domain so the webview gets the complete post-login cookie set. Re-sync whenever cookie count increases (e.g. after full login flow).
+                    const firstSyncOk = didSyncCookies || (isNotLoginPage || (service !== 'gemini' && service !== 'genspark'));
+                    const reSyncMore = (service === 'gemini' || service === 'genspark') && isNotLoginPage && cookies.length > lastSyncedCookieCount;
+                    const shouldSync = (!didSyncCookies && firstSyncOk) || reSyncMore;
+                    if (shouldSync) {
+                        console.log(`[${service}] Syncing ${cookies.length} cookies...${lastSyncedCookieCount ? ` (re-sync, was ${lastSyncedCookieCount})` : ''}`);
+                        await syncCookiesToElectron(service, cookies);
+                        await clearGeminiRuntimeCaches(service);
+                        didSyncCookies = true;
+                        lastSyncedCookieCount = cookies.length;
+                        console.log(`Cookies synced for ${service}`);
 
-                    // Navigate to canonical service URL so DOM-based login detection updates immediately
-                    const targetUrl = getServiceResetUrl(service);
-                    if (views[service] && views[service].view) {
-                        views[service].view.webContents.loadURL(targetUrl);
+                        // Navigate to canonical service URL so DOM-based login detection updates immediately
+                        const targetUrl = getServiceResetUrl(service);
+                        if (views[service] && views[service].view) {
+                            views[service].view.webContents.loadURL(targetUrl);
+                        }
                     }
-
-                    console.log(`${service} login confirmed! Keeping Chrome open for manual close...`);
-                    // Do NOT close browser automatically. User will close it.
+                    return true;
                 }
+                return false;
             } catch (e) {
-                clearInterval(checkLogin);
-                console.error('Error checking login status:', e);
+                console.error(`[${service}] Error checking login status (${source}):`, e);
+                return false;
+            } finally {
+                loginCheckInFlight = false;
             }
-        }, 1000);
+        };
+
+        // Run once right after stabilization so fast-close after login is less likely to miss detection.
+        await evaluateLoginState('initial');
+
+        // 3. Monitor for Login Success (Cookie Check)
+        const pollIntervalMs = (service === 'gemini' || service === 'genspark') ? 500 : 1000;
+        const checkLogin = setInterval(async () => {
+            if (browser.process().killed) {
+                clearInterval(checkLogin);
+                return;
+            }
+            await evaluateLoginState('poll');
+        }, pollIntervalMs);
+
+        // Fast path: detect login as soon as main-frame navigation lands on service domain.
+        page.on('framenavigated', async (frame) => {
+            try {
+                if (frame !== page.mainFrame()) return;
+                await evaluateLoginState('navigation');
+            } catch (e) {
+                // ignore
+            }
+        });
 
         // Handle manual close
         browser.on('disconnected', async () => {
             clearInterval(checkLogin);
-            console.log(`Chrome disconnected (closed by user). loginConfirmedInChrome=${loginConfirmedInChrome}`);
+            const geminiLoginDebug = process.env.SMC_GEMINI_LOGIN_DEBUG === '1' || process.env.SMC_GEMINI_LOGIN_DEBUG === 'true';
+            console.log(`Chrome disconnected (closed by user). loginConfirmedInChrome=${loginConfirmedInChrome} didSyncCookies=${didSyncCookies} lastAuthCookies=${(lastAuthCookies || []).length} lastObservedUrl=${lastObservedUrl || '(none)'}`);
+            if (geminiLoginDebug && (service === 'gemini' || service === 'genspark')) {
+                console.log(`[${service}-debug] disconnect branch: loginConfirmedInChrome=${loginConfirmedInChrome} lastAuthCookies.length=${(lastAuthCookies || []).length} lastObservedIsNotLoginPage=${lastObservedIsNotLoginPage}`);
+            }
 
             if (views[service] && views[service].view) {
                 // CRITICAL FIX: Only navigate app view to /app if login was ACTUALLY confirmed in Chrome.
@@ -2991,11 +3260,15 @@ ipcMain.on('external-login', async (event, service) => {
                 //
                 // Solution: Only sync cookies and navigate to /app if polling detected actual login.
                 if (loginConfirmedInChrome) {
+                    if (geminiLoginDebug && (service === 'gemini' || service === 'genspark')) {
+                        console.log(`[${service}-debug] disconnect: branch=loginConfirmedInChrome`);
+                    }
                     // User actually completed login in Chrome - sync and navigate
                     if (!didSyncCookies && Array.isArray(lastAuthCookies) && lastAuthCookies.length > 0) {
                         console.log(`[${service}] Syncing confirmed auth cookies (${lastAuthCookies.length})...`);
                         try {
                             await syncCookiesToElectron(service, lastAuthCookies);
+                            await clearGeminiRuntimeCaches(service);
                             didSyncCookies = true;
                         } catch (e) {
                             // ignore
@@ -3006,8 +3279,54 @@ ipcMain.on('external-login', async (event, service) => {
                     console.log(`[${service}] Login confirmed, loading: ${targetUrl}`);
                     views[service].view.webContents.loadURL(targetUrl);
                 } else {
+                    // Fallback 1: latest snapshot was on service domain with auth cookies
+                    const likelyConfirmedBySnapshot =
+                        lastObservedIsNotLoginPage &&
+                        Array.isArray(lastSeenCookies) &&
+                        isAuthCookiePresent(service, lastSeenCookies);
+                    if (geminiLoginDebug && (service === 'gemini' || service === 'genspark')) {
+                        console.log(`[${service}-debug] disconnect: branch=fallback1_check likelyConfirmedBySnapshot=${likelyConfirmedBySnapshot}`);
+                    }
+                    if (likelyConfirmedBySnapshot) {
+                        console.log(`[${service}] Using last snapshot fallback (url=${lastObservedUrl})`);
+                        try {
+                            await syncCookiesToElectron(service, lastSeenCookies);
+                            await clearGeminiRuntimeCaches(service);
+                        } catch (e) {
+                            // ignore
+                        }
+                        const targetUrl = getServiceResetUrl(service);
+                        views[service].view.webContents.loadURL(targetUrl);
+                        mainWindow?.webContents.send('external-login-closed');
+                        return;
+                    }
+
+                    // Fallback 2 (Gemini/Genspark): we saw auth cookies at some point but never "confirmed"
+                    // (e.g. user closed Chrome right after signing in on accounts.google.com). Sync anyway.
+                    const fallback2 = (service === 'gemini' || service === 'genspark') &&
+                        Array.isArray(lastAuthCookies) && lastAuthCookies.length > 0;
+                    if (geminiLoginDebug && (service === 'gemini' || service === 'genspark')) {
+                        console.log(`[${service}-debug] disconnect: branch=fallback2_check fallback2=${fallback2} lastAuthCookies.length=${(lastAuthCookies || []).length}`);
+                    }
+                    if (fallback2) {
+                        console.log(`[${service}] Syncing on close: auth cookies were present (url=${lastObservedUrl})`);
+                        try {
+                            await syncCookiesToElectron(service, lastAuthCookies);
+                            await clearGeminiRuntimeCaches(service);
+                            const targetUrl = getServiceResetUrl(service);
+                            views[service].view.webContents.loadURL(targetUrl);
+                        } catch (e) {
+                            console.warn(`[${service}] Sync on close failed:`, e?.message || e);
+                            views[service].view.webContents.reload();
+                        }
+                        mainWindow?.webContents.send('external-login-closed');
+                        return;
+                    }
+
                     // User closed Chrome without completing login - just reload current view
-                    // This keeps the app on whatever page it was (likely login page)
+                    if (geminiLoginDebug && (service === 'gemini' || service === 'genspark')) {
+                        console.log(`[${service}-debug] disconnect: branch=no_login_reload`);
+                    }
                     console.log(`[${service}] No login confirmed, reloading current view...`);
                     views[service].view.webContents.reload();
                 }
@@ -3070,6 +3389,55 @@ ipcMain.handle('save-predefined-prompt', async (event, promptText) => {
     } catch (e) {
         console.error('[Prompts] Failed to save predefined prompt:', e);
         return false;
+    }
+});
+
+// ===========================================
+// Custom Prompt Builder - Global Variables
+// ===========================================
+ipcMain.handle('get-custom-prompt-global-vars', async () => {
+    try {
+        return store.get(PROMPT_STORE_KEYS.customPromptGlobalVars, []);
+    } catch (e) {
+        console.error('[CPB] Failed to read global vars:', e);
+        return [];
+    }
+});
+
+ipcMain.handle('save-custom-prompt-global-vars', async (event, vars) => {
+    try {
+        if (Array.isArray(vars)) {
+            store.set(PROMPT_STORE_KEYS.customPromptGlobalVars, vars);
+        }
+        return true;
+    } catch (e) {
+        console.error('[CPB] Failed to save global vars:', e);
+        return false;
+    }
+});
+
+// ===========================================
+// Custom Prompt Builder - System Variables (runtime)
+// ===========================================
+ipcMain.handle('get-system-vars-for-cpb', async (event, options = {}) => {
+    try {
+        const anonymousMode = !!options.anonymousMode;
+        // Keep CPB system vars aligned with main toolbar "Copy ... (JSON)" outputs.
+        const chatThread = await buildChatThreadJsonForCPB({ anonymousMode });
+        const lastResponse = await buildLastResponseJsonForCPB({ anonymousMode });
+
+        return {
+            chat_thread: chatThread || '',
+            last_response: lastResponse || '',
+            current_time: new Date().toISOString()
+        };
+    } catch (e) {
+        console.error('[CPB] Failed to collect system vars:', e);
+        return {
+            chat_thread: '',
+            last_response: '',
+            current_time: new Date().toISOString()
+        };
     }
 });
 
@@ -3350,7 +3718,7 @@ ipcMain.on('send-prompt-to-instances', async (event, text, instanceKeys, filePat
             }
 
             // 2) Inject prompt
-            wc.send('inject-prompt', { text, selectors, autoSend: !hasFiles });
+            wc.send('inject-prompt', { text, selectors, autoSend: !hasFiles, typingMode: 'human' });
             console.log(`[SingleAI] Sent prompt to ${instanceKey}`);
 
         } catch (e) {
