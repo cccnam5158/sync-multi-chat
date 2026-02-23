@@ -40,13 +40,13 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 ## Version
 
--   **Current Version**: v0.7.0
+-   **Current Version**: v0.7.1
 
 ## Installation
 
 This application is distributed as a **Windows Installer** with **automatic update support**.
 
-1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.7.0.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.7.0/Sync-Multi-Chat-Setup-0.7.0.exe)
+1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.7.1.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.7.1/Sync-Multi-Chat-Setup-0.7.1.exe)
 2.  Run the installer and follow the installation wizard.
 3.  The app will automatically check for updates on startup.
 

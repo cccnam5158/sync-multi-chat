@@ -1076,6 +1076,9 @@
     }
 
     function getAnonymousModeForCPB() {
+        // Prefer live UI state so {{last_response}}/{{chat_thread}} respect Anonymous without opening CPB
+        const btn = document.getElementById('anonymous-btn');
+        if (btn) return btn.classList.contains('active');
         return !!window._cpb_isAnonymousMode;
     }
 
@@ -2681,6 +2684,10 @@
             const collapsed = !!(evt && evt.detail && evt.detail.collapsed);
             if (collapsed && _promptExpanded) applyExpandedState(false);
         });
+        // Collapse expanded prompt area after Send / Ctrl+Enter
+        window.addEventListener('smc:collapse-prompt-expanded', () => {
+            if (_promptExpanded) applyExpandedState(false);
+        });
         updateIcon();
     }
 
@@ -3080,6 +3087,20 @@
 
         // --- Prompt expand/collapse ---
         setupPromptExpandButton();
+
+        // --- Anonymous mode change: invalidate preview cache and refresh previews ---
+        window.addEventListener('smc:anonymous-mode-changed', () => {
+            cpbPreviewSysCache = null;
+            cpbPreviewSysCacheAt = 0;
+            cpbPreviewSysPending = null;
+            if (_inlinePreviewActive) renderInlinePreview();
+            renderMasterPreview();
+            if (sessionPromptModal && sessionPromptModal.parentNode && sessionPromptModal.offsetParent && (sessionPromptState.previewMode || sessionPromptState.livePreview)) {
+                const editor = sessionPromptModal.querySelector('.session-prompt-editor');
+                const preview = sessionPromptModal.querySelector('.session-prompt-preview');
+                if (editor && preview) updateSessionPromptPreview(sessionPromptModal, editor, preview);
+            }
+        });
 
         // --- Autocomplete for {{ ---
         masterInput.addEventListener('input', () => {
@@ -3730,7 +3751,7 @@
             else if (isGlo && gloMap[key]) resolvedValue = gloMap[key];
             else if (isLocal && localMap[key]) resolvedValue = localMap[key];
 
-            const ph = `%%MI_VAR_${idx++}%%`;
+            const ph = `%%MIVAR${idx++}%%`;
             if (isReserved) {
                 placeholders[ph] = `<span class="mi-var mi-var-reserved" title="Reserved system variable. {{${safeHtml(key)}} is not usable in the main prompt editor.">${safeHtml(m)} <em>(reserved)</em></span>`;
             } else if (resolvedValue) {
@@ -3747,19 +3768,24 @@
         });
 
         const mode = decidePreviewMode(raw);
+        // Split by placeholders so marked never sees them (avoids marked interpreting _ as emphasis)
+        const parts = withPlaceholders.split(/(%%MIVAR\d+%%)/g);
         let html = '';
-        if (mode === 'markdown') {
-            try {
-                html = marked.parse(withPlaceholders, { breaks: true, gfm: true });
-            } catch (e) {
-                html = safeHtml(withPlaceholders).replace(/\n/g, '<br>');
+        for (const part of parts) {
+            const replacement = placeholders[part];
+            if (replacement !== undefined) {
+                html += replacement;
+            } else {
+                if (mode === 'markdown') {
+                    try {
+                        html += marked.parse(part || '', { breaks: true, gfm: true });
+                    } catch (e) {
+                        html += safeHtml(part || '').replace(/\n/g, '<br>');
+                    }
+                } else {
+                    html += safeHtml(part || '').replace(/\n/g, '<br>');
+                }
             }
-        } else {
-            html = safeHtml(withPlaceholders).replace(/\n/g, '<br>');
-        }
-        for (const [ph, replacement] of Object.entries(placeholders)) {
-            html = html.replaceAll(safeHtml(ph), replacement);
-            html = html.replaceAll(ph, replacement);
         }
         return { html, mode };
     }
@@ -4842,14 +4868,14 @@
         let idx = 0;
         const withPlaceholders = String(raw || '').replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (m, key) => {
             if (RESERVED_SYSTEM_VARS.includes(key)) {
-                const ph = `%%SPB_VAR_${idx++}%%`;
+                const ph = `%%SPBVAR${idx++}%%`;
                 placeholders[ph] = `<span class="cpb-var-hl cpb-var-missing" title="Reserved system variable. {{${key}} is not usable in the main/Session prompt editor.">${safeHtml(m)} <em>(reserved)</em></span>`;
                 return ph;
             }
             const exists = Object.prototype.hasOwnProperty.call(mergedMap, key);
             const hasValue = exists && String(mergedMap[key] ?? '').trim();
             const val = hasValue ? mergedMap[key] : m;
-            const ph = `%%SPB_VAR_${idx++}%%`;
+            const ph = `%%SPBVAR${idx++}%%`;
             if (!sessionPromptState.highlightVars) {
                 placeholders[ph] = makePreviewValueHtml(key, val, !!hasValue);
                 return ph;

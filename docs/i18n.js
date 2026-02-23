@@ -135,7 +135,11 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "Release History",
-        "releaseNotes.lastUpdated": "Last updated: Feb 20, 2026",
+        "releaseNotes.lastUpdated": "Last updated: Feb 23, 2026",
+        "releaseNotes.v071.fix1": "Preview variable rendering: Fixed {{last_response}} and {{chat_thread}} appearing truncated (e.g. {{last) in the main prompt inline preview and master preview; placeholders are now split before markdown parsing.",
+        "releaseNotes.v071.fix2": "Anonymous mode and variable substitution: When Anonymous is ON, {{last_response}} and {{chat_thread}} sent to webviews now use anonymized service names; Anonymous state syncs with Custom Prompt Builder and all previews update in real time.",
+        "releaseNotes.v071.fix3": "Expand prompt area after send: When the prompt input is expanded, sending (Send or Ctrl+Enter) now automatically collapses the area so you can see AI responses immediately.",
+        "releaseNotes.v071.improvement1": "Gemini session keep-alive: A 5-minute keep-alive sends a lightweight HEAD request from the Gemini webview when idle to help reduce \"logged out after ~10 minutes\" behavior.",
         "releaseNotes.improvements": "Improvements",
         "releaseNotes.v070.feature1": "Custom Prompt Builder: Full-screen 3-panel editor with System/Global/Local variables, autocomplete, Send and Copy to Input.",
         "releaseNotes.v070.feature2": "Slash Command: Type / in the main input to insert saved custom prompts with keyboard navigation.",
@@ -331,7 +335,11 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "릴리스 히스토리",
-        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 2월 20일",
+        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 2월 23일",
+        "releaseNotes.v071.fix1": "미리보기 변수 렌더링: 메인 프롬프트 인라인/마스터 미리보기에서 {{last_response}}, {{chat_thread}}가 잘려 보이던 문제 수정; 마크다운 파싱 전 플레이스홀더 분리.",
+        "releaseNotes.v071.fix2": "익명 모드 및 변수 치환: Anonymous ON일 때 웹뷰로 전송되는 {{last_response}}, {{chat_thread}}가 익명 서비스명으로 치환되도록 수정; CPB 및 모든 프리뷰가 실시간 반영.",
+        "releaseNotes.v071.fix3": "전송 후 프롬프트 영역 접기: 프롬프트 입력 영역이 확대된 상태에서 전송(Send 또는 Ctrl+Enter) 시 자동으로 접혀 AI 응답을 바로 확인할 수 있음.",
+        "releaseNotes.v071.improvement1": "Gemini 세션 keep-alive: 5분 간격으로 Gemini 웹뷰에서 경량 HEAD 요청을 보내 약 10분 후 로그아웃되는 현상 완화.",
         "releaseNotes.improvements": "개선 사항",
         "releaseNotes.v070.feature1": "커스텀 프롬프트 빌더: 시스템/전역/개별 변수, 자동완성, 전송 및 입력창 복사가 있는 전체 화면 3패널 에디터.",
         "releaseNotes.v070.feature2": "슬래시 명령: 메인 입력창에 /를 입력하면 저장된 커스텀 프롬프트를 키보드로 선택해 삽입.",
@@ -527,7 +535,11 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "リリース履歴",
-        "releaseNotes.lastUpdated": "最終更新: 2026年2月20日",
+        "releaseNotes.lastUpdated": "最終更新: 2026年2月23日",
+        "releaseNotes.v071.fix1": "プレビュー変数レンダリング: メインプロンプトのインライン/マスタープレビューで {{last_response}}、{{chat_thread}} が途中で切れて表示される問題を修正。マークダウン解析前にプレースホルダーを分割。",
+        "releaseNotes.v071.fix2": "匿名モードと変数置換: Anonymous ON 時、ウェブビューへ送信される {{last_response}}、{{chat_thread}} が匿名サービス名で置換されるよう修正。CPB および全プレビューがリアルタイムで反映。",
+        "releaseNotes.v071.fix3": "送信後のプロンプト領域折りたたみ: プロンプト入力が拡大状態のとき、送信（Send または Ctrl+Enter）で自動的に折りたたみ、AI応答をすぐ確認可能に。",
+        "releaseNotes.v071.improvement1": "Geminiセッションkeep-alive: 5分間隔でGeminiウェブビューから軽量HEADリクエストを送信し、約10分でログアウトされる現象を軽減。",
         "releaseNotes.improvements": "改善",
         "releaseNotes.v070.feature1": "カスタムプロンプトビルダー: システム/グローバル/ローカル変数、オートコンプリート、送信・入力欄へコピー付きのフルスクリーン3パネルエディター。",
         "releaseNotes.v070.feature2": "スラッシュコマンド: メイン入力で / を入力すると保存したカスタムプロンプトをキーボード操作で挿入。",

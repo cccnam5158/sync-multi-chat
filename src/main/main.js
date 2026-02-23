@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard, shell } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard, shell, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -82,7 +82,41 @@ const serviceDomains = {
 let currentLayout = '1x4'; // Default layout
 
 let selectorsConfig = {};
-let currentZoomLevel = 0.9; // Default zoom level
+let currentZoomLevel = 0.9; // Default zoom level (user preference, 0.5–3.0)
+
+/** Get display scale factor for the main window (for DPI-aware webview zoom). Returns 1 if unavailable. */
+function getDisplayScaleFactor() {
+    if (!mainWindow || mainWindow.isDestroyed()) return 1;
+    try {
+        const winBounds = mainWindow.getBounds();
+        const display = screen.getDisplayMatching({ x: winBounds.x, y: winBounds.y, width: winBounds.width, height: winBounds.height });
+        return display && typeof display.scaleFactor === 'number' && display.scaleFactor > 0 ? display.scaleFactor : 1;
+    } catch (e) {
+        return 1;
+    }
+}
+
+/** Effective zoom = (1 / displayScale) * userZoom so webview content scales correctly across resolutions. */
+function getEffectiveZoomFactor() {
+    const scaleFactor = getDisplayScaleFactor();
+    return (1 / scaleFactor) * currentZoomLevel;
+}
+
+/** Apply current zoom (DPI-adjusted) to all BrowserViews (multi and single mode). */
+function applyZoomToAllViews() {
+    const zoom = getEffectiveZoomFactor();
+    services.forEach(service => {
+        if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
+            views[service].view.webContents.setZoomFactor(zoom);
+        }
+    });
+    Object.keys(singleModeViews).forEach(instanceKey => {
+        const entry = singleModeViews[instanceKey];
+        if (entry && entry.view && !entry.view.webContents.isDestroyed()) {
+            entry.view.webContents.setZoomFactor(zoom);
+        }
+    });
+}
 
 // Session state tracking (SESS)
 let savedSessionUrls = {}; // URLs to load on startup
@@ -175,6 +209,25 @@ function createWindow() {
     // (we have 6 services + several system listeners)
     mainWindow.setMaxListeners(100);
 
+    // Re-apply DPI-aware zoom when display scale or window position changes
+    let zoomApplyTimeout = null;
+    const scheduleApplyZoom = () => {
+        if (zoomApplyTimeout) clearTimeout(zoomApplyTimeout);
+        zoomApplyTimeout = setTimeout(() => {
+            zoomApplyTimeout = null;
+            if (mainWindow && !mainWindow.isDestroyed()) applyZoomToAllViews();
+        }, 300);
+    };
+    mainWindow.on('moved', scheduleApplyZoom);
+    mainWindow.on('resized', scheduleApplyZoom);
+    try {
+        screen.on('display-metrics-changed', (event, display, changedMetrics) => {
+            if (Array.isArray(changedMetrics) && (changedMetrics.includes('scaleFactor') || changedMetrics.includes('bounds'))) {
+                scheduleApplyZoom();
+            }
+        });
+    } catch (e) { /* screen API may vary by Electron version */ }
+
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
     // Create BrowserViews only after main window is ready to avoid startup errors
@@ -246,6 +299,10 @@ function createWindow() {
         // Persist electron-store sessionState no matter what
         try { saveSessionState(); } catch (err) { console.error('[Session] saveSessionState failed:', err); }
 
+        if (geminiKeepAliveTimerId != null) {
+            clearInterval(geminiKeepAliveTimerId);
+            geminiKeepAliveTimerId = null;
+        }
         // Now actually close
         try {
             if (mainWindow && !mainWindow.isDestroyed()) {
@@ -257,6 +314,8 @@ function createWindow() {
     });
 
     // Initial Layout is now handled by renderer sending bounds
+
+    startGeminiKeepAlive();
 }
 
 // Centralized handler for request-config to avoid listener accumulation
@@ -386,7 +445,7 @@ function createServiceView(service) {
     // Send config when page finishes loading
     view.webContents.on('did-finish-load', () => {
 
-        view.webContents.setZoomFactor(currentZoomLevel);
+        view.webContents.setZoomFactor(getEffectiveZoomFactor());
         view.webContents.send('scroll-sync-state', isScrollSyncEnabled);
 
         if (selectorsConfig[service]) {
@@ -458,6 +517,37 @@ function createServiceView(service) {
     });
 
     views[service] = { view, enabled: true };
+}
+
+// ========================================
+// Gemini session keep-alive (reduce idle logout after ~10 min)
+// ========================================
+const GEMINI_KEEPALIVE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+let geminiKeepAliveTimerId = null;
+
+function geminiKeepAliveTick() {
+    try {
+        const v = views.gemini;
+        if (!v || !v.view || v.view.webContents.isDestroyed()) return;
+        const wc = v.view.webContents;
+        const url = wc.getURL() || '';
+        if (!url.includes('gemini.google.com') || url.includes('accounts.google.com')) return;
+        wc.executeJavaScript(`
+            (function(){
+                try {
+                    fetch(window.location.origin + '/app', { method: 'HEAD', credentials: 'same-origin', keepalive: true }).catch(function(){});
+                } catch (e) {}
+            })();
+        `).catch(() => {});
+    } catch (e) {
+        // ignore
+    }
+}
+
+function startGeminiKeepAlive() {
+    if (geminiKeepAliveTimerId != null) return;
+    geminiKeepAliveTimerId = setInterval(geminiKeepAliveTick, GEMINI_KEEPALIVE_INTERVAL_MS);
+    console.log('[gemini] Keep-alive started (interval:', GEMINI_KEEPALIVE_INTERVAL_MS / 1000, 's)');
 }
 
 // ========================================
@@ -565,9 +655,9 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
 
     // On page load
     view.webContents.on('did-finish-load', () => {
-        view.webContents.setZoomFactor(currentZoomLevel);
+        view.webContents.setZoomFactor(getEffectiveZoomFactor());
         view.webContents.send('scroll-sync-state', isScrollSyncEnabled);
-        
+
         if (selectorsConfig[service]) {
             view.webContents.send('set-config', { config: selectorsConfig[service], service, instanceKey });
         }
@@ -580,7 +670,7 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
             lastKnownInstanceUrls[instanceKey] = currentUrl;
         }
         if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('single-instance-url-changed', { 
+            mainWindow.webContents.send('single-instance-url-changed', {
                 instanceKey, 
                 service,
                 instanceIndex,
@@ -2815,12 +2905,7 @@ ipcMain.on('zoom-sync', (event, direction) => {
         currentZoomLevel = Math.max(currentZoomLevel - zoomStep, 0.5); // Min 50%
     }
 
-    // Apply to all views
-    services.forEach(service => {
-        if (views[service] && views[service].view) {
-            views[service].view.webContents.setZoomFactor(currentZoomLevel);
-        }
-    });
+    applyZoomToAllViews();
 });
 
 // External Login Handler

@@ -367,6 +367,10 @@ function toggleAnonymousMode() {
         anonymousBtn.classList.remove('active');
     }
 
+    // Keep CPB and previews in sync with Anonymous toggle (send/substitute use this)
+    window._cpb_isAnonymousMode = isAnonymousMode;
+    window.dispatchEvent(new CustomEvent('smc:anonymous-mode-changed', { detail: { anonymousMode: isAnonymousMode } }));
+
     updateServiceToggles();
     // In Single Mode, also update instance toggle labels and per-view headers
     if (chatMode === 'single') {
@@ -1052,6 +1056,9 @@ async function sendPrompt() {
         masterInput.placeholder = MAIN_INPUT_PLACEHOLDER;
         masterInput.focus();
     }
+
+    // Collapse expanded prompt area so user can see responses (CPB listens for this)
+    window.dispatchEvent(new CustomEvent('smc:collapse-prompt-expanded'));
 }
 
 //===========================================
@@ -3938,6 +3945,8 @@ async function loadSession(session) {
     if (session.isAnonymousMode !== undefined && session.isAnonymousMode !== isAnonymousMode) {
         toggleAnonymousMode();
     }
+    // Keep CPB in sync with current Anonymous state after session load
+    window._cpb_isAnonymousMode = isAnonymousMode;
 
     // Restore Scroll Sync
     if (session.isScrollSyncEnabled !== undefined && session.isScrollSyncEnabled !== isScrollSyncEnabled) {

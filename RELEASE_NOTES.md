@@ -1,5 +1,17 @@
 # Release Notes
 
+## v0.7.1 (2026-02-23)
+
+### 🔧 Bug Fixes
+*   **Preview variable rendering**: Fixed `{{last_response}}` and `{{chat_thread}}` appearing truncated (e.g. `{{last`) in the main prompt inline preview and master preview. Placeholders are now split before markdown parsing so the parser does not alter variable tokens; placeholder format changed to avoid underscore interpretation as emphasis.
+*   **Anonymous mode and variable substitution**: When Anonymous toggle is ON, `{{last_response}}` and `{{chat_thread}}` sent to webviews now correctly use anonymized service names (e.g. Service A/B/C). Anonymous state is synced with the Custom Prompt Builder and all previews (main input, Session Custom Prompt Builder, Custom Prompt Builder) update in real time when the toggle changes.
+*   **Expand prompt area after send**: When the prompt input area is expanded (fullscreen), sending a prompt (Send or Ctrl+Enter) now automatically collapses the area so you can see AI responses immediately.
+
+### ⬆️ Improvements
+*   **Gemini session keep-alive**: Added a 5-minute keep-alive that sends a lightweight HEAD request from the Gemini webview when the app is idle. This helps reduce “logged out after ~10 minutes” behavior when the session is idle-based; token-based expiry still requires re-login.
+
+---
+
 ## v0.7.0 (2026-02-20)
 
 ### ✨ New Features
