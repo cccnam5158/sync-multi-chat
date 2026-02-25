@@ -15,9 +15,9 @@ const translations = {
 
         // Hero Section
         "hero.badge": "New: Single AI Mode – Compare models from one provider",
-        "hero.title1": "One Prompt.",
-        "hero.title2": "Six Minds Simultaneously.",
-        "hero.value": "No API keys. Use your ChatGPT, Claude, Gemini subscriptions in one place.",
+        "hero.title1": "No API keys.",
+        "hero.title2a": "Use your ChatGPT, Claude, Gemini",
+        "hero.title2b": "subscriptions in one place.",
         "hero.tagline": "Stop switching tabs. Broadcast your prompts to ChatGPT, Claude, Gemini, Grok, Perplexity, and Genspark at once. Compare, cross-check, and iterate faster.",
         "hero.downloadBtn": "Download for Desktop",
         "hero.githubBtn": "View on GitHub",
@@ -216,9 +216,9 @@ const translations = {
 
         // Hero Section
         "hero.badge": "신규: 싱글 AI 모드 – 하나의 서비스에서 여러 모델 비교",
-        "hero.title1": "하나의 질문,",
-        "hero.title2": "여섯 개의 AI가 동시에.",
-        "hero.value": "API 키 없이. 개인이 구독하는 ChatGPT, Claude, Gemini를 한 곳에서 최대한 활용하세요.",
+        "hero.title1": "API 키 없이.",
+        "hero.title2a": "개인 구독 ChatGPT, Claude, Gemini를",
+        "hero.title2b": "한 곳에서 최대한 활용.",
         "hero.tagline": "탭 전환은 이제 그만. ChatGPT, Claude, Gemini, Grok, Perplexity, Genspark에 프롬프트를 한 번에 전송하세요. 비교하고, 교차 검증하고, 더 빠르게 반복하세요.",
         "hero.downloadBtn": "데스크톱용 다운로드",
         "hero.githubBtn": "GitHub에서 보기",
@@ -417,9 +417,9 @@ const translations = {
 
         // Hero Section
         "hero.badge": "新機能: シングルAIモード – 1つのサービスで複数モデルを比較",
-        "hero.title1": "1つのプロンプト、",
-        "hero.title2": "6つのAIが同時に。",
-        "hero.value": "APIキー不要。個人のChatGPT・Claude・Geminiサブスクを1つのアプリで最大限に活用。",
+        "hero.title1": "APIキー不要。",
+        "hero.title2a": "個人のChatGPT・Claude・Geminiを",
+        "hero.title2b": "1つのアプリで最大限に。",
         "hero.tagline": "タブの切り替えはもう不要。ChatGPT、Claude、Gemini、Grok、Perplexity、Genspark にプロンプトを一度に送信。比較、クロスチェック、そして高速な反復を。",
         "hero.downloadBtn": "デスクトップ版をダウンロード",
         "hero.githubBtn": "GitHubで見る",
