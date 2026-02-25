@@ -177,6 +177,19 @@ nav {
     position: relative;
 }
 
+.hero-value {
+    display: inline-block;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));
+    border: 1px solid rgba(139, 92, 246, 0.35);
+    padding: 10px 20px;
+    border-radius: 50px;
+    margin: 0 auto 1.25rem;
+    max-width: 640px;
+}
+
 .hero p.hero-tagline {
     font-size: 1.25rem;
     max-width: 800px;
@@ -881,6 +894,10 @@ footer {
         padding: 140px 0 60px;
     }
 
+    .hero-value {
+        font-size: 0.95rem;
+        padding: 8px 16px;
+    }
     .hero p.hero-tagline {
         font-size: 1rem;
     }
