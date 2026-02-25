@@ -6,6 +6,7 @@
 
 **Sync Multi Chat** (Code Name: MAPB - Multi AI Prompt Broadcaster) is an Electron-based desktop application designed to maximize productivity for users who utilize multiple AI services simultaneously.
 It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, **Grok**, and **Perplexity** at once, displaying their responses side-by-side for easy comparison.
+**No API keys are required**—the app uses the official web interfaces of each service, so you can make the most of your **personal subscription accounts** (e.g. ChatGPT Plus, Claude, Gemini) in one place.
 
 ![Sync Multi Chat Application Screenshot](assets/mutli-ai-chat.png)
 *Figure 1: Sync Multi Chat Interface showing simultaneous interactions with ChatGPT, Claude, and Gemini.*

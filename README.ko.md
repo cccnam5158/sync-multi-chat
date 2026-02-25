@@ -4,6 +4,7 @@
 
 **Sync Multi Chat** (코드명: MAPB - Multi AI Prompt Broadcaster)은 여러 AI 서비스를 동시에 사용하는 사용자들의 생산성을 극대화하기 위해 설계된 Electron 기반 데스크톱 애플리케이션입니다.
 단 하나의 프롬프트를 **ChatGPT**, **Claude**, **Gemini**, **Grok**, **Perplexity**에 동시에 전송하고, 답변을 나란히 표시하여 쉽게 비교할 수 있도록 해줍니다.
+**API 키가 필요 없습니다**—각 서비스의 공식 웹 인터페이스를 사용하므로, **개인 구독 계정**(예: ChatGPT Plus, Claude, Gemini)을 한 곳에서 최대한 활용할 수 있습니다.
 
 ![Sync Multi Chat 애플리케이션 스크린샷](assets/mutli-ai-chat.png)
 *그림 1: ChatGPT, Claude, Gemini와 동시에 상호작용하는 Sync Multi Chat 인터페이스*
