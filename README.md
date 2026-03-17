@@ -24,7 +24,7 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 -   **Multi-Pane Interface**: View and interact with up to 4 AI services (ChatGPT, Claude, Gemini, Grok, Perplexity) simultaneously in a grid layout.
 -   **Single AI Mode** *(New in v0.6.0)*: For users who subscribe to only one AI service—open up to 4 instances of the same provider and compare responses from different models.
--   **Custom Prompt Builder** *(New in v0.7.0)*: Create, save, and manage custom prompts with System/Global/Local variables; use Slash Command (`/`) in the main input to insert saved prompts and inline variable editing.
+-   **Custom Prompt Builder** *(New in v0.7.0)*: Create, save, and manage custom prompts with System/Global/Local variables; use Slash Command (`/`) in the main input to insert saved prompts and inline variable editing. *(v0.8.0)* Live preview for **Mermaid** diagrams, **code blocks** (syntax highlighting), and **LaTeX** formulas in the prompt builder and main prompt preview.
 -   **Simultaneous Prompting**: Send a message from a central "Master Input" to all active AI services instantly.
 -   **Broad Service Support**: Supports ChatGPT, Claude, Gemini, Grok (xAI), Perplexity, and **Genspark**.
 -   **Chat History Management**: Save and restore entire chat sessions including active services, layouts, and URLs.
@@ -41,13 +41,13 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 ## Version
 
--   **Current Version**: v0.7.1
+-   **Current Version**: v0.8.0
 
 ## Installation
 
 This application is distributed as a **Windows Installer** with **automatic update support**.
 
-1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.7.1.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.7.1/Sync-Multi-Chat-Setup-0.7.1.exe)
+1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.8.0.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.8.0/Sync-Multi-Chat-Setup-0.8.0.exe)
 2.  Run the installer and follow the installation wizard.
 3.  The app will automatically check for updates on startup.
 

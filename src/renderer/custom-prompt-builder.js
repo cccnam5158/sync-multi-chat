@@ -33,7 +33,7 @@
     let cpbDirty = false;
     let cpbSortMode = 'recent';
     let cpbZen = false;
-    let cpbLivePreview = false;
+    let cpbLivePreview = true;
     let cpbPreviewMode = false;
     let cpbScrollSyncLock = false;
     let cpbHighlightVars = true;
@@ -57,6 +57,8 @@
     let promptsTimer = null;
     let globalsTimer = null;
     let currentPromptTimer = null;
+
+    let cpbPreviewTheme = 'light';
 
     // ---- DOM References ----
     let el = {};
@@ -251,6 +253,7 @@
         ui.sortMode = cpbSortMode;
         ui.zen = cpbZen;
         ui.livePreview = cpbLivePreview;
+        ui.previewTheme = cpbPreviewTheme;
         if (cpbZen) {
             // When Zen is on, save the pre-zen state (not the current collapsed state)
             ui.preZenSidebarCollapsed = _preZenSidebar;
@@ -272,7 +275,8 @@
             cpbSortMode = ui.sortMode;
             el.sortBtn.textContent = cpbSortMode === 'recent' ? 'Sort: Recent' : 'Sort: Title';
         }
-        cpbLivePreview = !!ui.livePreview;
+        if (typeof ui.livePreview === 'boolean') cpbLivePreview = ui.livePreview;
+        if (ui.previewTheme === 'dark' || ui.previewTheme === 'light') cpbPreviewTheme = ui.previewTheme;
         if (ui.zen) {
             // Restore pre-zen state from persist, then apply Zen
             _preZenSidebar = !!ui.preZenSidebarCollapsed;
@@ -373,6 +377,18 @@
         }
         el.btnDup.onclick = handleDuplicate;
         el.btnDel.onclick = handleDelete;
+
+        // CPB Preview theme toggle
+        var cpbPreviewThemeWrap = document.getElementById('cpb-preview-theme');
+        if (cpbPreviewThemeWrap) {
+            cpbPreviewThemeWrap.querySelectorAll('.inline-preview-theme-btn').forEach(function (btn) {
+                btn.onclick = function () {
+                    cpbPreviewTheme = btn.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+                    applyCpbPreviewTheme();
+                    persistUI();
+                };
+            });
+        }
 
         // Editor
         el.tabEdit.onclick = () => setPreviewMode(false);
@@ -733,6 +749,22 @@
         }
     }
 
+    function applyCpbPreviewTheme(skipRerender) {
+        if (!el.preview) return;
+        var isDark = cpbPreviewTheme === 'dark';
+        el.preview.classList.toggle('cpb-preview-theme-dark', isDark);
+        el.preview.classList.toggle('cpb-preview-theme-light', !isDark);
+        var wrap = document.getElementById('cpb-preview-theme');
+        if (wrap) {
+            wrap.querySelectorAll('.inline-preview-theme-btn').forEach(function (btn) {
+                btn.classList.toggle('active', (btn.getAttribute('data-theme') === 'dark') === isDark);
+            });
+        }
+        if (!skipRerender && (cpbPreviewMode || cpbLivePreview)) {
+            renderPreview();
+        }
+    }
+
     function setLivePreviewMode(on) {
         cpbLivePreview = !!on;
         if (el.livePreviewCheck) el.livePreviewCheck.checked = cpbLivePreview;
@@ -825,8 +857,8 @@
     function looksLikeStructuredPlainText(raw) {
         const text = String(raw || '').trim();
         if (!text) return false;
+        if (/```\w*\s*\n[\s\S]*?\n```/m.test(text)) return false;
 
-        // JSON payloads should be rendered as plain text.
         if (text.startsWith('{') || text.startsWith('[')) {
             try {
                 JSON.parse(text);
@@ -836,7 +868,6 @@
             }
         }
 
-        // XML/HTML payloads should be rendered as plain text to avoid DOM/layout side effects.
         if (/^<\?xml[\s>]/i.test(text)) return true;
         if (/^<!doctype\s+html/i.test(text)) return true;
         if (/^<html[\s>]/i.test(text)) return true;
@@ -864,6 +895,8 @@
     }
 
     function decidePreviewMode(raw) {
+        var s = String(raw || '');
+        if (/```\w*\s*\n[\s\S]*?\n```/m.test(s)) return 'markdown';
         if (looksLikeStructuredPlainText(raw)) return 'plain';
         if (looksLikeMarkdown(raw)) return 'markdown';
         return 'plain';
@@ -884,6 +917,8 @@
     async function renderPreview() {
         const renderSeq = ++cpbPreviewRenderSeq;
         const raw = getEditorValue();
+        applyCpbPreviewTheme(true);
+        if (setPreviewPlaceholderIfEmpty(el.preview, raw)) return;
         const map = await buildPreviewVarMap();
         if (renderSeq !== cpbPreviewRenderSeq) return;
 
@@ -919,30 +954,35 @@
 
         const previewMode = decidePreviewMode(raw);
         if (previewMode === 'markdown') {
-            // Step 2 (markdown mode): Render markdown
+            var extractedBlocks = extractAllFencedBlocks(withPlaceholders);
             let html = '';
             try {
-                html = marked.parse(withPlaceholders, { breaks: true, gfm: true });
+                html = marked.parse(extractedBlocks.text, { breaks: true, gfm: true });
             } catch (e) {
                 renderPreviewAsPlainText(withPlaceholders, placeholders);
                 syncPreviewScrollFromEditor();
                 return;
             }
 
-            // Step 3: Restore placeholders with actual variable HTML
             for (const [ph, replacement] of Object.entries(placeholders)) {
                 html = html.replaceAll(safeHtml(ph), replacement);
-                html = html.replaceAll(ph, replacement); // also handle unescaped occurrences
+                html = html.replaceAll(ph, replacement);
             }
-
+            if (extractedBlocks.blocks.length) {
+                html = injectBlockWrappersIntoHtml(html, extractedBlocks.blocks);
+            }
             el.preview.classList.remove('cpb-preview-plain');
             el.preview.classList.add('cpb-preview-md');
             el.preview.innerHTML = html;
+            applyCpbPreviewTheme(true);
+            syncPreviewScrollFromEditor();
+            await postProcessPreviewBlocksAsync(el.preview);
+            syncPreviewScrollFromEditor();
         } else {
-            // Plain text mode (XML/JSON/HTML/non-markdown content)
             renderPreviewAsPlainText(withPlaceholders, placeholders);
+            applyCpbPreviewTheme(true);
+            syncPreviewScrollFromEditor();
         }
-        syncPreviewScrollFromEditor();
     }
 
     function handleEditorInput() {
@@ -1836,6 +1876,674 @@
 
     function previewOf(text) { const t = (text || '').replace(/\s+/g, ' ').trim(); return t.length > 80 ? t.slice(0, 80) + '...' : (t || '--'); }
     function safeHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+    function decodeHtml(s) {
+        let t = String(s ?? '');
+        t = t.replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)));
+        t = t.replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
+        t = t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&');
+        return t;
+    }
+    function mermaidRawToB64(raw) {
+        try {
+            return btoa(unescape(encodeURIComponent(raw)));
+        } catch (e) {
+            return '';
+        }
+    }
+    function mermaidB64ToRaw(b64) {
+        try {
+            return decodeURIComponent(escape(atob(b64)));
+        } catch (e) {
+            return '';
+        }
+    }
+    function extractMermaidBlocksFromMarkdown(text) {
+        var blocks = [];
+        var re = /```mermaid\s*\n([\s\S]*?)\n```/g;
+        var out = String(text || '').replace(re, function (_, content) {
+            var raw = content.replace(/\r\n?/g, '\n').trim();
+            var b64 = mermaidRawToB64(raw);
+            var idx = blocks.length;
+            blocks.push(b64);
+            return '%%MERMAID_' + idx + '%%';
+        });
+        return { text: out, blocks: blocks };
+    }
+
+    /** Extract all fenced blocks (```lang ... ```). Returns { text, blocks } where blocks have type, lang, rawContent, placeholder. */
+    function extractAllFencedBlocks(text) {
+        var blocks = [];
+        var re = /```(\w*)\s*\n([\s\S]*?)\n```/g;
+        var out = String(text || '').replace(re, function (_, lang, content) {
+            var raw = content.replace(/\r\n?/g, '\n').trim();
+            var langLower = (lang || '').toLowerCase();
+            var type = langLower === 'mermaid' ? 'mermaid' : (langLower === 'latex' ? 'latex' : 'code');
+            var idx = blocks.length;
+            var placeholder = '%%BLOCK_' + idx + '%%';
+            blocks.push({ type: type, lang: lang || 'text', rawContent: raw, placeholder: placeholder, b64: type === 'mermaid' ? mermaidRawToB64(raw) : null });
+            return placeholder;
+        });
+        return { text: out, blocks: blocks };
+    }
+
+    var BLOCK_ICON_ZOOM_IN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
+    var BLOCK_ICON_ZOOM_OUT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
+    var BLOCK_ICON_FIT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+    var BLOCK_ICON_FULLSCREEN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
+
+    function buildBlockWrapperHtml(block, index) {
+        var id = 'prompt-block-content-' + index;
+        var esc = safeHtml(block.rawContent);
+        if (block.type === 'mermaid') {
+            var toolbarHtml = '<div class="mermaid-preview-toolbar mermaid-block-toolbar" data-preview-content="' + id + '">' +
+                '<button type="button" class="mermaid-tool-btn" data-action="zoom-in" aria-label="Zoom In" title="Zoom In">' + BLOCK_ICON_ZOOM_IN + '</button>' +
+                '<button type="button" class="mermaid-tool-btn" data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out">' + BLOCK_ICON_ZOOM_OUT + '</button>' +
+                '<button type="button" class="mermaid-tool-btn" data-action="fit" aria-label="Fit to View" title="Fit to View">' + BLOCK_ICON_FIT + '</button>' +
+                '<span class="mermaid-tool-sep"></span>' +
+                '<button type="button" class="mermaid-tool-btn" data-action="fullscreen" aria-label="Full Screen" title="Full Screen">' + BLOCK_ICON_FULLSCREEN + '</button>' +
+                '</div>';
+            return '<div class="prompt-block-wrapper" data-block-type="mermaid" data-block-index="' + index + '" data-view="preview">' +
+                '<div class="prompt-block-header">' +
+                '<span class="prompt-block-label">Mermaid</span>' +
+                '<div class="prompt-block-controls">' +
+                '<button type="button" class="prompt-block-view-btn" data-block-view="text" data-block-id="' + index + '">Text</button>' +
+                '<button type="button" class="prompt-block-view-btn active" data-block-view="preview" data-block-id="' + index + '">Preview</button>' +
+                toolbarHtml +
+                '<button type="button" class="prompt-block-copy-btn" data-block-id="' + index + '" title="Copy">Copy</button>' +
+                '</div></div>' +
+                '<div class="prompt-block-content" id="' + id + '">' +
+                '<div class="prompt-block-text" style="display:none;"><pre><code>' + esc + '</code></pre></div>' +
+                '<div class="prompt-block-preview"><div class="mermaid" data-mermaid-b64="' + safeHtml(block.b64) + '"></div></div>' +
+                '</div></div>';
+        }
+        if (block.type === 'latex') {
+            return '<div class="prompt-block-wrapper" data-block-type="latex" data-block-index="' + index + '" data-view="preview">' +
+                '<div class="prompt-block-header">' +
+                '<span class="prompt-block-label">LaTeX</span>' +
+                '<div class="prompt-block-controls">' +
+                '<button type="button" class="prompt-block-view-btn" data-block-view="text" data-block-id="' + index + '">Text</button>' +
+                '<button type="button" class="prompt-block-view-btn active" data-block-view="preview" data-block-id="' + index + '">Preview</button>' +
+                '<button type="button" class="prompt-block-copy-btn" data-block-id="' + index + '" title="Copy">Copy</button>' +
+                '</div></div>' +
+                '<div class="prompt-block-content" id="' + id + '">' +
+                '<div class="prompt-block-text" style="display:none;"><pre><code>' + esc + '</code></pre></div>' +
+                '<div class="prompt-block-preview" data-latex-raw="' + safeHtml(block.rawContent) + '"></div>' +
+                '</div></div>';
+        }
+        var langLabel = block.lang && block.lang !== 'text' ? block.lang : 'code';
+        return '<div class="prompt-block-wrapper" data-block-type="code" data-block-index="' + index + '">' +
+            '<div class="prompt-block-header">' +
+            '<span class="prompt-block-label">' + safeHtml(langLabel) + '</span>' +
+            '<div class="prompt-block-controls">' +
+            '<button type="button" class="prompt-block-copy-btn" data-block-id="' + index + '" title="Copy code">Copy</button>' +
+            '</div></div>' +
+            '<div class="prompt-block-content" id="' + id + '">' +
+            '<pre><code class="language-' + safeHtml(block.lang) + '">' + esc + '</code></pre>' +
+            '</div></div>';
+    }
+
+    function injectBlockWrappersIntoHtml(html, blocks) {
+        if (!blocks || !blocks.length) return html;
+        for (var i = 0; i < blocks.length; i++) {
+            var wrapper = buildBlockWrapperHtml(blocks[i], i);
+            var ph = blocks[i].placeholder;
+            html = html.split('<p>' + ph + '</p>').join(wrapper);
+            html = html.split(ph).join(wrapper);
+        }
+        return html;
+    }
+
+    function injectMermaidBlocksIntoHtml(html, blocks) {
+        if (!blocks || !blocks.length) return html;
+        for (var i = 0; i < blocks.length; i++) {
+            var placeholder = '%%MERMAID_' + i + '%%';
+            var div = '<div class="mermaid" data-mermaid-b64="' + safeHtml(blocks[i]) + '"></div>';
+            html = html.split(placeholder).join(div);
+        }
+        return html;
+    }
+    function replaceMermaidCodeBlocksInHtml(html) {
+        if (!html || typeof html !== 'string') return html;
+        var re = /<pre[^>]*>\s*<code[^>]*class=["'][^"']*language-mermaid[^"']*["'][^>]*>([\s\S]*?)<\/code>\s*<\/pre>/gi;
+        return html.replace(re, (_, code) => {
+            var raw = decodeHtml(code.trim());
+            var b64 = mermaidRawToB64(raw);
+            return '<div class="mermaid" data-mermaid-b64="' + safeHtml(b64) + '"></div>';
+        });
+    }
+    function ensureMermaidBlocksInDom(container) {
+        if (!container) return;
+        var pres = container.querySelectorAll('pre');
+        pres.forEach(function (pre) {
+            var code = pre.firstElementChild;
+            if (!code || code.tagName !== 'CODE' || !code.className || code.className.indexOf('mermaid') === -1) return;
+            var raw = decodeHtml((code.textContent || code.innerText || '').trim());
+            if (!raw) return;
+            var div = document.createElement('div');
+            div.className = 'mermaid';
+            div.textContent = raw;
+            if (pre.parentNode) pre.parentNode.replaceChild(div, pre);
+        });
+    }
+    function detectMermaidTheme(container) {
+        if (!container) return 'default';
+        var el = container.closest('.inline-preview-dark, .master-preview-theme-dark, .cpb-preview-theme-dark, [class*="preview-theme-dark"]');
+        return el ? 'dark' : 'default';
+    }
+
+    function renderMermaidInContainer(container) {
+        if (!container || typeof window.mermaid === 'undefined') return Promise.resolve();
+        ensureMermaidBlocksInDom(container);
+        const nodes = container.querySelectorAll('.mermaid');
+        if (!nodes.length) return Promise.resolve();
+        var theme = detectMermaidTheme(container);
+        try {
+            window.mermaid.initialize({ startOnLoad: false, theme: theme, suppressErrors: true });
+        } catch (e) { /* ignore */ }
+        nodes.forEach((node) => {
+            var b64 = node.getAttribute('data-mermaid-b64');
+            if (b64) {
+                node.textContent = mermaidB64ToRaw(b64);
+                node.removeAttribute('data-mermaid-b64');
+            }
+            node.removeAttribute('data-processed');
+            node.removeAttribute('data-mermaid-processed');
+        });
+        return window.mermaid.run({ nodes, suppressErrors: true }).catch(() => {});
+    }
+
+    var mermaidPreviewZoomMap = new WeakMap();
+    function getPreviewContentFromToolbar(toolbar) {
+        if (!toolbar) return null;
+        var wrapper = toolbar.closest('.prompt-block-wrapper');
+        if (wrapper) {
+            var content = wrapper.querySelector('.prompt-block-content');
+            if (content) return content;
+        }
+        var id = toolbar.getAttribute('data-preview-content');
+        if (!id) return null;
+        var el = document.getElementById(id);
+        if (el) return el;
+        var root = toolbar.closest('.session-prompt-modal');
+        return root ? root.querySelector('.' + id) : null;
+    }
+    function applyBlockSvgZoom(contentEl, scale) {
+        if (!contentEl) return;
+        scale = Math.max(0.1, Math.min(5, scale));
+        mermaidPreviewZoomMap.set(contentEl, scale);
+        var previewEl = contentEl.querySelector('.prompt-block-preview');
+        var mermaidEl = previewEl && previewEl.querySelector('.mermaid');
+        var svg = mermaidEl ? mermaidEl.querySelector('svg') : (previewEl ? previewEl.querySelector('svg') : null);
+        if (!svg) return;
+        var natW = parseFloat(svg.style.maxWidth || svg.getAttribute('width')) || svg.getBoundingClientRect().width;
+        var natH = parseFloat(svg.getAttribute('height')) || svg.getBoundingClientRect().height;
+        if (natW <= 0 || natH <= 0) return;
+        svg.style.transformOrigin = '0 0';
+        svg.style.transform = 'scale(' + scale + ')';
+        var scrollHost = mermaidEl || previewEl;
+        if (scrollHost) {
+            scrollHost.style.width = Math.ceil(natW * scale) + 'px';
+            scrollHost.style.height = Math.ceil(natH * scale) + 'px';
+            scrollHost.style.overflow = 'visible';
+        }
+    }
+    function resetBlockSvgZoom(contentEl) {
+        mermaidPreviewZoomMap.set(contentEl, 1);
+        var previewEl = contentEl && contentEl.querySelector('.prompt-block-preview');
+        var mermaidEl = previewEl && previewEl.querySelector('.mermaid');
+        var svg = mermaidEl ? mermaidEl.querySelector('svg') : (previewEl ? previewEl.querySelector('svg') : null);
+        if (svg) {
+            svg.style.transform = '';
+            svg.style.transformOrigin = '';
+        }
+        var scrollHost = mermaidEl || previewEl;
+        if (scrollHost) {
+            scrollHost.style.width = '';
+            scrollHost.style.height = '';
+            scrollHost.style.overflow = '';
+        }
+    }
+    var _fsState = null;
+
+    function _fsEnter(wrapper) {
+        if (!wrapper) return;
+        wrapper.requestFullscreen && wrapper.requestFullscreen();
+    }
+
+    function _fsInitPanZoom(wrapper) {
+        var contentEl = wrapper.querySelector('.prompt-block-content');
+        var previewEl = wrapper.querySelector('.prompt-block-preview');
+        var svgTarget = previewEl && (previewEl.querySelector('.mermaid svg') || previewEl.querySelector('svg'));
+        if (!contentEl || !svgTarget) return;
+
+        var scale = 1, panX = 0, panY = 0;
+        var dragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+        var svgNatW = 0, svgNatH = 0;
+
+        function getSvgNaturalSize() {
+            var vb = svgTarget.getAttribute('viewBox');
+            if (vb) {
+                var parts = vb.split(/[\s,]+/).map(Number);
+                if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) return { w: parts[2], h: parts[3] };
+            }
+            try {
+                var bbox = svgTarget.getBBox();
+                if (bbox.width > 0 && bbox.height > 0) return { w: bbox.width, h: bbox.height };
+            } catch (e) {}
+            var aw = parseFloat(svgTarget.getAttribute('width')) || svgTarget.clientWidth;
+            var ah = parseFloat(svgTarget.getAttribute('height')) || svgTarget.clientHeight;
+            return { w: aw || 800, h: ah || 400 };
+        }
+
+        function fitAndCenter() {
+            var cw = contentEl.clientWidth, ch = contentEl.clientHeight;
+            var nat = getSvgNaturalSize();
+            svgNatW = nat.w; svgNatH = nat.h;
+            if (!svgNatW || !svgNatH || !cw || !ch) { scale = 1; panX = 0; panY = 0; applyTransform(); return; }
+            scale = Math.min(cw / svgNatW, ch / svgNatH) * 0.92;
+            panX = (cw - svgNatW * scale) / 2;
+            panY = (ch - svgNatH * scale) / 2;
+            applyTransform();
+        }
+
+        function applyTransform() {
+            svgTarget.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
+            svgTarget.style.transformOrigin = '0 0';
+            var mermaidEl = previewEl.querySelector('.mermaid');
+            if (mermaidEl) {
+                mermaidEl.style.transform = 'none';
+                mermaidEl.style.width = '100%';
+                mermaidEl.style.height = '100%';
+                mermaidEl.style.overflow = 'visible';
+            }
+        }
+
+        function onWheel(e) {
+            if (!e.ctrlKey) return;
+            e.preventDefault();
+            var rect = contentEl.getBoundingClientRect();
+            var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+            var factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+            var newScale = Math.max(0.1, Math.min(10, scale * factor));
+            panX = mx - (mx - panX) * (newScale / scale);
+            panY = my - (my - panY) * (newScale / scale);
+            scale = newScale;
+            applyTransform();
+        }
+
+        function onMouseDown(e) {
+            if (e.button !== 0) return;
+            if (e.target.closest('.prompt-block-header') || e.target.closest('button')) return;
+            dragging = true;
+            dragStartX = e.clientX; dragStartY = e.clientY;
+            panStartX = panX; panStartY = panY;
+            e.preventDefault();
+        }
+        function onMouseMove(e) {
+            if (!dragging) return;
+            panX = panStartX + (e.clientX - dragStartX);
+            panY = panStartY + (e.clientY - dragStartY);
+            applyTransform();
+        }
+        function onMouseUp() { dragging = false; }
+
+        contentEl.addEventListener('wheel', onWheel, { passive: false });
+        contentEl.addEventListener('mousedown', onMouseDown);
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+
+        _fsState = {
+            wrapper: wrapper,
+            fitAndCenter: fitAndCenter,
+            zoomIn: function () {
+                scale = Math.min(10, scale * 1.25);
+                applyTransform();
+            },
+            zoomOut: function () {
+                scale = Math.max(0.1, scale / 1.25);
+                applyTransform();
+            },
+            cleanup: function () {
+                contentEl.removeEventListener('wheel', onWheel);
+                contentEl.removeEventListener('mousedown', onMouseDown);
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+                svgTarget.style.transform = '';
+                svgTarget.style.transformOrigin = '';
+                var mermaidEl = previewEl.querySelector('.mermaid');
+                if (mermaidEl) {
+                    mermaidEl.style.transform = '';
+                    mermaidEl.style.width = '';
+                    mermaidEl.style.height = '';
+                    mermaidEl.style.overflow = '';
+                }
+                _fsState = null;
+            }
+        };
+
+        setTimeout(fitAndCenter, 100);
+    }
+
+    document.addEventListener('fullscreenchange', function () {
+        if (document.fullscreenElement && document.fullscreenElement.classList.contains('prompt-block-wrapper')) {
+            _fsInitPanZoom(document.fullscreenElement);
+        } else if (_fsState) {
+            _fsState.cleanup();
+        }
+    });
+
+    function setupMermaidPreviewToolbars() {
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.mermaid-tool-btn');
+            if (!btn) return;
+            var toolbar = btn.closest('.mermaid-preview-toolbar');
+            var contentEl = getPreviewContentFromToolbar(toolbar);
+            if (!contentEl) return;
+            var action = btn.getAttribute('data-action');
+            var wrapper = contentEl.closest('.prompt-block-wrapper');
+            if (document.fullscreenElement && _fsState && _fsState.wrapper === wrapper) {
+                if (action === 'zoom-in') {
+                    _fsState.zoomIn();
+                } else if (action === 'zoom-out') {
+                    _fsState.zoomOut();
+                } else if (action === 'fit') {
+                    _fsState.fitAndCenter();
+                } else if (action === 'fullscreen') {
+                    document.exitFullscreen && document.exitFullscreen();
+                }
+                return;
+            }
+            var current = mermaidPreviewZoomMap.get(contentEl);
+            if (current === undefined) current = 1;
+            if (action === 'zoom-in') {
+                applyBlockSvgZoom(contentEl, current * 1.25);
+            } else if (action === 'zoom-out') {
+                applyBlockSvgZoom(contentEl, current / 1.25);
+            } else if (action === 'fit') {
+                resetBlockSvgZoom(contentEl);
+            } else if (action === 'fullscreen' && wrapper) {
+                _fsEnter(wrapper);
+            }
+        });
+    }
+
+    function showCopyFeedback(btnEl) {
+        if (!btnEl) return;
+        var orig = btnEl.textContent;
+        btnEl.textContent = 'Copied!';
+        btnEl.classList.add('prompt-block-copy-done');
+        setTimeout(function () {
+            btnEl.textContent = orig;
+            btnEl.classList.remove('prompt-block-copy-done');
+        }, 1500);
+    }
+
+    var _previewPlaceholderHtml =
+        '<div class="preview-placeholder">' +
+        '<p class="preview-placeholder-title">Preview</p>' +
+        '<p>Rendered output will appear here as you type in the editor.</p>' +
+        '<ul>' +
+        '<li>Markdown (headings, lists, links, tables)</li>' +
+        '<li>Code blocks with syntax highlighting</li>' +
+        '<li>Mermaid diagrams</li>' +
+        '<li>LaTeX formulas</li>' +
+        '</ul>' +
+        '</div>';
+
+    function setPreviewPlaceholderIfEmpty(previewEl, rawText) {
+        if (!previewEl) return false;
+        var text = (rawText || '').replace(/\s+/g, '');
+        if (!text) {
+            previewEl.innerHTML = _previewPlaceholderHtml;
+            return true;
+        }
+        return false;
+    }
+
+    function copySvgAsImage(svgEl, feedbackBtn) {
+        if (!svgEl) return;
+        try {
+            var clone = svgEl.cloneNode(true);
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+            clone.style.transform = '';
+            clone.style.transformOrigin = '';
+            var vb = svgEl.getAttribute('viewBox');
+            var w, h;
+            if (vb) {
+                var parts = vb.split(/[\s,]+/).map(Number);
+                if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) { w = parts[2]; h = parts[3]; }
+            }
+            if (!w || !h) {
+                w = parseFloat(svgEl.style.maxWidth || svgEl.getAttribute('width')) || 800;
+                h = parseFloat(svgEl.getAttribute('height')) || 600;
+            }
+            clone.setAttribute('width', w);
+            clone.setAttribute('height', h);
+            if (!clone.getAttribute('viewBox')) {
+                clone.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+            }
+            var svgStr = new XMLSerializer().serializeToString(clone);
+            var dataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+            var dpr = window.devicePixelRatio || 1;
+            var canvas = document.createElement('canvas');
+            canvas.width = Math.ceil(w * dpr);
+            canvas.height = Math.ceil(h * dpr);
+            var ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            var img = new Image();
+            img.onload = function () {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
+                canvas.toBlob(function (pngBlob) {
+                    if (pngBlob && navigator.clipboard && navigator.clipboard.write) {
+                        navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]).then(function () {
+                            showCopyFeedback(feedbackBtn);
+                        }).catch(function () {
+                            fallbackCopySvgText(svgStr, feedbackBtn);
+                        });
+                    } else {
+                        fallbackCopySvgText(svgStr, feedbackBtn);
+                    }
+                }, 'image/png');
+            };
+            img.onerror = function () {
+                fallbackCopySvgText(svgStr, feedbackBtn);
+            };
+            img.src = dataUrl;
+        } catch (err) {
+            showCopyFeedback(feedbackBtn);
+        }
+    }
+
+    function fallbackCopySvgText(svgStr, feedbackBtn) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(svgStr).then(function () {
+                showCopyFeedback(feedbackBtn);
+            }).catch(function () { showCopyFeedback(feedbackBtn); });
+        } else {
+            showCopyFeedback(feedbackBtn);
+        }
+    }
+
+    function copyLatexRawText(contentEl, feedbackBtn) {
+        var previewEl = contentEl && contentEl.querySelector('.prompt-block-preview');
+        var raw = previewEl ? previewEl.getAttribute('data-latex-raw') : null;
+        if (raw) raw = decodeHtml(raw).trim();
+        if (!raw) {
+            var codeEl = contentEl && contentEl.querySelector('.prompt-block-text pre code');
+            raw = codeEl ? (codeEl.textContent || '').trim() : '';
+        }
+        if (raw && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(raw).then(function () {
+                showCopyFeedback(feedbackBtn);
+            }).catch(function () { showCopyFeedback(feedbackBtn); });
+        } else {
+            showCopyFeedback(feedbackBtn);
+        }
+    }
+
+    function highlightCodeBlocksInContainer(container, _retry) {
+        if (!container) return;
+        _retry = _retry || 0;
+        if (typeof window.hljs === 'undefined') {
+            if (_retry < 15) setTimeout(function () { highlightCodeBlocksInContainer(container, _retry + 1); }, 300);
+            return;
+        }
+        container.querySelectorAll('.prompt-block-wrapper[data-block-type="code"] .prompt-block-content pre code').forEach(function (el) {
+            if (el.dataset.highlighted) return;
+            try { window.hljs.highlightElement(el); } catch (e) { /* ignore */ }
+        });
+    }
+
+    function renderLatexInBlock(blockPreviewEl, _retry) {
+        if (!blockPreviewEl) return;
+        _retry = _retry || 0;
+        var raw = blockPreviewEl.getAttribute('data-latex-raw');
+        if (!raw) return;
+        raw = decodeHtml(raw);
+        if (typeof window.katex === 'undefined') {
+            if (_retry < 15) setTimeout(function () { renderLatexInBlock(blockPreviewEl, _retry + 1); }, 300);
+            return;
+        }
+        blockPreviewEl.innerHTML = '';
+        try {
+            window.katex.render(raw.trim(), blockPreviewEl, { throwOnError: false, displayMode: true });
+        } catch (e) {
+            blockPreviewEl.textContent = raw;
+        }
+    }
+
+    function postProcessPreviewBlocks(container) {
+        if (!container) return;
+        highlightCodeBlocksInContainer(container);
+        container.querySelectorAll('.prompt-block-wrapper[data-block-type="mermaid"][data-view="preview"]').forEach(function (w) {
+            var content = w.querySelector('.prompt-block-content');
+            if (content) renderMermaidInContainer(content);
+        });
+        container.querySelectorAll('.prompt-block-wrapper[data-block-type="latex"][data-view="preview"]').forEach(function (w) {
+            var previewEl = w.querySelector('.prompt-block-preview');
+            if (previewEl) renderLatexInBlock(previewEl);
+        });
+    }
+
+    function postProcessPreviewBlocksAsync(container) {
+        if (!container) return Promise.resolve();
+        highlightCodeBlocksInContainer(container);
+        var mermaidPromises = [];
+        container.querySelectorAll('.prompt-block-wrapper[data-block-type="mermaid"][data-view="preview"]').forEach(function (w) {
+            var content = w.querySelector('.prompt-block-content');
+            if (content) mermaidPromises.push(renderMermaidInContainer(content));
+        });
+        container.querySelectorAll('.prompt-block-wrapper[data-block-type="latex"][data-view="preview"]').forEach(function (w) {
+            var previewEl = w.querySelector('.prompt-block-preview');
+            if (previewEl) renderLatexInBlock(previewEl);
+        });
+        return Promise.all(mermaidPromises);
+    }
+
+    function _saveScrollRatio(el) {
+        if (!el) return 0;
+        var max = el.scrollHeight - el.clientHeight;
+        return max > 0 ? el.scrollTop / max : 0;
+    }
+
+    function _restoreScrollRatio(el, ratio) {
+        if (!el || ratio <= 0) return;
+        var max = el.scrollHeight - el.clientHeight;
+        if (max > 0) el.scrollTop = ratio * max;
+    }
+
+    function setupPromptBlockDelegation() {
+        document.addEventListener('click', function (e) {
+            var wrapper = e.target.closest('.prompt-block-wrapper');
+            var viewBtn = e.target.closest('.prompt-block-view-btn');
+            if (viewBtn && wrapper) {
+                var view = viewBtn.getAttribute('data-block-view');
+                var content = wrapper.querySelector('.prompt-block-content');
+                if (!content) return;
+                wrapper.setAttribute('data-view', view);
+                wrapper.querySelectorAll('.prompt-block-view-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-block-view') === view); });
+                var textEl = content.querySelector('.prompt-block-text');
+                var previewEl = content.querySelector('.prompt-block-preview');
+                if (textEl) textEl.style.display = view === 'text' ? '' : 'none';
+                if (previewEl) {
+                    previewEl.style.display = view === 'preview' ? '' : 'none';
+                    if (view === 'preview' && wrapper.getAttribute('data-block-type') === 'mermaid') {
+                        var mermaidDiv = previewEl.querySelector('.mermaid');
+                        var rawEl = wrapper.querySelector('.prompt-block-text pre code');
+                        if (mermaidDiv && rawEl) {
+                            var rawText = (rawEl.textContent || '').trim();
+                            mermaidDiv.innerHTML = '';
+                            mermaidDiv.textContent = rawText;
+                            mermaidDiv.removeAttribute('data-processed');
+                            mermaidDiv.removeAttribute('data-mermaid-processed');
+                        }
+                        var isFullscreen = document.fullscreenElement && document.fullscreenElement === wrapper;
+                        if (isFullscreen && _fsState) {
+                            _fsState.cleanup();
+                        }
+                        renderMermaidInContainer(content).then(function () {
+                            if (isFullscreen) {
+                                _fsInitPanZoom(wrapper);
+                            }
+                        });
+                    }
+                    if (view === 'preview' && wrapper.getAttribute('data-block-type') === 'latex') {
+                        renderLatexInBlock(previewEl);
+                    }
+                }
+                return;
+            }
+            var copyBtn = e.target.closest('.prompt-block-copy-btn');
+            if (copyBtn && wrapper) {
+                var content = wrapper.querySelector('.prompt-block-content');
+                if (!content) return;
+                var blockType = wrapper.getAttribute('data-block-type');
+                var currentView = wrapper.getAttribute('data-view');
+                if (currentView === 'preview' && blockType === 'mermaid') {
+                    var svgEl = content.querySelector('.prompt-block-preview svg');
+                    if (svgEl) {
+                        copySvgAsImage(svgEl, copyBtn);
+                    } else {
+                        showCopyFeedback(copyBtn);
+                    }
+                } else if (blockType === 'latex') {
+                    if (currentView === 'preview' && window.electronAPI && window.electronAPI.captureElementImage) {
+                        var previewEl = content.querySelector('.prompt-block-preview');
+                        if (previewEl && previewEl.querySelector('.katex')) {
+                            var rect = previewEl.getBoundingClientRect();
+                            window.electronAPI.captureElementImage({
+                                x: rect.x, y: rect.y,
+                                width: rect.width, height: rect.height
+                            }).then(function (ok) {
+                                showCopyFeedback(copyBtn);
+                            }).catch(function () {
+                                copyLatexRawText(content, copyBtn);
+                            });
+                        } else {
+                            copyLatexRawText(content, copyBtn);
+                        }
+                    } else {
+                        copyLatexRawText(content, copyBtn);
+                    }
+                } else {
+                    var codeEl = content.querySelector('.prompt-block-text pre code') || content.querySelector('pre code');
+                    var raw = codeEl ? (codeEl.textContent || '').trim() : content.textContent || '';
+                    if (raw && navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(raw).then(function () {
+                            showCopyFeedback(copyBtn);
+                        }).catch(function () { showCopyFeedback(copyBtn); });
+                    } else {
+                        showCopyFeedback(copyBtn);
+                    }
+                }
+                return;
+            }
+        });
+    }
+
     function sanitizeVarName(name) { return (name || '').trim().replace(/[^a-zA-Z0-9_]/g, '').replace(/^_+|_+$/g, '').slice(0, 40); }
     function sanitizeFilename(name) { return (name || '').trim().replace(/[^a-zA-Z0-9가-힣\-_]/g, '_').slice(0, 50) || 'untitled'; }
     function normalizePromptText(text) { return String(text ?? '').replace(/\r\n?/g, '\n').trim(); }
@@ -2401,13 +3109,33 @@
     let miExpandedLayerActive = false;
     let sessionPromptModal = null;
     let sessionPromptEditorMde = null;
+    const LS_SESSION_UI = 'smc_session_ui_v1';
     const sessionPromptState = {
         previewMode: false,
-        livePreview: false,
+        livePreview: true,
         highlightVars: true,
         onlyMissing: false,
         activeVarTab: 'session',
+        previewTheme: 'light',
     };
+
+    function persistSessionUI() {
+        try {
+            const s = {
+                livePreview: sessionPromptState.livePreview,
+                previewTheme: sessionPromptState.previewTheme,
+            };
+            localStorage.setItem(LS_SESSION_UI, JSON.stringify(s));
+        } catch (e) { /* ignore */ }
+    }
+
+    function restoreSessionUI() {
+        try {
+            const s = JSON.parse(localStorage.getItem(LS_SESSION_UI) || '{}');
+            if (typeof s.livePreview === 'boolean') sessionPromptState.livePreview = s.livePreview;
+            if (s.previewTheme === 'dark' || s.previewTheme === 'light') sessionPromptState.previewTheme = s.previewTheme;
+        } catch (e) { /* ignore */ }
+    }
     let sessionAcOpen = false, sessionAcAnchor = -1, sessionAcItems = [], sessionAcSelected = 0, sessionAcPaletteMode = false;
     let sessionSlashOpen = false, sessionSlashAnchor = -1, sessionSlashItems = [], sessionSlashSelected = 0;
     let sessionScrollSyncLock = false;
@@ -2544,10 +3272,11 @@
 
         const renderFromText = async (text) => {
             const maps = await buildMainPreviewMapsAsync();
-            const { html, mode } = buildVariableAwarePreviewHtml(text, maps, { allowEditButtons: false, mainInputContext: true });
+            let { html, mode } = buildVariableAwarePreviewHtml(text, maps, { allowEditButtons: false, mainInputContext: true });
             previewContent.classList.toggle('cpb-preview-md', mode === 'markdown');
             previewContent.classList.toggle('cpb-preview-plain', mode !== 'markdown');
             previewContent.innerHTML = html;
+            postProcessPreviewBlocks(previewContent);
             applyMainPreviewTheme(previewContent, previewThemeWrap);
         };
 
@@ -2746,16 +3475,27 @@
         if (!masterInput || !previewContent) return;
 
         const raw = masterInput.value || '';
+        applyInlinePreviewTheme(true);
+        if (setPreviewPlaceholderIfEmpty(previewContent, raw)) return;
+
+        var scrollRatio = _saveScrollRatio(previewContent);
+
         const maps = await buildMainPreviewMapsAsync();
-        const { html, mode } = buildVariableAwarePreviewHtml(raw, maps, { allowEditButtons: false, mainInputContext: true });
+        let { html, mode } = buildVariableAwarePreviewHtml(raw, maps, { allowEditButtons: false, mainInputContext: true });
         previewContent.classList.toggle('cpb-preview-md', mode === 'markdown');
         previewContent.classList.toggle('cpb-preview-plain', mode !== 'markdown');
         previewContent.innerHTML = html;
-        applyInlinePreviewTheme();
+        applyInlinePreviewTheme(true);
+
+        _restoreScrollRatio(previewContent, scrollRatio);
+
+        await postProcessPreviewBlocksAsync(previewContent);
+        _restoreScrollRatio(previewContent, scrollRatio);
+
         previewContent.onclick = handlePreviewLinkClick;
     }
 
-    function applyInlinePreviewTheme() {
+    function applyInlinePreviewTheme(skipRerender) {
         const previewContent = document.getElementById('prompt-inline-preview-content');
         const themeWrap = document.getElementById('inline-preview-theme');
         if (!previewContent) return;
@@ -2766,6 +3506,9 @@
             themeWrap.querySelectorAll('.inline-preview-theme-btn').forEach((btn) => {
                 btn.classList.toggle('active', (btn.getAttribute('data-theme') === 'dark') === dark);
             });
+        }
+        if (!skipRerender && _inlinePreviewActive) {
+            renderMasterPreview();
         }
     }
 
@@ -3084,6 +3827,8 @@
         // --- Setup inline preview controls + markdown toolbar ---
         setupInlinePreviewControls();
         setupInlineMdToolbar();
+        setupMermaidPreviewToolbars();
+        setupPromptBlockDelegation();
 
         // --- Prompt expand/collapse ---
         setupPromptExpandButton();
@@ -3737,9 +4482,10 @@
     function buildVariableAwarePreviewHtml(raw, maps, options = {}) {
         const { allowEditButtons = false, mainInputContext = false } = options;
         const { sysMap = {}, gloMap = {}, localMap = {} } = maps || {};
+        raw = String(raw || '');
         const placeholders = {};
         let idx = 0;
-        const withPlaceholders = String(raw || '').replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (m, key) => {
+        const withPlaceholders = raw.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (m, key) => {
             const isReserved = mainInputContext && RESERVED_SYSTEM_VARS.includes(key);
             const isSys = Object.prototype.hasOwnProperty.call(sysMap, key);
             const isGlo = Object.prototype.hasOwnProperty.call(gloMap, key);
@@ -3768,8 +4514,11 @@
         });
 
         const mode = decidePreviewMode(raw);
-        // Split by placeholders so marked never sees them (avoids marked interpreting _ as emphasis)
-        const parts = withPlaceholders.split(/(%%MIVAR\d+%%)/g);
+        var extractedBlocks = { text: withPlaceholders, blocks: [] };
+        if (mode === 'markdown') {
+            extractedBlocks = extractAllFencedBlocks(withPlaceholders);
+        }
+        const parts = extractedBlocks.text.split(/(%%MIVAR\d+%%)/g);
         let html = '';
         for (const part of parts) {
             const replacement = placeholders[part];
@@ -3787,21 +4536,34 @@
                 }
             }
         }
+        if (extractedBlocks.blocks.length) {
+            html = injectBlockWrappersIntoHtml(html, extractedBlocks.blocks);
+        }
         return { html, mode };
     }
 
     async function renderMasterPreview() {
         const masterInput = document.getElementById('master-input');
-        const masterPreview = document.getElementById('master-preview');
-        const previewThemeWrap = document.getElementById('master-preview-theme');
+        const masterPreview = document.getElementById('prompt-inline-preview-content');
+        const previewThemeWrap = document.getElementById('inline-preview-theme');
         if (!masterInput || !masterPreview) return;
         const raw = masterInput.value || '';
+        applyInlinePreviewTheme(true);
+        if (setPreviewPlaceholderIfEmpty(masterPreview, raw)) return;
+
+        var scrollRatio = _saveScrollRatio(masterPreview);
+
         const maps = await buildMainPreviewMapsAsync();
-        const { html, mode } = buildVariableAwarePreviewHtml(raw, maps, { allowEditButtons: true, mainInputContext: true });
+        let { html, mode } = buildVariableAwarePreviewHtml(raw, maps, { allowEditButtons: true, mainInputContext: true });
         masterPreview.classList.toggle('cpb-preview-md', mode === 'markdown');
         masterPreview.classList.toggle('cpb-preview-plain', mode !== 'markdown');
         masterPreview.innerHTML = html;
-        applyMainPreviewTheme(masterPreview, previewThemeWrap);
+        applyInlinePreviewTheme(true);
+
+        _restoreScrollRatio(masterPreview, scrollRatio);
+
+        await postProcessPreviewBlocksAsync(masterPreview);
+        _restoreScrollRatio(masterPreview, scrollRatio);
 
         masterPreview.querySelectorAll('.mi-edit-btn').forEach(btn => {
             btn.onclick = (e) => {
@@ -3841,6 +4603,14 @@
                                             <span class="cpb-zen-slider"></span>
                                             <span class="cpb-zen-label">Live Preview</span>
                                         </label>
+                                        <div class="inline-preview-theme-switcher session-preview-theme">
+                                            <button class="inline-preview-theme-btn" data-theme="light" title="Light">
+                                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                                            </button>
+                                            <button class="inline-preview-theme-btn active" data-theme="dark" title="Dark">
+                                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="cpb-toolbar">
                                         <button class="cpb-btn cpb-btn-secondary cpb-btn-sm session-btn-insert-var">
@@ -3962,11 +4732,23 @@
         titleInput.value = `Session Prompt ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
         setSessionPromptEditorValue(masterInput.value || '');
         bindSessionPromptModalHandlers(sessionPromptModal, masterInput);
-        sessionSetLivePreviewMode(sessionPromptModal, false);
-        sessionSetPreviewMode(sessionPromptModal, false);
+        restoreSessionUI();
+        sessionSetLivePreviewMode(sessionPromptModal, sessionPromptState.livePreview);
+        if (!sessionPromptState.livePreview) {
+            sessionSetPreviewMode(sessionPromptModal, false);
+        }
+        applySessionPreviewTheme(sessionPromptModal, true);
         sessionSetVarTab(sessionPromptModal, 'session');
         refreshSessionPromptVars(sessionPromptModal, editor, preview);
         updateSessionPromptPreview(sessionPromptModal, editor, preview);
+
+        sessionPromptModal.querySelectorAll('.session-preview-theme .inline-preview-theme-btn').forEach(function (btn) {
+            btn.onclick = function () {
+                sessionPromptState.previewTheme = btn.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+                applySessionPreviewTheme(sessionPromptModal);
+                persistSessionUI();
+            };
+        });
 
         setMainModalLayerActive(true);
         sessionPromptModal.classList.add('visible');
@@ -4040,6 +4822,7 @@
 
         modal.querySelector('.session-live-preview-check')?.addEventListener('change', (e) => {
             sessionSetLivePreviewMode(modal, !!e.target.checked);
+            persistSessionUI();
         });
 
         modal.querySelectorAll('.session-var-tab').forEach((tabBtn) => {
@@ -4675,6 +5458,24 @@
         sessionScrollSyncLock = false;
     }
 
+    function applySessionPreviewTheme(modal, skipRerender) {
+        var preview = modal.querySelector('.session-prompt-preview');
+        if (!preview) return;
+        var isDark = sessionPromptState.previewTheme === 'dark';
+        preview.classList.toggle('cpb-preview-theme-dark', isDark);
+        preview.classList.toggle('cpb-preview-theme-light', !isDark);
+        var wrap = modal.querySelector('.session-preview-theme');
+        if (wrap) {
+            wrap.querySelectorAll('.inline-preview-theme-btn').forEach(function (btn) {
+                btn.classList.toggle('active', (btn.getAttribute('data-theme') === 'dark') === isDark);
+            });
+        }
+        if (!skipRerender && (sessionPromptState.previewMode || sessionPromptState.livePreview)) {
+            var editor = modal.querySelector('.session-prompt-editor');
+            if (editor && preview) updateSessionPromptPreview(modal, editor, preview);
+        }
+    }
+
     function sessionSetPreviewMode(modal, on, opts = {}) {
         const forcedByLive = !!opts.forcedByLive;
         if (sessionPromptState.livePreview && !forcedByLive) return;
@@ -4857,7 +5658,8 @@
 
     async function updateSessionPromptPreview(modal, editor, previewEl) {
         const raw = getSessionPromptEditorValue();
-        // Use real system vars via IPC (same as CPB)
+        if (modal) applySessionPreviewTheme(modal, true);
+        if (setPreviewPlaceholderIfEmpty(previewEl, raw)) return;
         const sysVars = await getPreviewSystemVars();
         const ctx = window._cpb_context || { globalVars: [], localVars: [] };
         const gloMap = (ctx.globalVars || []).reduce((acc, v) => { if (v.name) acc[v.name] = v.value ?? ''; return acc; }, {});
@@ -4892,10 +5694,14 @@
         });
 
         const mode = decidePreviewMode(raw);
+        var extractedBlocks = { text: withPlaceholders, blocks: [] };
+        if (mode === 'markdown') {
+            extractedBlocks = extractAllFencedBlocks(withPlaceholders);
+        }
         let html = '';
         if (mode === 'markdown') {
             try {
-                html = marked.parse(withPlaceholders, { breaks: true, gfm: true });
+                html = marked.parse(extractedBlocks.text, { breaks: true, gfm: true });
             } catch (e) {
                 html = safeHtml(withPlaceholders).replace(/\n/g, '<br>');
             }
@@ -4906,10 +5712,22 @@
             html = html.replaceAll(safeHtml(ph), replacement);
             html = html.replaceAll(ph, replacement);
         }
-
+        if (extractedBlocks.blocks.length) {
+            html = injectBlockWrappersIntoHtml(html, extractedBlocks.blocks);
+        }
         previewEl.classList.toggle('cpb-preview-md', mode === 'markdown');
         previewEl.classList.toggle('session-preview-plain', mode !== 'markdown');
+
+        var scrollRatio = _saveScrollRatio(previewEl);
+
         previewEl.innerHTML = html;
+        var sessionModal = previewEl.closest('.session-prompt-modal');
+        if (sessionModal) applySessionPreviewTheme(sessionModal, true);
+
+        _restoreScrollRatio(previewEl, scrollRatio);
+
+        await postProcessPreviewBlocksAsync(previewEl);
+        _restoreScrollRatio(previewEl, scrollRatio);
     }
 
     function sessionSetVarTab(modal, tab) {

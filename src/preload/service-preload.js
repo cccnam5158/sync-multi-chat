@@ -350,13 +350,34 @@ async function injectPrompt(text, selectors, autoSend = false, options = {}) {
             console.log('[injectPrompt] Human-like typing completed for ContentEditable');
         } else {
             // Multi mode: set text immediately for fast injection
-            const inserted = document.execCommand('insertText', false, text);
-            if (!inserted) inputEl.textContent = text;
-
             if (isPerplexityService) {
-                // Perplexity lexical editor can duplicate text when synthetic InputEvent carries full data payload.
-                inputEl.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+                // Perplexity (Lexical): Send button enables only when editor sees a proper input (e.g. insertFromPaste).
+                // Fire InputEvent with insertFromPaste + data so Lexical updates state and enables Send; avoid
+                // execCommand first so we don't get duplicate text (execCommand + Lexical applying event.data).
+                inputEl.dispatchEvent(new InputEvent('input', {
+                    bubbles: true,
+                    cancelable: true,
+                    inputType: 'insertFromPaste',
+                    data: text,
+                    view: window
+                }));
+                await new Promise(r => requestAnimationFrame(r));
+                const hasContent = (inputEl.textContent || '').trim().length > 0;
+                if (!hasContent) {
+                    // Fallback if Lexical doesn't insert from event: insert via execCommand then notify
+                    const inserted = document.execCommand('insertText', false, text);
+                    if (!inserted) inputEl.textContent = text;
+                    inputEl.dispatchEvent(new InputEvent('input', {
+                        bubbles: true,
+                        cancelable: true,
+                        inputType: 'insertText',
+                        data: text,
+                        view: window
+                    }));
+                }
             } else {
+                const inserted = document.execCommand('insertText', false, text);
+                if (!inserted) inputEl.textContent = text;
                 inputEl.dispatchEvent(new InputEvent('input', {
                     bubbles: true,
                     cancelable: true,
@@ -384,25 +405,25 @@ async function injectPrompt(text, selectors, autoSend = false, options = {}) {
             console.log('[injectPrompt] Human-like typing completed for Textarea');
         } else {
             nativeInputValueSetter.call(inputEl, text);
-            if (isPerplexityService) {
-                inputEl.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-            } else {
-                inputEl.dispatchEvent(new InputEvent('input', {
-                    bubbles: true,
-                    cancelable: true,
-                    inputType: 'insertFromPaste',
-                    data: text,
-                    view: window
-                }));
-                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-            }
+            inputEl.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                cancelable: true,
+                inputType: 'insertFromPaste',
+                data: text,
+                view: window
+            }));
+            if (!isPerplexityService) inputEl.dispatchEvent(new Event('change', { bubbles: true }));
             console.log('[injectPrompt] Instant injection completed for Textarea');
         }
     }
 
     // 3. Trigger Enter key if needed or Click Send
     if (autoSend) {
-        clickSendButton(selectors, inputEl, { sendDelayMs: useHumanTyping ? 1000 : 0 });
+        // Perplexity: Lexical enables send only after it recognizes content; give it time and allow retry.
+        const sendDelayMs = isPerplexityService
+            ? (useHumanTyping ? 1000 : 350)
+            : (useHumanTyping ? 1000 : 0);
+        clickSendButton(selectors, inputEl, { sendDelayMs });
     } else {
         console.log('[injectPrompt] autoSend is false, skipping send button click');
     }
@@ -421,79 +442,78 @@ ipcRenderer.on('click-send-button', (event, { selectors, sendDelayMs } = {}) => 
     clickSendButton(selectors, inputEl, { sendDelayMs });
 });
 
+function isSendButtonDisabled(btn) {
+    if (!btn) return true;
+    if (btn.disabled === true) return true;
+    const ariaDisabled = btn.getAttribute && btn.getAttribute('aria-disabled');
+    if (ariaDisabled === 'true' || ariaDisabled === '') return true;
+    return false;
+}
+
 function clickSendButton(selectors, providedInputEl = null, options = {}) {
     const delayMs = Number.isFinite(options.sendDelayMs) ? Math.max(0, options.sendDelayMs) : 1000;
-    // Some apps (like Claude) might need a small delay for the state to update before the button becomes enabled
-    setTimeout(() => {
-        console.log('[clickSendButton] Looking for send button...');
+    const isPerplexity = currentService === 'perplexity';
+    const retryIntervalMs = 200;
+    const maxRetries = isPerplexity ? 5 : 0;
+
+    function tryClickOnce() {
         let btn = null;
         for (const selector of selectors.sendButtonSelector) {
             btn = document.querySelector(selector);
-            console.log(`[clickSendButton] Trying send button selector: "${selector}" -> Found:`, !!btn, 'Disabled:', btn?.disabled);
             if (btn) break;
         }
+        return { btn, disabled: isSendButtonDisabled(btn) };
+    }
 
-        if (btn && !btn.disabled) {
-            console.log('[clickSendButton] Send button found and enabled, clicking...');
-            btn.click();
-            console.log('[clickSendButton] Send button clicked');
-        } else {
-            console.log('[clickSendButton] Send button not found or disabled, trying keyboard events...');
-
-            // Fallback: Try sending Enter key event
-            let inputEl = providedInputEl;
-
-            // If not provided or lost, try to find it again
-            if (!inputEl || !document.contains(inputEl)) {
-                for (const selector of selectors.inputSelector) {
-                    inputEl = document.querySelector(selector);
-                    if (inputEl) break;
-                }
-            }
-
-            if (inputEl) {
-                // Only focus if not already focused to avoid disrupting cursor/selection
-                if (document.activeElement !== inputEl) {
-                    try {
-                        inputEl.focus();
-                    } catch (e) {
-                        console.error('[clickSendButton] Failed to focus input:', e);
-                    }
-                }
-
-                const eventProps = {
-                    key: 'Enter',
-                    code: 'Enter',
-                    keyCode: 13,
-                    which: 13,
-                    bubbles: true,
-                    cancelable: true,
-                    view: window,
-                    composed: true
-                };
-
-                // Standard Enter
-                console.log('[clickSendButton] Dispatching Enter key events...');
-                inputEl.dispatchEvent(new KeyboardEvent('keydown', eventProps));
-                inputEl.dispatchEvent(new KeyboardEvent('keypress', eventProps));
-                inputEl.dispatchEvent(new KeyboardEvent('keyup', eventProps));
-
-                // Ctrl+Enter (often forces send)
-                const ctrlEnterProps = {
-                    ...eventProps,
-                    ctrlKey: true,
-                    metaKey: true
-                };
-
-                console.log('[clickSendButton] Dispatching Ctrl+Enter key events...');
-                inputEl.dispatchEvent(new KeyboardEvent('keydown', ctrlEnterProps));
-                inputEl.dispatchEvent(new KeyboardEvent('keypress', ctrlEnterProps));
-                inputEl.dispatchEvent(new KeyboardEvent('keyup', ctrlEnterProps));
-                console.log('[clickSendButton] Keyboard events dispatched');
-            } else {
-                console.error('[clickSendButton] Could not find input element for keyboard fallback');
+    function doFallback() {
+        console.log('[clickSendButton] Send button not found or disabled, trying keyboard events...');
+        let inputEl = providedInputEl;
+        if (!inputEl || !document.contains(inputEl)) {
+            for (const selector of selectors.inputSelector) {
+                inputEl = document.querySelector(selector);
+                if (inputEl) break;
             }
         }
+        if (inputEl) {
+            if (document.activeElement !== inputEl) {
+                try { inputEl.focus(); } catch (e) { console.error('[clickSendButton] Failed to focus input:', e); }
+            }
+            const eventProps = {
+                key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                bubbles: true, cancelable: true, view: window, composed: true
+            };
+            inputEl.dispatchEvent(new KeyboardEvent('keydown', eventProps));
+            inputEl.dispatchEvent(new KeyboardEvent('keypress', eventProps));
+            inputEl.dispatchEvent(new KeyboardEvent('keyup', eventProps));
+            const ctrlEnterProps = { ...eventProps, ctrlKey: true, metaKey: true };
+            inputEl.dispatchEvent(new KeyboardEvent('keydown', ctrlEnterProps));
+            inputEl.dispatchEvent(new KeyboardEvent('keypress', ctrlEnterProps));
+            inputEl.dispatchEvent(new KeyboardEvent('keyup', ctrlEnterProps));
+            console.log('[clickSendButton] Keyboard events dispatched');
+        } else {
+            console.error('[clickSendButton] Could not find input element for keyboard fallback');
+        }
+    }
+
+    setTimeout(() => {
+        let attempt = 0;
+        function runAttempt() {
+            const { btn, disabled } = tryClickOnce();
+            console.log(`[clickSendButton] Attempt ${attempt + 1}: send button Found:`, !!btn, 'Disabled:', disabled);
+            if (btn && !disabled) {
+                console.log('[clickSendButton] Send button found and enabled, clicking...');
+                btn.click();
+                console.log('[clickSendButton] Send button clicked');
+                return;
+            }
+            if (isPerplexity && maxRetries > 0 && attempt < maxRetries) {
+                attempt++;
+                setTimeout(runAttempt, retryIntervalMs);
+                return;
+            }
+            doFallback();
+        }
+        runAttempt();
     }, delayMs);
 }
 
@@ -542,22 +562,72 @@ function detectLoggedInBySelectors(config) {
     return false;
 }
 
+// Gemini login state: prefer DOM of header bar (login button vs profile icon) over full-page text
+// to avoid false positives and our own badge text affecting detection. Based on user-provided
+// before_login / after_login HTML: login = a[aria-label="로그인"] or "Sign in"; logged-in = profile link/icon.
+
+/** True when the header "Login" / "로그인" link is present (Gemini top bar). */
+function hasGeminiHeaderLoginButton() {
+    const selectors = [
+        'a[aria-label="로그인"]',
+        'a[aria-label="Sign in"]'
+    ];
+    for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (el && (el.closest('#gb') || el.closest('[id="gb"]'))) return true;
+        if (el) return true; // fallback without #gb in case structure changes
+    }
+    return false;
+}
+
+/** True when the header profile link/icon is present (Google 계정). */
+function hasGeminiHeaderProfileIcon() {
+    const selectors = [
+        'a[aria-label^="Google 계정:"]',
+        'a[aria-label^="Google Account:"]',
+        'img.gb_Q.gbii'
+    ];
+    for (const sel of selectors) {
+        if (document.querySelector(sel)) return true;
+    }
+    return false;
+}
+
+/** Get body text excluding our injected login badge so badge text does not trigger logged-out detection. */
+function getGeminiPageTextExcludingBadge() {
+    try {
+        const badge = document.getElementById('sync-multi-chat-login-badge');
+        if (!badge || !document.body) return (document.body.innerText || '').toLowerCase();
+        const clone = document.body.cloneNode(true);
+        const badgeClone = clone.querySelector && clone.querySelector('#sync-multi-chat-login-badge');
+        if (badgeClone) badgeClone.remove();
+        return (clone.innerText || '').toLowerCase();
+    } catch (e) {
+        return (document.body?.innerText || '').toLowerCase();
+    }
+}
+
 function isGeminiExplicitlyLoggedOut() {
-    const pageText = (document.body?.innerText || '').toLowerCase();
-    const loggedOutTextHints = [
+    // Primary: header has "로그인" / "Sign in" button (reliable DOM from user-provided HTML)
+    if (hasGeminiHeaderLoginButton()) return true;
+    // Fallback: only very explicit logged-out phrases (no "로그인"/"sign in" to avoid badge/false positives)
+    const pageText = getGeminiPageTextExcludingBadge();
+    const explicitLoggedOutHints = [
         '로그아웃된 상태입니다',
         '다시 로그인하세요',
         'signed out',
         'sign in again'
     ];
-
-    for (const hint of loggedOutTextHints) {
+    for (const hint of explicitLoggedOutHints) {
         if (pageText.includes(hint)) return true;
     }
     return false;
 }
 
 function isGeminiLikelyLoggedIn() {
+    // Primary: header has profile icon/link (Google 계정)
+    if (hasGeminiHeaderProfileIcon()) return true;
+    // Legacy/fallback selectors
     const hints = [
         "button[aria-label*='Google 계정']",
         "button[aria-label*='Google Account']",
@@ -568,17 +638,13 @@ function isGeminiLikelyLoggedIn() {
         "bard-sidenav button",
         "chat-window"
     ];
-
     for (const selector of hints) {
         if (document.querySelector(selector)) return true;
     }
-
-    // If we're on Gemini app URL and no explicit logged-out signal is present,
-    // treat it as likely logged-in to avoid false "로그인 필요" badge flicker.
+    // If on app URL and no explicit logged-out signal, treat as likely logged-in
     const onGeminiApp = window.location.hostname.includes('gemini.google.com') &&
         window.location.pathname.startsWith('/app');
     if (onGeminiApp && !isGeminiExplicitlyLoggedOut()) return true;
-
     return false;
 }
 
@@ -589,7 +655,10 @@ setInterval(() => {
     let forceLoggedOut = false;
 
     if (currentService === 'gemini') {
-        if (isGeminiExplicitlyLoggedOut()) {
+        if (window.location.hostname && window.location.hostname.includes('accounts.google.com')) {
+            isLoggedIn = false;
+            forceLoggedOut = true;
+        } else if (isGeminiExplicitlyLoggedOut()) {
             isLoggedIn = false;
             forceLoggedOut = true;
         } else if (isGeminiLikelyLoggedIn()) {
@@ -632,51 +701,148 @@ setInterval(() => {
     updateLoginStatusUI(isLoggedIn);
 }, 2000);
 
+//===========================================
+// GEMINI RESPONSE-IN-PROGRESS (for idle refresh skip)
+//===========================================
+// (1) Send button: mat-icon[data-mat-icon-name="send"] / fonticon="send"
+// (2) Stop button (response in progress): mat-icon[data-mat-icon-name="stop"] / fonticon="stop"
+//
+// If Gemini team changes DOM, alternative strategies:
+// - Fallback 1: aria-label containing "Stop"/"중단" (already used)
+// - Fallback 2: extend selectors in stopSelectors (e.g. [data-testid*="stop"], .stop-button)
+// - Fallback 3: detect "send" button disabled + loading spinner/aria-busy on chat container
+// - Fallback 4: config-driven selectors from main (e.g. selectorsConfig.gemini.responseInProgressSelector)
+// - Fallback 5: time-based guard only — skip refresh for N min after last prompt (no DOM), less accurate
+function isGeminiResponseInProgress() {
+    if (currentService !== 'gemini') return false;
+    try {
+        const host = window.location.hostname || '';
+        if (!host.includes('gemini.google.com') || window.location.pathname.indexOf('/app') !== 0) return false;
+        // Primary: stop icon visible = response in progress (user can stop)
+        const stopSelectors = [
+            'mat-icon[data-mat-icon-name="stop"]',
+            'mat-icon[fonticon="stop"]',
+            '[fonticon="stop"]',
+            'mat-icon[data-mat-icon-type="font"][data-mat-icon-name="stop"]'
+        ];
+        for (const sel of stopSelectors) {
+            const el = document.querySelector(sel);
+            if (el && el.offsetParent !== null) {
+                const rect = el.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) return true;
+            }
+        }
+        // Fallback: button with aria-label containing "stop" or "중단"
+        const stopBtn = document.querySelector('button[aria-label*="Stop"], button[aria-label*="stop"], button[aria-label*="중단"]');
+        if (stopBtn && stopBtn.offsetParent !== null) {
+            const rect = stopBtn.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) return true;
+        }
+        return false;
+    } catch (e) {
+        return false;
+    }
+}
+
+let lastGeminiResponseInProgress = false;
+setInterval(() => {
+    if (currentService !== 'gemini') return;
+    const inProgress = isGeminiResponseInProgress();
+    if (inProgress !== lastGeminiResponseInProgress) {
+        lastGeminiResponseInProgress = inProgress;
+        ipcRenderer.send('gemini-response-in-progress', { inProgress });
+    }
+}, 2500);
+
 function updateLoginStatusUI(isLoggedIn) {
     const badgeId = 'sync-multi-chat-login-badge';
     const badge = document.getElementById('sync-multi-chat-login-badge');
 
-    if (!isLoggedIn) {
+    // Gemini: show login-required badge when on app URL or Google account/sign-in page
+    const hostname = typeof window.location !== 'undefined' && window.location.hostname ? window.location.hostname : '';
+    const pathname = (typeof window.location !== 'undefined' && window.location.pathname) ? window.location.pathname : '';
+    const isGeminiAppUrl = currentService === 'gemini' && hostname.includes('gemini.google.com') && pathname.indexOf('/app') === 0;
+    const isGeminiAccountsUrl = currentService === 'gemini' && hostname.includes('accounts.google.com');
+    // On accounts.google.com (account chooser/sign-in) always show badge; on app URL show when not logged in
+    const showLoginBadge = (currentService === 'gemini' && isGeminiAccountsUrl) ||
+        (!isLoggedIn && (currentService !== 'gemini' || isGeminiAppUrl || isGeminiAccountsUrl));
+
+    if (showLoginBadge) {
         if (!badge) {
-            const badge = document.createElement('div');
-            badge.id = badgeId;
-            badge.style.position = 'fixed';
-            badge.style.top = '10px';
-            badge.style.right = '10px';
-            badge.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
-            badge.style.color = 'white';
-            badge.style.padding = '5px 10px';
-            badge.style.borderRadius = '5px';
-            badge.style.zIndex = '999999';
-            badge.style.fontFamily = 'sans-serif';
-            badge.style.fontSize = '14px';
-            badge.style.pointerEvents = 'auto'; // Enable clicking
+            injectLoginBadgeStyles();
+            const badgeEl = document.createElement('div');
+            badgeEl.id = badgeId;
+            badgeEl.className = 'smc-login-badge-wrap';
+            badgeEl.style.position = 'fixed';
+            badgeEl.style.top = '10px';
+            badgeEl.style.right = '10px';
+            badgeEl.style.zIndex = '999999';
+            badgeEl.style.pointerEvents = 'auto';
+            badgeEl.style.display = 'flex';
+            badgeEl.style.alignItems = 'center';
+            badgeEl.style.gap = '12px';
+            badgeEl.style.padding = '10px 14px';
+            badgeEl.style.borderRadius = '8px';
+            badgeEl.style.backgroundColor = '#e0f2fe';
+            badgeEl.style.border = '2px solid #0284c7';
+            badgeEl.style.boxShadow = '0 2px 10px rgba(2, 132, 199, 0.2)';
+            badgeEl.style.fontFamily = 'sans-serif';
 
-            const textSpan = document.createElement('span');
-            textSpan.innerText = '로그인 필요 ';
-            badge.appendChild(textSpan);
+            const label = document.createElement('span');
+            label.className = 'smc-login-badge-label';
+            label.textContent = 'Login required';
+            label.style.color = '#0c4a6e';
+            label.style.fontSize = '14px';
+            label.style.fontWeight = '600';
 
-            const loginBtn = document.createElement('button');
-            loginBtn.innerText = 'Chrome으로 로그인';
-            loginBtn.style.marginLeft = '5px';
-            loginBtn.style.cursor = 'pointer';
-            loginBtn.style.fontSize = '12px';
-            loginBtn.style.padding = '2px 5px';
-            loginBtn.style.border = 'none';
-            loginBtn.style.borderRadius = '3px';
-            loginBtn.style.backgroundColor = 'white';
-            loginBtn.style.color = 'black';
+            const signInBtn = document.createElement('button');
+            signInBtn.type = 'button';
+            signInBtn.setAttribute('aria-label', 'Sign in with Chrome or Edge');
+            signInBtn.className = 'smc-signin-chrome-btn';
+            signInBtn.textContent = 'Sign in with Chrome or Edge';
+            signInBtn.style.cursor = 'pointer';
+            signInBtn.style.fontSize = '13px';
+            signInBtn.style.padding = '8px 14px';
+            signInBtn.style.borderRadius = '6px';
+            signInBtn.style.fontWeight = '600';
+            signInBtn.style.fontFamily = 'sans-serif';
+            signInBtn.style.color = '#fff';
+            signInBtn.style.backgroundColor = '#0284c7';
+            signInBtn.style.border = 'none';
+            signInBtn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.15)';
 
-            loginBtn.onclick = () => {
+            signInBtn.onclick = () => {
                 if (currentService) {
                     ipcRenderer.send('external-login', currentService);
-                    loginBtn.innerText = 'Chrome 실행 중...';
-                    loginBtn.disabled = true;
+                    const browserName = signInBtn.dataset.externalBrowser || 'browser';
+                    signInBtn.textContent = browserName === 'edge' ? 'Opening Edge...' : 'Opening Chrome...';
+                    signInBtn.disabled = true;
                 }
             };
 
-            badge.appendChild(loginBtn);
-            document.body.appendChild(badge);
+            badgeEl.appendChild(label);
+            badgeEl.appendChild(signInBtn);
+            document.body.appendChild(badgeEl);
+
+            // Resolve which browser is available and update button (Chrome first, then Edge). Label stays "Login required".
+            ipcRenderer.invoke('get-external-login-browser').then((result) => {
+                const lbl = badgeEl.querySelector('.smc-login-badge-label');
+                const btn = badgeEl.querySelector('.smc-signin-chrome-btn');
+                if (!lbl || !btn) return;
+                if (result && result.browser) {
+                    const name = result.browser === 'chrome' ? 'Chrome' : 'Edge';
+                    lbl.textContent = 'Login required';
+                    btn.textContent = `Sign in with ${name}`;
+                    btn.setAttribute('aria-label', `Sign in with ${name}`);
+                    btn.dataset.externalBrowser = result.browser;
+                    btn.disabled = false;
+                } else {
+                    lbl.textContent = 'Login required';
+                    btn.textContent = 'Chrome or Edge not found';
+                    btn.setAttribute('aria-label', 'Chrome or Edge not found');
+                    btn.disabled = true;
+                }
+            });
         }
     } else {
         if (badge) {
@@ -685,14 +851,57 @@ function updateLoginStatusUI(isLoggedIn) {
     }
 }
 
+function injectLoginBadgeStyles() {
+    if (document.getElementById('smc-login-badge-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'smc-login-badge-styles';
+    style.textContent = `
+        @keyframes smc-border-blink {
+            0%, 100% { border-color: #0284c7; }
+            50% { border-color: rgba(2, 132, 199, 0.4); }
+        }
+        .smc-login-badge-wrap {
+            animation: smc-border-blink 2s ease-in-out infinite;
+        }
+        .smc-signin-chrome-btn:hover {
+            background-color: #0369a1;
+            box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+        }
+        .smc-signin-chrome-btn:active {
+            background-color: #075985;
+        }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+}
+
 ipcRenderer.on('external-login-closed', () => {
     const badge = document.getElementById('sync-multi-chat-login-badge');
     if (badge) {
-        const btn = badge.querySelector('button');
+        const btn = badge.querySelector('.smc-signin-chrome-btn');
         if (btn) {
-            btn.innerText = 'Chrome으로 로그인';
-            btn.disabled = false;
+            ipcRenderer.invoke('get-external-login-browser').then((result) => {
+                if (result && result.browser) {
+                    const name = result.browser === 'chrome' ? 'Chrome' : 'Edge';
+                    btn.textContent = `Sign in with ${name}`;
+                } else {
+                    btn.textContent = 'Chrome or Edge not found';
+                }
+                btn.disabled = !result || !result.browser;
+            });
         }
+    }
+});
+
+ipcRenderer.on('external-login-unavailable', () => {
+    const badge = document.getElementById('sync-multi-chat-login-badge');
+    if (badge) {
+        const btn = badge.querySelector('.smc-signin-chrome-btn');
+        const lbl = badge.querySelector('.smc-login-badge-label');
+        if (btn) {
+            btn.textContent = 'Chrome or Edge not found';
+            btn.disabled = true;
+        }
+        if (lbl) lbl.textContent = 'Login required';
     }
 });
 

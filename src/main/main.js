@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard, shell, screen } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, session, clipboard, shell, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -102,7 +102,7 @@ function getEffectiveZoomFactor() {
     return (1 / scaleFactor) * currentZoomLevel;
 }
 
-/** Apply current zoom (DPI-adjusted) to all BrowserViews (multi and single mode). */
+/** Apply current zoom (DPI-adjusted) to all WebContentsViews (multi and single mode). */
 function applyZoomToAllViews() {
     const zoom = getEffectiveZoomFactor();
     services.forEach(service => {
@@ -116,6 +116,54 @@ function applyZoomToAllViews() {
             entry.view.webContents.setZoomFactor(zoom);
         }
     });
+}
+
+/**
+ * Returns a spoofed User-Agent string (SEC-002) in the same format as standard Chrome desktop UAs.
+ * Desktop only: Windows / macOS / Linux (no iOS/Android). Chrome version is dynamic from process.versions.chrome
+ * to avoid version mismatch detection (e.g. Google). No "Electron" in string.
+ */
+function getSpoofedUserAgent() {
+    const chromeVer = process.versions.chrome || '131.0.6778.0';
+    const platformPart = process.platform === 'darwin'
+        ? '(Macintosh; Intel Mac OS X 10_15_7)'
+        : process.platform === 'linux'
+            ? '(X11; Linux x86_64)'
+            : '(Windows NT 10.0; Win64; x64)';
+    return `Mozilla/5.0 ${platformPart} AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVer} Safari/537.36`;
+}
+
+/** Google auth can reject login when UA/Client Hints reveal Chromium/Electron. Use Firefox UA + no Sec-CH-UA for Google. */
+const GOOGLE_AUTH_URLS = [
+    '*://accounts.google.com/*', '*://*.google.com/*', '*://*.googleapis.com/*', '*://*.gstatic.com/*', '*://*.youtube.com/*'
+];
+
+/** Services that use Google account login; use Firefox UA to avoid "browser not secure" (no onBeforeSendHeaders so cookies stay). */
+const GOOGLE_LOGIN_SERVICES = ['gemini', 'grok', 'genspark'];
+
+/** Firefox 131 desktop UA for Google login flows (we avoid modifying request headers so Cookie is preserved). */
+function getFirefoxUserAgentForGoogle() {
+    const platformPart = process.platform === 'darwin'
+        ? '(Macintosh; Intel Mac OS X 10.15; rv:131.0)'
+        : process.platform === 'linux'
+            ? '(X11; Linux x86_64; rv:131.0)'
+            : '(Windows NT 10.0; Win64; x64; rv:131.0)';
+    return `Mozilla/5.0 ${platformPart} Gecko/20100101 Firefox/131.0`;
+}
+
+/** UA for a service: Firefox for Google-login services (to pass Google checks), Chrome for the rest. */
+function getUserAgentForService(service) {
+    return GOOGLE_LOGIN_SERVICES.includes(service) ? getFirefoxUserAgentForGoogle() : getSpoofedUserAgent();
+}
+
+/**
+ * Google auth: we do NOT use onBeforeSendHeaders here.
+ * Modifying requestHeaders in the callback causes Chromium to drop the Cookie header
+ * (Cookie is not in details.requestHeaders for security), so Google shows "쿠키 설정 문제".
+ * So we only set session UA at view creation (Chrome or Firefox per service); no header interception.
+ */
+function applyChromeClientHintsToSession(_ses) {
+    // No-op: header interception removed to preserve cookies. UA is set at session level when creating the view.
 }
 
 // Session state tracking (SESS)
@@ -230,7 +278,7 @@ function createWindow() {
 
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
-    // Create BrowserViews only after main window is ready to avoid startup errors
+    // Create WebContentsViews only after main window is ready to avoid startup errors
     mainWindow.once('ready-to-show', () => {
         // Explicitly set icon again after window is ready (Windows fix)
         if (windowIcon) {
@@ -259,7 +307,7 @@ function createWindow() {
                 if (views[service] && views[service].view) {
                     views[service].enabled = false;
                     try {
-                        mainWindow.removeBrowserView(views[service].view);
+                        mainWindow.contentView.removeChildView(views[service].view);
                     } catch (e) { /* ignore */ }
                 }
             });
@@ -302,6 +350,14 @@ function createWindow() {
         if (geminiKeepAliveTimerId != null) {
             clearInterval(geminiKeepAliveTimerId);
             geminiKeepAliveTimerId = null;
+        }
+        if (geminiKeepAliveRetryTimeoutId != null) {
+            clearTimeout(geminiKeepAliveRetryTimeoutId);
+            geminiKeepAliveRetryTimeoutId = null;
+        }
+        if (geminiIdleRefreshTimerId != null) {
+            clearInterval(geminiIdleRefreshTimerId);
+            geminiIdleRefreshTimerId = null;
         }
         // Now actually close
         try {
@@ -349,7 +405,7 @@ function createServiceView(service) {
     if (views[service] && views[service].view) {
         try {
             if (mainWindow) {
-                mainWindow.removeBrowserView(views[service].view);
+                mainWindow.contentView.removeChildView(views[service].view);
             }
             // Force destroy webContents to ensure cleanup
             if (!views[service].view.webContents.isDestroyed()) {
@@ -360,7 +416,7 @@ function createServiceView(service) {
         }
     }
 
-    const view = new BrowserView({
+    const view = new WebContentsView({
         webPreferences: {
             preload: path.join(__dirname, '../preload/service-preload.js'),
             partition: `persist:service-${service}`,
@@ -370,7 +426,13 @@ function createServiceView(service) {
         }
     });
 
-    mainWindow.addBrowserView(view);
+    mainWindow.contentView.addChildView(view);
+
+    // User Agent Spoofing (SEC-002) — Firefox for Google-login services (gemini/grok/genspark), Chrome for others. No onBeforeSendHeaders so Cookie is preserved.
+    const userAgent = getUserAgentForService(service);
+    view.webContents.session.setUserAgent(userAgent);
+    view.webContents.setUserAgent(userAgent);
+    applyChromeClientHintsToSession(view.webContents.session);
 
     // Use saved session URL if available, otherwise use default (SESS-003)
     const urlToLoad = savedSessionUrls[service] || serviceUrls[service];
@@ -389,8 +451,8 @@ function createServiceView(service) {
             .catch(() => {});
     }
 
-    // Ensure BrowserView is ready before loading URL to prevent origin context mismatch
-    // Use setImmediate to ensure BrowserView is fully attached and ready
+    // Ensure WebContentsView is ready before loading URL to prevent origin context mismatch
+    // Use setImmediate to ensure WebContentsView is fully attached and ready
     setImmediate(() => {
         // Load URL - this will set the proper origin context
         view.webContents.loadURL(urlToLoad);
@@ -428,10 +490,6 @@ function createServiceView(service) {
     }, {
         urls: ['<all_urls>']
     });
-
-    // User Agent Spoofing (SEC-002) - Use actual Chromium version to avoid detection
-    const userAgent = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`;
-    view.webContents.setUserAgent(userAgent);
 
     // Helper: Check if URL is a conversation URL
     const isConversationUrl = (u) => {
@@ -522,23 +580,158 @@ function createServiceView(service) {
 // ========================================
 // Gemini session keep-alive (reduce idle logout after ~10 min)
 // ========================================
-const GEMINI_KEEPALIVE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+// Google may treat the session as idle and require re-login. We ping /app so the server sees activity.
+const GEMINI_KEEPALIVE_INTERVAL_MS = 1 * 60 * 1000; // 1 minute (shortened to help maintain session)
 let geminiKeepAliveTimerId = null;
+let geminiKeepAliveRetryTimeoutId = null;
+
+/** When set (SMC_GEMINI_SESSION_DEBUG=1), log keep-alive, idle refresh, and login-state changes for session expiry analysis. */
+function isGeminiSessionDebug() {
+    return process.env.SMC_GEMINI_SESSION_DEBUG === '1' || process.env.SMC_GEMINI_SESSION_DEBUG === 'true';
+}
+
+/** Google auth cookie names we observe to infer token/session refresh (no value logged). */
+const GEMINI_AUTH_COOKIE_NAMES = ['SID', 'HSID', 'SSID', '__Secure-1PSID', '__Secure-3PSID', 'SIDTS', '__Secure-1PSIDTS', '__Secure-3PSIDTS'];
+/** Previous expiry snapshot for comparison; key = cookie name, value = expirationDate (Unix s) or 'session'. */
+let geminiAuthCookieExpiriesPrev = {};
+
+// REQ-SESSION-001: Idle refresh — when no prompt sent for this long, refresh Gemini webviews to help maintain session.
+const GEMINI_IDLE_REFRESH_CHECK_MS = 5 * 60 * 1000; // 5 min check interval (shortened to help maintain session)
+const GEMINI_IDLE_THRESHOLD_MS = 5 * 60 * 1000;     // 5 min idle threshold
+let lastPromptSentAt = null;
+let geminiIdleRefreshTimerId = null;
+/** Per-webContents: true when that Gemini view is generating a response (stop button visible). Skip idle refresh when true. */
+const geminiResponseInProgressByWcId = new Map();
+
+/**
+ * Collect all Gemini webContents to ping (Multi + Single mode).
+ * Includes both /app and conversation URLs like /app/be54b06c57aac760 (url.includes('gemini.google.com') covers both).
+ */
+function getGeminiKeepAliveTargets() {
+    const targets = [];
+    if (views.gemini && views.gemini.view && !views.gemini.view.webContents.isDestroyed()) {
+        const wc = views.gemini.view.webContents;
+        const url = wc.getURL() || '';
+        if (url.includes('gemini.google.com') && !url.includes('accounts.google.com')) targets.push(wc);
+    }
+    if (chatMode === 'single' && singleAiService === 'gemini') {
+        for (const entry of Object.values(singleModeViews)) {
+            if (entry.service !== 'gemini' || !entry.view || entry.view.webContents.isDestroyed()) continue;
+            const wc = entry.view.webContents;
+            const url = wc.getURL() || '';
+            if (url.includes('gemini.google.com') && !url.includes('accounts.google.com')) targets.push(wc);
+        }
+    }
+    return targets;
+}
+
+/**
+ * Log Gemini partition auth cookie expiries (no values). If any expiry extended vs previous run, log "Possible refresh".
+ * Set SMC_GEMINI_TOKEN_DEBUG=1 to enable. Helps confirm OAuth/session refresh after keep-alive.
+ */
+async function logGeminiAuthCookieExpiries() {
+    const targets = getGeminiKeepAliveTargets();
+    if (targets.length === 0) return;
+    const wc = targets[0];
+    if (wc.isDestroyed()) return;
+    try {
+        const cookies = await wc.session.cookies.get({ domain: '.google.com' });
+        const auth = cookies.filter(c => GEMINI_AUTH_COOKIE_NAMES.includes(c.name));
+        const now = {};
+        for (const c of auth) {
+            const exp = c.expirationDate != null && c.expirationDate > 0 ? c.expirationDate : 'session';
+            now[c.name] = exp;
+        }
+        const changed = [];
+        for (const [name, exp] of Object.entries(now)) {
+            const prev = geminiAuthCookieExpiriesPrev[name];
+            if (prev !== undefined && exp !== 'session' && (prev === 'session' || (typeof exp === 'number' && exp > prev))) {
+                changed.push(name);
+            }
+        }
+        if (changed.length > 0) {
+            console.log('[gemini] Auth cookie expiry extended (possible OAuth/session refresh):', changed.join(', '));
+        }
+        console.log('[gemini] Auth cookies expiry:', Object.entries(now).map(([n, e]) => `${n}=${e === 'session' ? 'session' : new Date(e * 1000).toISOString()}`).join('; ') || '(none)');
+        geminiAuthCookieExpiriesPrev = now;
+    } catch (e) {
+        console.warn('[gemini] Auth cookie expiry check failed:', e?.message || e);
+    }
+}
 
 function geminiKeepAliveTick() {
     try {
-        const v = views.gemini;
-        if (!v || !v.view || v.view.webContents.isDestroyed()) return;
-        const wc = v.view.webContents;
-        const url = wc.getURL() || '';
-        if (!url.includes('gemini.google.com') || url.includes('accounts.google.com')) return;
-        wc.executeJavaScript(`
-            (function(){
-                try {
-                    fetch(window.location.origin + '/app', { method: 'HEAD', credentials: 'same-origin', keepalive: true }).catch(function(){});
-                } catch (e) {}
-            })();
-        `).catch(() => {});
+        const targets = getGeminiKeepAliveTargets();
+        if (targets.length === 0) return;
+        if (isGeminiSessionDebug()) {
+            console.log('[gemini] Keep-alive tick targets=', targets.length);
+        }
+        // Ping current path when it's /app or /app/<id> (conversation URL) so activity is tied to the same page; cache-bust so request hits server.
+        const script = `(function(){ try {
+          var path = (window.location.pathname && window.location.pathname.indexOf('/app') === 0) ? window.location.pathname : '/app';
+          var u = window.location.origin + path + (path.indexOf('?') >= 0 ? '&' : '?') + 'smc_ka=' + Date.now();
+          fetch(u, { method: 'GET', credentials: 'same-origin', keepalive: true, cache: 'no-store' }).catch(function(){});
+        } catch (e) {} })();`;
+        const promises = targets.map(wc => wc.executeJavaScript(script).catch(() => { throw new Error('executeJS failed'); }));
+        Promise.allSettled(promises).then(async (results) => {
+            const anyRejected = results.some(r => r.status === 'rejected');
+            if (anyRejected && geminiKeepAliveRetryTimeoutId == null) {
+                geminiKeepAliveRetryTimeoutId = setTimeout(() => {
+                    geminiKeepAliveRetryTimeoutId = null;
+                    geminiKeepAliveTick();
+                }, 60000);
+            }
+            if (isGeminiSessionDebug() || process.env.SMC_GEMINI_TOKEN_DEBUG === '1' || process.env.SMC_GEMINI_TOKEN_DEBUG === 'true') {
+                await logGeminiAuthCookieExpiries();
+            }
+        });
+    } catch (e) {
+        // ignore
+    }
+}
+
+/** Return slotKey ('gemini' or 'gemini-0' etc.) for a Gemini webContents, or null. */
+function getSlotKeyForGeminiWebContents(wc) {
+    if (!wc || wc.isDestroyed()) return null;
+    if (views.gemini && views.gemini.view && views.gemini.view.webContents === wc) return 'gemini';
+    if (chatMode === 'single' && singleAiService === 'gemini') {
+        for (const [key, entry] of Object.entries(singleModeViews)) {
+            if (entry.view && entry.view.webContents === wc) return key;
+        }
+    }
+    return null;
+}
+
+/** REQ-SESSION-001: When idle, refresh Gemini webviews (full reload) to help maintain session. Skip when response in progress.
+ *  Applies to both new-chat and conversation URLs so that 0:00 triggers visible reload and consistent behavior. */
+function geminiIdleRefreshTick() {
+    try {
+        const targets = getGeminiKeepAliveTargets();
+        if (targets.length === 0) return;
+        const now = Date.now();
+        const idle = lastPromptSentAt == null || (now - lastPromptSentAt) >= GEMINI_IDLE_THRESHOLD_MS;
+        if (!idle) return;
+        for (const wc of targets) {
+            if (wc.isDestroyed()) continue;
+            if (geminiResponseInProgressByWcId.get(wc.id)) continue; // response in progress, do not refresh
+            wc.reload();
+        }
+        const reloaded = targets.filter(wc => !wc.isDestroyed() && !geminiResponseInProgressByWcId.get(wc.id));
+        if (reloaded.length > 0) {
+            if (isGeminiSessionDebug()) {
+                reloaded.forEach(wc => { try { console.log('[gemini] Idle refresh reload URL:', wc.getURL()); } catch (e) {} });
+            }
+            console.log('[gemini] Idle refresh: reloaded', reloaded.length, 'Gemini webview(s) (idle >', GEMINI_IDLE_THRESHOLD_MS / 60000, 'min)');
+            // Reset the Refresh timer in the renderer so it shows 10:00 again instead of staying at 0:00
+            if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+                for (const wc of reloaded) {
+                    const slotKey = getSlotKeyForGeminiWebContents(wc);
+                    if (slotKey) sendGeminiIdleTimerToRenderer(slotKey, 'reset');
+                }
+                // Restore focus to main prompt input so user does not lose focus after Gemini webview reload
+                mainWindow.webContents.send('gemini-idle-refresh-done');
+            }
+        }
     } catch (e) {
         // ignore
     }
@@ -547,7 +740,15 @@ function geminiKeepAliveTick() {
 function startGeminiKeepAlive() {
     if (geminiKeepAliveTimerId != null) return;
     geminiKeepAliveTimerId = setInterval(geminiKeepAliveTick, GEMINI_KEEPALIVE_INTERVAL_MS);
-    console.log('[gemini] Keep-alive started (interval:', GEMINI_KEEPALIVE_INTERVAL_MS / 1000, 's)');
+    // 방안 2: 첫 틱을 앱 시작 직후 한 번 실행
+    geminiKeepAliveTick();
+    console.log('[gemini] Keep-alive started (interval:', GEMINI_KEEPALIVE_INTERVAL_MS / 1000, 's, first tick now)');
+
+    // REQ-SESSION-001: Start idle-refresh timer (refresh Gemini webviews when app has been idle)
+    if (geminiIdleRefreshTimerId == null) {
+        geminiIdleRefreshTimerId = setInterval(geminiIdleRefreshTick, GEMINI_IDLE_REFRESH_CHECK_MS);
+        console.log('[gemini] Idle refresh started (check every', GEMINI_IDLE_REFRESH_CHECK_MS / 60000, 'min, idle threshold', GEMINI_IDLE_THRESHOLD_MS / 60000, 'min)');
+    }
 }
 
 // ========================================
@@ -585,7 +786,7 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
     if (singleModeViews[instanceKey] && singleModeViews[instanceKey].view) {
         try {
             if (mainWindow) {
-                mainWindow.removeBrowserView(singleModeViews[instanceKey].view);
+                mainWindow.contentView.removeChildView(singleModeViews[instanceKey].view);
             }
             // Destroy webContents to free memory
             if (!singleModeViews[instanceKey].view.webContents.isDestroyed()) {
@@ -597,7 +798,7 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
         delete singleModeViews[instanceKey];
     }
 
-    const view = new BrowserView({
+    const view = new WebContentsView({
         webPreferences: {
             preload: path.join(__dirname, '../preload/service-preload.js'),
             // Use shared partition by default (REQ-MODE-018)
@@ -608,7 +809,13 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
         }
     });
 
-    mainWindow.addBrowserView(view);
+    mainWindow.contentView.addChildView(view);
+
+    // User Agent Spoofing (SEC-002) — same as multi: Firefox for Google-login services, Chrome for others
+    const userAgentSingle = getUserAgentForService(service);
+    view.webContents.session.setUserAgent(userAgentSingle);
+    view.webContents.setUserAgent(userAgentSingle);
+    applyChromeClientHintsToSession(view.webContents.session);
 
     // Use saved URL if available, otherwise fall back to default service URL
     const urlToLoad = savedUrl || serviceUrls[service];
@@ -639,10 +846,6 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
         delete responseHeaders['Content-Security-Policy'];
         callback({ cancel: false, responseHeaders });
     });
-
-    // User Agent - Use actual Chromium version to avoid detection
-    const userAgent = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${process.versions.chrome} Safari/537.36`;
-    view.webContents.setUserAgent(userAgent);
 
     // Helper: Check if URL is a conversation URL (reused from service-url-updated handler)
     const isConversationUrl = (u) => {
@@ -755,7 +958,7 @@ function switchToSingleAiMode(service, activeInstances = [true, true, true], url
     Object.keys(singleModeViews).forEach(key => {
         if (singleModeViews[key] && singleModeViews[key].view) {
             try {
-                mainWindow.removeBrowserView(singleModeViews[key].view);
+                mainWindow.contentView.removeChildView(singleModeViews[key].view);
                 // Destroy webContents to free memory
                 if (!singleModeViews[key].view.webContents.isDestroyed()) {
                     singleModeViews[key].view.webContents.close();
@@ -816,7 +1019,7 @@ function switchToMultiAiMode() {
     Object.keys(singleModeViews).forEach(key => {
         if (singleModeViews[key] && singleModeViews[key].view) {
             try {
-                mainWindow.removeBrowserView(singleModeViews[key].view);
+                mainWindow.contentView.removeChildView(singleModeViews[key].view);
                 // Destroy webContents to free memory
                 if (!singleModeViews[key].view.webContents.isDestroyed()) {
                     singleModeViews[key].view.webContents.close();
@@ -840,7 +1043,7 @@ function switchToMultiAiMode() {
             // Add view back to window
             if (views[service].view && !views[service].view.webContents.isDestroyed()) {
                 try {
-                    mainWindow.addBrowserView(views[service].view);
+                    mainWindow.contentView.addChildView(views[service].view);
                     console.log(`[ChatMode] Re-added view for ${service}`);
                 } catch (e) {
                     console.error(`Error adding view ${service}:`, e);
@@ -936,7 +1139,7 @@ ipcMain.on('set-layout', (event, layout) => {
     // We don't calculate layout here anymore, we wait for 'update-view-bounds' from renderer
 });
 
-// Temporarily shrink BrowserView heights to make room for popup overlays
+// Temporarily shrink WebContentsView heights to make room for popup overlays
 let _savedViewBounds = null;
 let _shrinkRefCount = 0;
 
@@ -982,6 +1185,10 @@ ipcMain.on('restore-views-from-popup', () => {
 
 // IPC Handlers
 ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) => {
+    if (activeServices && Object.keys(activeServices).length > 0) {
+        lastPromptSentAt = Date.now();
+        if (activeServices.gemini) resetGeminiIdleTimerForAllSlots();
+    }
     const serviceKeys = Object.keys(activeServices);
     const hasFiles = filePaths && filePaths.length > 0;
 
@@ -1453,7 +1660,7 @@ ipcMain.on('toggle-service', (event, service, isEnabled) => {
             // Just enable existing
             if (!viewObj.enabled) {
                 viewObj.enabled = true;
-                mainWindow.addBrowserView(viewObj.view);
+                mainWindow.contentView.addChildView(viewObj.view);
             }
         }
     } else {
@@ -1462,7 +1669,7 @@ ipcMain.on('toggle-service', (event, service, isEnabled) => {
             views[service].enabled = false;
             if (views[service].view) {
                 try {
-                    mainWindow.removeBrowserView(views[service].view);
+                    mainWindow.contentView.removeChildView(views[service].view);
                 } catch (e) { /* ignore */ }
             }
         }
@@ -1571,57 +1778,120 @@ function getServiceResetUrl(service) {
     return url;
 }
 
+/** Try to start a new Gemini chat via in-app button click to preserve session (no full loadURL).
+ *  Full load to /app clears sessionStorage and can show login again. Returns true if URL is now /app. */
+async function tryGeminiInAppNewChat(wc) {
+    if (!wc || wc.isDestroyed()) return false;
+    const urlBefore = wc.getURL();
+    if (!urlBefore || !urlBefore.includes('gemini.google.com') || urlBefore.includes('accounts.google.com')) return false;
+    try {
+        const clicked = await wc.executeJavaScript(`
+            (function() {
+                var sel = 'a[href="/app"], a[href="https://gemini.google.com/app"], button[aria-label*="New chat"], button[aria-label*="New Chat"], [data-test-id*="new-chat"], [data-testid*="new-chat"]';
+                var el = document.querySelector(sel);
+                if (el) { el.click(); return true; }
+                var links = document.querySelectorAll('a[href*="/app"]');
+                for (var i = 0; i < links.length; i++) {
+                    var a = links[i];
+                    var h = (a.getAttribute && a.getAttribute('href')) || a.href || '';
+                    if (h === '/app' || h === 'https://gemini.google.com/app' || a.href === 'https://gemini.google.com/app') { a.click(); return true; }
+                }
+                var clickables = document.querySelectorAll('a, button, [role="button"], [data-test-id*="chat"]');
+                for (var j = 0; j < clickables.length; j++) {
+                    var t = (clickables[j].textContent || '').trim();
+                    if (t === 'New chat' || t === 'Start new chat' || t.indexOf('New chat') === 0 || t.indexOf('Start new chat') === 0) {
+                        clickables[j].click();
+                        return true;
+                    }
+                }
+                return false;
+            })();
+        `);
+        if (!clicked) return false;
+        await new Promise(r => setTimeout(r, 800));
+        const urlAfter = wc.getURL();
+        return !!(urlAfter && new RegExp('^https://gemini\\.google\\.com/app/?$').test(urlAfter));
+    } catch (e) {
+        return false;
+    }
+}
+
 ipcMain.on('new-chat', () => {
     if (chatMode === 'single' && singleAiService) {
         const url = getServiceResetUrl(singleAiService);
         console.log(`[SingleAI] Resetting chat for all instances of ${singleAiService} to ${url}`);
 
-        // Clear cached URLs for all instances - this is crucial for new chat
         for (let i = 0; i < SINGLE_MODE_MAX_INSTANCES; i++) {
             const instanceKey = `${singleAiService}-${i}`;
             delete lastKnownInstanceUrls[instanceKey];
             console.log(`[SingleAI] Cleared lastKnownInstanceUrls[${instanceKey}] for new chat`);
         }
 
-        getEnabledSingleInstances().forEach(({ instanceKey, wc }) => {
-            try {
-                console.log(`[SingleAI] Resetting chat for ${instanceKey} to ${url}`);
-                wc.loadURL(url);
-            } catch (e) {
-                console.error(`[SingleAI] Failed to reset ${instanceKey}:`, e);
+        (async () => {
+            for (const { instanceKey, wc } of getEnabledSingleInstances()) {
+                if (singleAiService === 'gemini') {
+                    const done = await tryGeminiInAppNewChat(wc);
+                    if (done) {
+                        console.log(`[SingleAI][${instanceKey}] New chat via in-app button, session preserved`);
+                        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) resetGeminiIdleTimerForAllSlots();
+                        continue;
+                    }
+                }
+                try {
+                    console.log(`[SingleAI] Resetting chat for ${instanceKey} to ${url}`);
+                    wc.loadURL(url);
+                } catch (e) {
+                    console.error(`[SingleAI] Failed to reset ${instanceKey}:`, e);
+                }
             }
-        });
+        })();
         return;
     }
 
-    services.forEach(service => {
-        if (views[service]) {
+    (async () => {
+        for (const service of services) {
+            if (!views[service] || !views[service].view) continue;
+            const wc = views[service].view.webContents;
+            if (!wc || wc.isDestroyed()) continue;
             const url = getServiceResetUrl(service);
-
-            // Clear cached URL for this service
             delete lastKnownMultiUrls[service];
             console.log(`[MultiAI] Cleared lastKnownMultiUrls[${service}] for new chat`);
 
-            console.log(`Resetting chat for ${service} to ${url}`);
-            if (views[service].view && !views[service].view.webContents.isDestroyed()) {
-                views[service].view.webContents.loadURL(url);
+            if (service === 'gemini') {
+                const done = await tryGeminiInAppNewChat(wc);
+                if (done) {
+                    console.log('[Gemini] New chat via in-app button, session preserved');
+                    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) resetGeminiIdleTimerForAllSlots();
+                    continue;
+                }
             }
+            console.log(`Resetting chat for ${service} to ${url}`);
+            wc.loadURL(url);
         }
-    });
+    })();
 });
 
 ipcMain.on('new-chat-for-service', (event, service) => {
-    if (views[service]) {
-        const url = getServiceResetUrl(service);
+    if (!views[service]) return;
+    const wc = views[service].view?.webContents;
+    const url = getServiceResetUrl(service);
+    delete lastKnownMultiUrls[service];
+    console.log(`[MultiAI] Cleared lastKnownMultiUrls[${service}] for new chat`);
 
-        // Clear cached URL for this service
-        delete lastKnownMultiUrls[service];
-        console.log(`[MultiAI] Cleared lastKnownMultiUrls[${service}] for new chat`);
-
+    if (service === 'gemini' && wc && !wc.isDestroyed()) {
+        (async () => {
+            const done = await tryGeminiInAppNewChat(wc);
+            if (done) {
+                console.log('[Gemini] New chat via in-app button, session preserved');
+                if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) resetGeminiIdleTimerForAllSlots();
+                return;
+            }
+            console.log(`Resetting chat for ${service} to ${url}`);
+            wc.loadURL(url);
+        })();
+    } else {
         console.log(`Resetting chat for ${service} to ${url}`);
-        if (views[service].view && !views[service].view.webContents.isDestroyed()) {
-            views[service].view.webContents.loadURL(url);
-        }
+        if (wc && !wc.isDestroyed()) wc.loadURL(url);
     }
 });
 
@@ -2908,13 +3178,62 @@ ipcMain.on('zoom-sync', (event, direction) => {
     applyZoomToAllViews();
 });
 
+/**
+ * Resolves the executable path for external login: Chrome first, then Edge.
+ * Returns { browser: 'chrome'|'edge', path: string } or null if neither is found.
+ */
+async function getExternalLoginBrowserInfo() {
+    // 1. Try Chrome via chrome-launcher
+    try {
+        const chromeLauncher = await import('chrome-launcher');
+        const installations = chromeLauncher.Launcher.getInstallations();
+        if (installations && installations[0]) {
+            const p = installations[0];
+            if (fs.existsSync(p)) return { browser: 'chrome', path: p };
+        }
+    } catch (e) {
+        console.warn('Chrome not found via chrome-launcher:', e?.message || e);
+    }
+
+    // 2. Try Edge (Chromium) - OS-specific paths
+    const isWin = process.platform === 'win32';
+    const isMac = process.platform === 'darwin';
+    if (isWin) {
+        const candidates = [
+            process.env['ProgramFiles(x86)'] && path.join(process.env['ProgramFiles(x86)'], 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+            process.env.ProgramFiles && path.join(process.env.ProgramFiles, 'Microsoft', 'Edge', 'Application', 'msedge.exe')
+        ].filter(Boolean);
+        for (const p of candidates) {
+            if (fs.existsSync(p)) return { browser: 'edge', path: p };
+        }
+    } else if (isMac) {
+        const edgePath = '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge';
+        if (fs.existsSync(edgePath)) return { browser: 'edge', path: edgePath };
+    }
+    return null;
+}
+
+ipcMain.handle('get-external-login-browser', async () => {
+    const info = await getExternalLoginBrowserInfo();
+    return info ? { browser: info.browser } : null;
+});
+
 // External Login Handler
 ipcMain.on('external-login', async (event, service) => {
     const axios = require('axios');
 
-    console.log(`Launching Chrome for ${service} login...`);
     const isMac = process.platform === 'darwin'; // OS 확인 변수
     const isWin = process.platform === 'win32';
+
+    const browserInfo = await getExternalLoginBrowserInfo();
+    if (!browserInfo) {
+        console.error('No Chrome or Edge installation found for external login');
+        event.sender.send('external-login-unavailable');
+        return;
+    }
+
+    const { browser: browserName, path: executablePath } = browserInfo;
+    console.log(`Launching ${browserName === 'chrome' ? 'Chrome' : 'Edge'} for ${service} login...`);
 
     try {
         // Helper: collect cookies relevant to each service (captures Google SSO cookies too)
@@ -3146,24 +3465,20 @@ ipcMain.on('external-login', async (event, service) => {
             }
         };
 
-        // 0. Cleanup existing Chrome instances (Mac specific)
+        // 0. Cleanup existing external-login browser instances (Mac specific)
         if (isMac) {
             try {
                 const { execSync } = require('child_process');
                 execSync('pkill -f "chrome-auth-profile"');
-                console.log('Cleaned up existing Chrome instances');
+                execSync('pkill -f "edge-auth-profile"');
+                console.log('Cleaned up existing external login browser instances');
             } catch (e) {
                 // Ignore error if no process found
             }
         }
 
-        // 1. Find Chrome Path
-        const chromeLauncher = await import('chrome-launcher');
-        const chromePath = chromeLauncher.Launcher.getInstallations()[0];
-        if (!chromePath) {
-            console.error('Chrome installation not found');
-            return;
-        }
+        const userDataDirName = browserName === 'chrome' ? 'chrome-auth-profile' : 'edge-auth-profile';
+        const userDataDir = path.join(app.getPath('userData'), userDataDirName);
 
         const puppeteer = require('puppeteer-extra');
         const StealthPlugin = require('puppeteer-extra-plugin-stealth');
@@ -3171,7 +3486,7 @@ ipcMain.on('external-login', async (event, service) => {
 
         puppeteer.use(stealth);
 
-        // 2. Launch Chrome with Remote Debugging
+        // Launch Chrome or Edge with Remote Debugging
         const launchArgs = [
             '--no-first-run',
             '--no-default-browser-check',
@@ -3180,12 +3495,11 @@ ipcMain.on('external-login', async (event, service) => {
         // [Logic Merge] Apply automation flag to all platforms to avoid detection
         launchArgs.push('--disable-blink-features=AutomationControlled');
 
-        // Launch Browser
         const browser = await puppeteer.launch({
-            executablePath: chromePath,
+            executablePath,
             headless: false,
             defaultViewport: null,
-            userDataDir: path.join(app.getPath('userData'), 'chrome-auth-profile'),
+            userDataDir,
             ignoreDefaultArgs: ['--enable-automation'],
             args: launchArgs
         });
@@ -3290,6 +3604,7 @@ ipcMain.on('external-login', async (event, service) => {
                         const targetUrl = getServiceResetUrl(service);
                         if (views[service] && views[service].view) {
                             views[service].view.webContents.loadURL(targetUrl);
+                            if (service === 'gemini') resetGeminiIdleTimerForAllSlots();
                         }
                     }
                     return true;
@@ -3363,6 +3678,7 @@ ipcMain.on('external-login', async (event, service) => {
                     const targetUrl = getServiceResetUrl(service);
                     console.log(`[${service}] Login confirmed, loading: ${targetUrl}`);
                     views[service].view.webContents.loadURL(targetUrl);
+                    if (service === 'gemini') resetGeminiIdleTimerForAllSlots();
                 } else {
                     // Fallback 1: latest snapshot was on service domain with auth cookies
                     const likelyConfirmedBySnapshot =
@@ -3382,6 +3698,7 @@ ipcMain.on('external-login', async (event, service) => {
                         }
                         const targetUrl = getServiceResetUrl(service);
                         views[service].view.webContents.loadURL(targetUrl);
+                        if (service === 'gemini') resetGeminiIdleTimerForAllSlots();
                         mainWindow?.webContents.send('external-login-closed');
                         return;
                     }
@@ -3404,6 +3721,7 @@ ipcMain.on('external-login', async (event, service) => {
                             console.warn(`[${service}] Sync on close failed:`, e?.message || e);
                             views[service].view.webContents.reload();
                         }
+                        if (service === 'gemini') resetGeminiIdleTimerForAllSlots();
                         mainWindow?.webContents.send('external-login-closed');
                         return;
                     }
@@ -3414,6 +3732,7 @@ ipcMain.on('external-login', async (event, service) => {
                     }
                     console.log(`[${service}] No login confirmed, reloading current view...`);
                     views[service].view.webContents.reload();
+                    if (service === 'gemini') resetGeminiIdleTimerForAllSlots();
                 }
             }
 
@@ -3430,6 +3749,10 @@ ipcMain.on('external-login', async (event, service) => {
 ipcMain.on('reload-active-view', (event) => {
     // Reload only the view that requested it
     event.sender.reload();
+    const slotKey = getSlotKeyForGeminiWebContents(event.sender);
+    if (slotKey && mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+        sendGeminiIdleTimerToRenderer(slotKey, 'reset');
+    }
 });
 
 // ===========================================
@@ -3563,7 +3886,7 @@ ipcMain.handle('get-chat-mode', async () => {
     };
 });
 
-// Return current URLs directly from BrowserView webContents using executeJavaScript for SPA accuracy
+// Return current URLs directly from WebContentsView webContents using executeJavaScript for SPA accuracy
 ipcMain.handle('get-current-urls', async () => {
     console.log('[Session] get-current-urls called, chatMode:', chatMode);
     console.log('[Session] lastKnownInstanceUrls:', JSON.stringify(lastKnownInstanceUrls));
@@ -3731,6 +4054,10 @@ ipcMain.on('toggle-single-instance', (event, instanceIndex, enabled) => {
 
 // Single AI Mode: Send prompt to instances
 ipcMain.on('send-prompt-to-instances', async (event, text, instanceKeys, filePaths = []) => {
+    if (instanceKeys && instanceKeys.length > 0) {
+        lastPromptSentAt = Date.now();
+        if (singleAiService === 'gemini') resetGeminiIdleTimerForAllSlots();
+    }
     console.log(`[SingleAI] Sending prompt to instances:`, instanceKeys, 'hasFiles:', filePaths?.length > 0);
     
     const hasFiles = filePaths && filePaths.length > 0;
@@ -3860,7 +4187,38 @@ ipcMain.on('update-single-view-bounds', (event, boundsMap) => {
 });
 
 ipcMain.on('status-update', (event, { isLoggedIn }) => {
-    // Optional: Handle status updates from renderer if needed
+    if (isGeminiSessionDebug()) {
+        const slotKey = getSlotKeyForGeminiWebContents(event.sender);
+        if (slotKey && !isLoggedIn) {
+            console.log('[gemini] Preload reported not logged in (session may have expired) slotKey=', slotKey);
+        }
+    }
+});
+
+/** Send idle-timer action to renderer for Gemini slot(s). Used to reset timer on prompt send and pause/reset on response in progress. */
+function sendGeminiIdleTimerToRenderer(slotKey, action) {
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
+    mainWindow.webContents.send('gemini-idle-timer', { slotKey, action });
+}
+
+/** Notify renderer to reset idle timer for all active Gemini slots (e.g. after prompt sent). */
+function resetGeminiIdleTimerForAllSlots() {
+    if (chatMode === 'single' && singleAiService === 'gemini') {
+        for (const [key, entry] of Object.entries(singleModeViews)) {
+            if (entry.enabled && entry.view && !entry.view.webContents.isDestroyed()) sendGeminiIdleTimerToRenderer(key, 'reset');
+        }
+    } else if (views.gemini && views.gemini.enabled) {
+        sendGeminiIdleTimerToRenderer('gemini', 'reset');
+    }
+}
+
+ipcMain.on('gemini-response-in-progress', (event, { inProgress }) => {
+    const wc = event.sender;
+    geminiResponseInProgressByWcId.set(wc.id, inProgress);
+    const slotKey = getSlotKeyForGeminiWebContents(wc);
+    if (slotKey && mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+        mainWindow.webContents.send('gemini-idle-timer', { slotKey, action: inProgress ? 'pause' : 'reset' });
+    }
 });
 
 ipcMain.on('set-service-visibility', (event, isVisible) => {
@@ -3872,13 +4230,13 @@ ipcMain.on('set-service-visibility', (event, isVisible) => {
             if (singleModeViews[instanceKey] && singleModeViews[instanceKey].enabled && singleModeViews[instanceKey].view) {
                 if (isVisible) {
                     try {
-                        mainWindow.addBrowserView(singleModeViews[instanceKey].view);
+                        mainWindow.contentView.addChildView(singleModeViews[instanceKey].view);
                     } catch (e) {
                         console.error(`Failed to show single view for ${instanceKey}:`, e);
                     }
                 } else {
                     try {
-                        mainWindow.removeBrowserView(singleModeViews[instanceKey].view);
+                        mainWindow.contentView.removeChildView(singleModeViews[instanceKey].view);
                     } catch (e) {
                         console.error(`Failed to hide single view for ${instanceKey}:`, e);
                     }
@@ -3891,13 +4249,13 @@ ipcMain.on('set-service-visibility', (event, isVisible) => {
             if (views[service] && views[service].enabled && views[service].view) {
                 if (isVisible) {
                     try {
-                        mainWindow.addBrowserView(views[service].view);
+                        mainWindow.contentView.addChildView(views[service].view);
                     } catch (e) {
                         console.error(`Failed to show view for ${service}:`, e);
                     }
                 } else {
                     try {
-                        mainWindow.removeBrowserView(views[service].view);
+                        mainWindow.contentView.removeChildView(views[service].view);
                     } catch (e) {
                         console.error(`Failed to hide view for ${service}:`, e);
                     }
@@ -3990,7 +4348,7 @@ function saveSessionState() {
         };
         console.log('[Session] Single AI Mode config:', sessionState.singleAiConfig);
     } else {
-        // Multi AI Mode: Collect URLs from all BrowserViews (SESS-002)
+        // Multi AI Mode: Collect URLs from all WebContentsViews (SESS-002)
         services.forEach(service => {
             if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
                 sessionState.serviceUrls[service] = views[service].view.webContents.getURL();
@@ -4040,6 +4398,24 @@ ipcMain.on('report-ui-state', (event, uiState) => {
 // IPC handler to get current saved state (SESS-003)
 ipcMain.handle('get-saved-session', () => {
     return store.get('sessionState', defaultSessionState);
+});
+
+// Capture a region of the renderer as image and write to clipboard
+ipcMain.handle('capture-element-image', async (event, rect) => {
+    try {
+        const image = await event.sender.capturePage({
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height)
+        });
+        if (image.isEmpty()) return false;
+        clipboard.writeImage(image);
+        return true;
+    } catch (err) {
+        console.error('capture-element-image error:', err);
+        return false;
+    }
 });
 
 // Renderer calls this when it finished saving IndexedDB history during app close.

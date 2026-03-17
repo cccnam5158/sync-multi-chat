@@ -30,6 +30,71 @@ function getServiceResetUrl(service) {
     return SERVICE_RESET_URLS[service] || '';
 }
 
+// Gemini idle refresh timer (shown in header left of reload button)
+const GEMINI_IDLE_TIMER_SECONDS = 5 * 60; // 5 min (matches main GEMINI_IDLE_THRESHOLD_MS)
+const geminiIdleTimerState = {}; // slotKey -> { remainingSeconds, isPaused }
+
+function isGeminiSlot(slotKey) {
+    return slotKey === 'gemini' || (typeof slotKey === 'string' && slotKey.startsWith('gemini-'));
+}
+
+function ensureGeminiTimerState(slotKey) {
+    if (!isGeminiSlot(slotKey)) return;
+    if (!geminiIdleTimerState[slotKey]) {
+        geminiIdleTimerState[slotKey] = { remainingSeconds: GEMINI_IDLE_TIMER_SECONDS, isPaused: false };
+    }
+}
+
+function formatGeminiIdleTimerLabel(remainingSeconds, isPaused) {
+    if (isPaused) return 'Responding';
+    const m = Math.floor(remainingSeconds / 60);
+    const s = remainingSeconds % 60;
+    return `Refresh in ${m}:${String(s).padStart(2, '0')}`;
+}
+
+function updateGeminiIdleTimerDisplay(slotKey) {
+    const state = geminiIdleTimerState[slotKey];
+    const el = document.getElementById(`gemini-idle-timer-${slotKey}`);
+    if (!state || !el) return;
+    el.textContent = formatGeminiIdleTimerLabel(state.remainingSeconds, state.isPaused);
+    el.title = state.isPaused ? 'Response in progress — refresh timer paused' : 'Auto-refresh after this time when idle';
+}
+
+function tickGeminiIdleTimers() {
+    Object.keys(geminiIdleTimerState).forEach(slotKey => {
+        const state = geminiIdleTimerState[slotKey];
+        if (!state.isPaused && state.remainingSeconds > 0) {
+            state.remainingSeconds -= 1;
+            updateGeminiIdleTimerDisplay(slotKey);
+        }
+    });
+}
+
+let geminiIdleTimerTickId = null;
+function startGeminiIdleTimerTick() {
+    if (geminiIdleTimerTickId != null) return;
+    geminiIdleTimerTickId = setInterval(tickGeminiIdleTimers, 1000);
+}
+
+/** Reset idle timer for one Gemini slot (e.g. after reload or per-slot new chat). */
+function resetGeminiIdleTimerForSlot(slotKey) {
+    if (!isGeminiSlot(slotKey)) return;
+    ensureGeminiTimerState(slotKey);
+    const state = geminiIdleTimerState[slotKey];
+    state.remainingSeconds = GEMINI_IDLE_TIMER_SECONDS;
+    state.isPaused = false;
+    updateGeminiIdleTimerDisplay(slotKey);
+}
+
+/** Reset idle timer for all Gemini slots (e.g. after global new chat or history load). */
+function resetAllGeminiIdleTimers() {
+    Object.keys(geminiIdleTimerState).forEach(slotKey => {
+        geminiIdleTimerState[slotKey].remainingSeconds = GEMINI_IDLE_TIMER_SECONDS;
+        geminiIdleTimerState[slotKey].isPaused = false;
+        updateGeminiIdleTimerDisplay(slotKey);
+    });
+}
+
 // Handle New Chat Button Click
 newChatBtn.addEventListener('click', async () => {
     // Save current session first (if there is one)
@@ -91,6 +156,7 @@ newChatBtn.addEventListener('click', async () => {
 
     // Notify main process to reset webviews (navigates to base URLs)
     window.electronAPI.newChat();
+    resetAllGeminiIdleTimers();
 });
 
 if (promptToggleBtn) {
@@ -803,6 +869,7 @@ if (window.electronAPI.onChatModeChanged) {
             singleAiActiveInstances = data.activeInstances;
         }
         updateToggleUI();
+        resetAllGeminiIdleTimers();
     });
 }
 
@@ -831,6 +898,7 @@ masterInput.addEventListener('keydown', (e) => {
             // Ctrl+Shift+Enter: New Chat
             e.preventDefault();
             window.electronAPI.newChat();
+            resetAllGeminiIdleTimers();
         } else if (e.ctrlKey || e.metaKey) {
             // Ctrl+Enter: Send Prompt
             e.preventDefault();
@@ -1504,6 +1572,18 @@ function createSlot(container, slotKey) {
     const headerBtns = document.createElement('div');
     headerBtns.className = 'header-buttons';
 
+    // Gemini idle refresh timer (left of reload) — only for Gemini slots
+    if (isGeminiSlot(slotKey)) {
+        ensureGeminiTimerState(slotKey);
+        const timerEl = document.createElement('span');
+        timerEl.id = `gemini-idle-timer-${slotKey}`;
+        timerEl.className = 'gemini-idle-timer';
+        timerEl.textContent = formatGeminiIdleTimerLabel(GEMINI_IDLE_TIMER_SECONDS, false);
+        timerEl.title = 'Auto-refresh after this time when idle';
+        headerBtns.appendChild(timerEl);
+        startGeminiIdleTimerTick();
+    }
+
     // Reload button - moved from URL bar to header (left of maximize button)
     const reloadBtn = document.createElement('button');
     reloadBtn.className = 'header-btn';
@@ -1519,6 +1599,7 @@ function createSlot(container, slotKey) {
         } else {
             window.electronAPI.reloadService(slotKey);
         }
+        if (isGeminiSlot(slotKey)) resetGeminiIdleTimerForSlot(slotKey);
     });
 
     // Maximize/Restore Button
@@ -1638,6 +1719,7 @@ function createSlot(container, slotKey) {
         } else {
             window.electronAPI.newChatForService(slotKey);
         }
+        if (isGeminiSlot(slotKey)) resetGeminiIdleTimerForSlot(slotKey);
     });
 
     // Copy URL button - overlapping squares icon
@@ -1885,6 +1967,30 @@ for (const [service, toggle] of Object.entries(toggles)) {
 // Also save session on URL changes for history persistence
 let urlChangeDebounceTimer = null;
 let isSessionLoading = false; // Flag to prevent URL saves during session loading
+
+if (window.electronAPI.onGeminiIdleTimer) {
+    window.electronAPI.onGeminiIdleTimer(({ slotKey, action }) => {
+        if (!slotKey || !isGeminiSlot(slotKey)) return;
+        ensureGeminiTimerState(slotKey);
+        const state = geminiIdleTimerState[slotKey];
+        if (action === 'reset') {
+            state.remainingSeconds = GEMINI_IDLE_TIMER_SECONDS;
+            state.isPaused = false;
+        } else if (action === 'pause') {
+            state.isPaused = true;
+        }
+        updateGeminiIdleTimerDisplay(slotKey);
+    });
+}
+
+// Restore focus to main prompt input after Gemini idle refresh (webview reload steals focus otherwise)
+if (window.electronAPI.onGeminiIdleRefreshDone && masterInput) {
+    window.electronAPI.onGeminiIdleRefreshDone(() => {
+        setTimeout(() => {
+            if (masterInput && !masterInput.disabled) masterInput.focus();
+        }, 0);
+    });
+}
 
 if (window.electronAPI.onWebviewUrlChanged) {
     window.electronAPI.onWebviewUrlChanged(({ service, url }) => {
@@ -2894,6 +3000,7 @@ async function resetToNewSessionAfterDelete() {
     localStorage.setItem(currentSessionIdKey, currentSessionId);
 
     window.electronAPI.newChat();
+    resetAllGeminiIdleTimers();
 }
 
 async function performHistoryBulkDelete(ids) {
@@ -3444,6 +3551,7 @@ async function performHistoryDelete(session) {
 
             // Reset webviews
             window.electronAPI.newChat();
+            resetAllGeminiIdleTimers();
         }
 
     loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
@@ -3569,6 +3677,7 @@ async function performClearAll() {
 
         // Reset webviews
         window.electronAPI.newChat();
+        resetAllGeminiIdleTimers();
 
         loadHistoryList();
     } catch (err) {
@@ -3926,6 +4035,8 @@ async function loadSession(session) {
             isSessionLoading = false;
         }
     }
+
+    resetAllGeminiIdleTimers();
 
     // Refresh history list to show updated active state (preserve scroll/loaded pages)
     loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });

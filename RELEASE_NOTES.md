@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.8.0 (2026-03-17)
+
+### ✨ New Features
+*   **Prompt Builder: Mermaid, Code, LaTeX Preview**: In the Custom Prompt Builder and main prompt Live Preview, code blocks (with syntax highlighting), Mermaid diagrams, and LaTeX formulas are now rendered in dedicated preview sections. Mermaid blocks support zoom, fit, and fullscreen; LaTeX is rendered with KaTeX.
+
+### ⬆️ Improvements
+*   **Gemini session extension period relaxed**: Keep-alive and idle-refresh intervals are tuned so the Gemini session is less likely to expire during idle. A visible countdown timer is shown per Gemini panel until the next refresh, so you can see when the session will be extended.
+
+---
+
 ## v0.7.1 (2026-02-23)
 
 ### 🔧 Bug Fixes

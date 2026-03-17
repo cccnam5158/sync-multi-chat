@@ -4,14 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Multi Chat 릴리스 노트 | v0.7.1 업데이트 내역</title>
+    <title>Sync Multi Chat 릴리스 노트 | v0.8.0 업데이트 내역</title>
     <meta name="description" content="Sync Multi Chat 업데이트 내역. Custom Prompt Builder, Single AI 모드, 크로스 체크, ChatGPT·Claude·Gemini 동시 지원. Release notes and changelog.">
-    <meta name="keywords" content="Sync Multi Chat, 릴리스 노트, release notes, v0.7.1, Custom Prompt Builder, Single AI 모드">
+    <meta name="keywords" content="Sync Multi Chat, 릴리스 노트, release notes, v0.8.0, Custom Prompt Builder, Mermaid LaTeX Preview">
     <link rel="canonical" href="https://cccnam5158.github.io/sync-multi-chat/release_notes.html">
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://cccnam5158.github.io/sync-multi-chat/release_notes.html">
-    <meta property="og:title" content="Sync Multi Chat 릴리스 노트 | v0.7.1 업데이트 내역">
+    <meta property="og:title" content="Sync Multi Chat 릴리스 노트 | v0.8.0 업데이트 내역">
     <meta property="og:description" content="Sync Multi Chat 업데이트 내역. Custom Prompt Builder, Single AI 모드, 크로스 체크 등. Release notes and changelog.">
     <meta property="og:image" content="https://raw.githubusercontent.com/cccnam5158/sync-multi-chat/master/assets/mutli-ai-chat.png">
     <meta property="og:site_name" content="Sync Multi Chat">
@@ -20,7 +20,7 @@
     <meta property="og:locale:alternate" content="ja_JP">
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Sync Multi Chat 릴리스 노트 | v0.7.1 업데이트 내역">
+    <meta name="twitter:title" content="Sync Multi Chat 릴리스 노트 | v0.8.0 업데이트 내역">
     <meta name="twitter:description" content="Sync Multi Chat 업데이트 내역. Custom Prompt Builder, Single AI 모드, 크로스 체크 등.">
     <meta name="twitter:image" content="https://raw.githubusercontent.com/cccnam5158/sync-multi-chat/master/assets/mutli-ai-chat.png">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -40,7 +40,7 @@
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     Sync Multi Chat                     <span class="version-badge"
-                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.7.1</span>
+                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.8.0</span>
                 </a>
                 <div class="nav-links">
                     <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
@@ -101,18 +101,38 @@
             style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 60px; max-width: 900px; margin-left: auto; margin-right: auto; padding-left: 20px;">
             <h2 style="margin-bottom: 0;" data-i18n="releaseNotes.title">Release History</h2>
             <span style="color: var(--text-tertiary); font-size: 0.9rem;" data-i18n="releaseNotes.lastUpdated">Last
-                updated: Feb 23, 2026</span>
+                updated: Mar 17, 2026</span>
         </div>
 
         <div class="timeline">
 
-            <!-- v0.7.1 (Active) -->
+            <!-- v0.8.0 (Active) -->
             <div class="timeline-item active">
                 <div class="timeline-dot"></div>
 
                 <div class="version-header">
-                    <span class="version-number">v0.7.1</span>
+                    <span class="version-number">v0.8.0</span>
                     <span class="badge-current" data-i18n="releaseNotes.current">Current</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ <span data-i18n="releaseNotes.newFeatures">New Features</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v080.feature1"><strong>Prompt Builder: Mermaid, Code, LaTeX Preview</strong>: In the Custom Prompt Builder and main prompt Live Preview, code blocks (with syntax highlighting), Mermaid diagrams, and LaTeX formulas are now rendered in dedicated preview sections. Mermaid supports zoom, fit, and fullscreen; LaTeX is rendered with KaTeX.</li>
+                    </ul>
+                    <h3>⬆️ <span data-i18n="releaseNotes.improvements">Improvements</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v080.improvement1"><strong>Gemini session extension period relaxed</strong>: Keep-alive and idle-refresh intervals are tuned so the Gemini session is less likely to expire during idle. A visible countdown timer per Gemini panel shows when the session will be extended.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.7.1 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.7.1</span>
                 </div>
 
                 <div class="release-card-content">

@@ -111,10 +111,17 @@
             "button[aria-label='전송']"
         ],
         "loggedInSelector": [
+            "a[aria-label^=\"Google 계정:\"]",
+            "a[aria-label^=\"Google Account:\"]",
+            "img.gb_Q.gbii",
             "div[contenteditable='true']",
             "div[role='textbox']",
             "a[href*='gemini.google.com']",
             "div[data-test-id='chat-history-button']"
+        ],
+        "loginButtonSelector": [
+            "a[aria-label=\"로그인\"]",
+            "a[aria-label=\"Sign in\"]"
         ],
         "contentSelector": [
             "message-content",

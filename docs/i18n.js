@@ -136,7 +136,9 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "Release History",
-        "releaseNotes.lastUpdated": "Last updated: Feb 23, 2026",
+        "releaseNotes.lastUpdated": "Last updated: Mar 17, 2026",
+        "releaseNotes.v080.feature1": "Prompt Builder: Mermaid, Code, LaTeX Preview: In the Custom Prompt Builder and main prompt Live Preview, code blocks (with syntax highlighting), Mermaid diagrams, and LaTeX formulas are now rendered in dedicated preview sections. Mermaid supports zoom, fit, and fullscreen; LaTeX is rendered with KaTeX.",
+        "releaseNotes.v080.improvement1": "Gemini session extension period relaxed: Keep-alive and idle-refresh intervals are tuned so the Gemini session is less likely to expire during idle. A visible countdown timer per Gemini panel shows when the session will be extended.",
         "releaseNotes.v071.fix1": "Preview variable rendering: Fixed {{last_response}} and {{chat_thread}} appearing truncated (e.g. {{last) in the main prompt inline preview and master preview; placeholders are now split before markdown parsing.",
         "releaseNotes.v071.fix2": "Anonymous mode and variable substitution: When Anonymous is ON, {{last_response}} and {{chat_thread}} sent to webviews now use anonymized service names; Anonymous state syncs with Custom Prompt Builder and all previews update in real time.",
         "releaseNotes.v071.fix3": "Expand prompt area after send: When the prompt input is expanded, sending (Send or Ctrl+Enter) now automatically collapses the area so you can see AI responses immediately.",
@@ -337,7 +339,9 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "릴리스 히스토리",
-        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 2월 23일",
+        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 3월 17일",
+        "releaseNotes.v080.feature1": "프롬프트 빌더: Mermaid, 코드, LaTeX 프리뷰: 커스텀 프롬프트 빌더 및 메인 프롬프트 라이브 프리뷰에서 코드 블록(문법 강조), Mermaid 다이어그램, LaTeX 수식이 전용 프리뷰 섹션으로 렌더링됩니다. Mermaid는 확대/맞춤/전체화면 지원, LaTeX는 KaTeX로 렌더링됩니다.",
+        "releaseNotes.v080.improvement1": "Gemini 세션 연장 주기 완화: keep-alive 및 idle-refresh 간격 조정으로 유휴 시 Gemini 세션이 덜 만료되도록 했습니다. Gemini 패널마다 다음 연장 시점을 보여주는 카운트다운 타이머가 표시됩니다.",
         "releaseNotes.v071.fix1": "미리보기 변수 렌더링: 메인 프롬프트 인라인/마스터 미리보기에서 {{last_response}}, {{chat_thread}}가 잘려 보이던 문제 수정; 마크다운 파싱 전 플레이스홀더 분리.",
         "releaseNotes.v071.fix2": "익명 모드 및 변수 치환: Anonymous ON일 때 웹뷰로 전송되는 {{last_response}}, {{chat_thread}}가 익명 서비스명으로 치환되도록 수정; CPB 및 모든 프리뷰가 실시간 반영.",
         "releaseNotes.v071.fix3": "전송 후 프롬프트 영역 접기: 프롬프트 입력 영역이 확대된 상태에서 전송(Send 또는 Ctrl+Enter) 시 자동으로 접혀 AI 응답을 바로 확인할 수 있음.",
@@ -538,7 +542,9 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "リリース履歴",
-        "releaseNotes.lastUpdated": "最終更新: 2026年2月23日",
+        "releaseNotes.lastUpdated": "最終更新: 2026年3月17日",
+        "releaseNotes.v080.feature1": "プロンプトビルダー: Mermaid・コード・LaTeXプレビュー: カスタムプロンプトビルダーおよびメインプロンプトのライブプレビューで、コードブロック（シンタックスハイライト）、Mermaid図、LaTeX数式が専用プレビューセクションでレンダリングされます。Mermaidはズーム・フィット・全画面対応、LaTeXはKaTeXでレンダリング。",
+        "releaseNotes.v080.improvement1": "Geminiセッション延長周期の緩和: keep-aliveとidle-refreshの間隔を調整し、アイドル時のGeminiセッション切れを軽減。Geminiパネルごとに次回延長までのカウントダウンタイマーを表示。",
         "releaseNotes.v071.fix1": "プレビュー変数レンダリング: メインプロンプトのインライン/マスタープレビューで {{last_response}}、{{chat_thread}} が途中で切れて表示される問題を修正。マークダウン解析前にプレースホルダーを分割。",
         "releaseNotes.v071.fix2": "匿名モードと変数置換: Anonymous ON 時、ウェブビューへ送信される {{last_response}}、{{chat_thread}} が匿名サービス名で置換されるよう修正。CPB および全プレビューがリアルタイムで反映。",
         "releaseNotes.v071.fix3": "送信後のプロンプト領域折りたたみ: プロンプト入力が拡大状態のとき、送信（Send または Ctrl+Enter）で自動的に折りたたみ、AI応答をすぐ確認可能に。",
