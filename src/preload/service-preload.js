@@ -537,26 +537,38 @@ ipcRenderer.send('request-config');
 let lastStableLoggedInState = false;
 let consecutiveLoggedOutChecks = 0;
 const GEMINI_LOGOUT_GRACE_CHECKS = 3; // 2s interval * 3 = up to ~6s grace for transient DOM misses
+const PERPLEXITY_LOGOUT_GRACE_CHECKS = 2; // 2s interval * 2 = up to ~4s grace for transient DOM misses
+
+function isElementVisible(el) {
+    if (!el || !el.isConnected) return false;
+    const style = window.getComputedStyle(el);
+    if (!style) return false;
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+    if (el.closest('[aria-hidden="true"], [hidden], [inert]')) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+}
+
+function queryAnyVisible(selectors) {
+    if (!Array.isArray(selectors)) return false;
+    for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (isElementVisible(el)) return true;
+    }
+    return false;
+}
 
 function detectLoggedInBySelectors(config) {
     if (!config) return false;
 
     // 1. Check for explicit loggedInSelector if available (Best)
     if (config.loggedInSelector) {
-        for (const selector of config.loggedInSelector) {
-            if (document.querySelector(selector)) {
-                return true;
-            }
-        }
+        if (queryAnyVisible(config.loggedInSelector)) return true;
     }
 
     // 2. Fallback to inputSelector
     if (config.inputSelector) {
-        for (const selector of config.inputSelector) {
-            if (document.querySelector(selector)) {
-                return true;
-            }
-        }
+        if (queryAnyVisible(config.inputSelector)) return true;
     }
 
     return false;
@@ -594,7 +606,7 @@ function hasGeminiHeaderProfileIcon() {
 }
 
 /** Get body text excluding our injected login badge so badge text does not trigger logged-out detection. */
-function getGeminiPageTextExcludingBadge() {
+function getPageTextExcludingBadge() {
     try {
         const badge = document.getElementById('sync-multi-chat-login-badge');
         if (!badge || !document.body) return (document.body.innerText || '').toLowerCase();
@@ -611,7 +623,7 @@ function isGeminiExplicitlyLoggedOut() {
     // Primary: header has "로그인" / "Sign in" button (reliable DOM from user-provided HTML)
     if (hasGeminiHeaderLoginButton()) return true;
     // Fallback: only very explicit logged-out phrases (no "로그인"/"sign in" to avoid badge/false positives)
-    const pageText = getGeminiPageTextExcludingBadge();
+    const pageText = getPageTextExcludingBadge();
     const explicitLoggedOutHints = [
         '로그아웃된 상태입니다',
         '다시 로그인하세요',
@@ -648,6 +660,80 @@ function isGeminiLikelyLoggedIn() {
     return false;
 }
 
+function hasPerplexityTextHint(hints) {
+    const pageText = getPageTextExcludingBadge();
+    for (const hint of hints) {
+        if (pageText.includes(hint)) return true;
+    }
+    return false;
+}
+
+function hasPerplexityVisibleCtaText(hints) {
+    const nodes = document.querySelectorAll('button, a, [role="button"], h1, h2, p, span');
+    for (const node of nodes) {
+        if (!isElementVisible(node)) continue;
+        const txt = (node.textContent || '').trim().toLowerCase();
+        if (!txt) continue;
+        for (const hint of hints) {
+            if (txt.includes(hint)) return true;
+        }
+    }
+    return false;
+}
+
+function isPerplexityExplicitlyLoggedOut() {
+    const host = (window.location.hostname || '').toLowerCase();
+    const path = (window.location.pathname || '').toLowerCase();
+    if (!host.includes('perplexity.ai')) return false;
+
+    if (path.includes('/auth') || path.includes('/login') || path.includes('/signin')) return true;
+
+    const ctaSelectors = [
+        'a[href*="/login"]',
+        'a[href*="/signin"]',
+        'button[data-testid*="login"]',
+        'button[data-testid*="signin"]'
+    ];
+    if (queryAnyVisible(ctaSelectors)) return true;
+
+    const hints = [
+        // Korean
+        'google로 계속하기',
+        'apple로 계속하기',
+        '아래에서 가입하여',
+        '로그인',
+        '로그 인',
+        // English
+        'continue with google',
+        'continue with apple',
+        'sign up with email',
+        'by continuing, you agree to perplexity',
+        'terms of service',
+        'privacy policy',
+        'log in',
+        'login',
+        'sign in'
+    ];
+    return hasPerplexityTextHint(hints) || hasPerplexityVisibleCtaText(hints);
+}
+
+function isPerplexityLikelyLoggedIn() {
+    const host = (window.location.hostname || '').toLowerCase();
+    if (!host.includes('perplexity.ai')) return false;
+
+    const selectors = [
+        'button[aria-label*="Account"]',
+        'button[aria-label*="account"]',
+        'button[aria-label*="프로필"]',
+        'button[aria-label*="계정"]',
+        'img[alt*="Profile"]',
+        'img[alt*="profile"]',
+        'img[alt*="Avatar"]',
+        'img[alt*="avatar"]'
+    ];
+    return queryAnyVisible(selectors);
+}
+
 setInterval(() => {
     if (!currentConfig) return;
 
@@ -664,6 +750,13 @@ setInterval(() => {
         } else if (isGeminiLikelyLoggedIn()) {
             isLoggedIn = true;
         }
+    } else if (currentService === 'perplexity') {
+        if (isPerplexityExplicitlyLoggedOut()) {
+            isLoggedIn = false;
+            forceLoggedOut = true;
+        } else if (isPerplexityLikelyLoggedIn()) {
+            isLoggedIn = true;
+        }
     }
 
     // 3. Double check with login button selector (Negative Check)
@@ -677,14 +770,15 @@ setInterval(() => {
         }
     }
 
-    // 4. Hysteresis for Gemini: avoid immediate false-negative during SPA rerender/transient DOM states
-    if (currentService === 'gemini') {
+    // 4. Hysteresis for Gemini/Perplexity: avoid immediate false-negative during transient DOM states
+    if (currentService === 'gemini' || currentService === 'perplexity') {
+        const graceChecks = currentService === 'gemini' ? GEMINI_LOGOUT_GRACE_CHECKS : PERPLEXITY_LOGOUT_GRACE_CHECKS;
         if (isLoggedIn) {
             lastStableLoggedInState = true;
             consecutiveLoggedOutChecks = 0;
         } else if (lastStableLoggedInState && !forceLoggedOut) {
             consecutiveLoggedOutChecks += 1;
-            if (consecutiveLoggedOutChecks < GEMINI_LOGOUT_GRACE_CHECKS) {
+            if (consecutiveLoggedOutChecks < graceChecks) {
                 isLoggedIn = true;
             } else {
                 lastStableLoggedInState = false;

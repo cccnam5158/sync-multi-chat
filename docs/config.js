@@ -5,15 +5,15 @@
 
 const SMC_CONFIG = {
     // Current version
-    version: 'v0.8.0',
+    version: 'v0.8.1',
     
     // Release date
-    releaseDate: '2026-03-17',
+    releaseDate: '2026-03-18',
     
     // Download URLs
     downloads: {
         windows: {
-            installer: 'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.8.0/Sync-Multi-Chat-Setup-0.8.0.exe'
+            installer: 'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.8.1/Sync-Multi-Chat-Setup-0.8.1.exe'
         },
         // Future platforms
         macos: null,

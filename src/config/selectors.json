@@ -229,6 +229,12 @@
             "div[data-lexical-editor='true']",
             "div[contenteditable='true']"
         ],
+        "loginButtonSelector": [
+            "a[href*='/login']",
+            "a[href*='/signin']",
+            "button[data-testid*='login']",
+            "button[data-testid*='signin']"
+        ],
         "contentSelector": [
             "main",
             "div[role='main']"

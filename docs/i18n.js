@@ -34,7 +34,7 @@ const translations = {
         "features.session.title": "Session Persistence",
         "features.session.desc": "Your environment is saved automatically. Restore layouts, active services, and specific URLs exactly where you left off.",
         "features.privacy.title": "Privacy First",
-        "features.privacy.desc": "Direct login to official services. No middleman, no credential storage. Your sessions run in isolated sandboxed environments.",
+        "features.privacy.desc": "Direct login to official services. External cookie sync opens Chrome, or Microsoft Edge if Chrome is unavailable (v0.8.1+). No middleman, no credential storage. Sessions run in isolated sandboxed environments.",
         "features.fileUpload.title": "Universal File Support",
         "features.fileUpload.desc": "Drag & drop or paste images and text. Upload to multiple AIs simultaneously with a verified two-step workflow.",
 
@@ -136,7 +136,9 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "Release History",
-        "releaseNotes.lastUpdated": "Last updated: Mar 17, 2026",
+        "releaseNotes.lastUpdated": "Last updated: Mar 18, 2026",
+        "releaseNotes.v081.imp1": "Perplexity login detection: Clearer logged-in vs logged-out state (KO/EN CTAs, auth paths, visibility-based login UI, short grace period). Expanded login selectors. The Login Required badge tracks session state more reliably.",
+        "releaseNotes.v081.imp2": "External login via Microsoft Edge: If Chrome is not installed, external browser login uses Edge (Chromium) on Windows and macOS—Edge-only setups can complete Gemini and Google-based cookie sync.",
         "releaseNotes.v080.feature1": "Prompt Builder: Mermaid, Code, LaTeX Preview: In the Custom Prompt Builder and main prompt Live Preview, code blocks (with syntax highlighting), Mermaid diagrams, and LaTeX formulas are now rendered in dedicated preview sections. Mermaid supports zoom, fit, and fullscreen; LaTeX is rendered with KaTeX.",
         "releaseNotes.v080.improvement1": "Gemini session extension period relaxed: Keep-alive and idle-refresh intervals are tuned so the Gemini session is less likely to expire during idle. A visible countdown timer per Gemini panel shows when the session will be extended.",
         "releaseNotes.v071.fix1": "Preview variable rendering: Fixed {{last_response}} and {{chat_thread}} appearing truncated (e.g. {{last) in the main prompt inline preview and master preview; placeholders are now split before markdown parsing.",
@@ -237,7 +239,7 @@ const translations = {
         "features.session.title": "세션 유지",
         "features.session.desc": "환경이 자동으로 저장됩니다. 레이아웃, 활성 서비스, 특정 URL을 정확히 그 상태로 복원하세요.",
         "features.privacy.title": "프라이버시 우선",
-        "features.privacy.desc": "공식 서비스에 직접 로그인. 중개자 없음, 자격 증명 저장 없음. 세션은 격리된 샌드박스 환경에서 실행됩니다.",
+        "features.privacy.desc": "공식 서비스에 직접 로그인. 외부 브라우저 쿠키 동기화는 Chrome을 쓰고, 없으면 Microsoft Edge를 사용합니다(v0.8.1+). 중개자 없음, 자격 증명 저장 없음. 세션은 격리된 샌드박스에서 실행됩니다.",
         "features.fileUpload.title": "범용 파일 지원",
         "features.fileUpload.desc": "이미지와 텍스트를 드래그 앤 드롭하거나 붙여넣기하세요. 검증된 2단계 워크플로우로 여러 AI에 동시에 업로드합니다.",
 
@@ -339,7 +341,9 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "릴리스 히스토리",
-        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 3월 17일",
+        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 3월 18일",
+        "releaseNotes.v081.imp1": "Perplexity 로그인 탐지: 로그인/로그아웃 상태 판별 강화(한·영 CTA, 인증 경로, 가시성 기반 로그인 UI, 짧은 grace). login 셀렉터 확장. Login Required 배지가 실제 세션과 더 잘 맞습니다.",
+        "releaseNotes.v081.imp2": "Microsoft Edge 외부 로그인: Chrome이 없으면 Windows·macOS에서 Edge(Chromium)로 외부 로그인·쿠키 동기화. Edge만 설치된 환경에서도 Gemini 등 Google 연동 완료 가능.",
         "releaseNotes.v080.feature1": "프롬프트 빌더: Mermaid, 코드, LaTeX 프리뷰: 커스텀 프롬프트 빌더 및 메인 프롬프트 라이브 프리뷰에서 코드 블록(문법 강조), Mermaid 다이어그램, LaTeX 수식이 전용 프리뷰 섹션으로 렌더링됩니다. Mermaid는 확대/맞춤/전체화면 지원, LaTeX는 KaTeX로 렌더링됩니다.",
         "releaseNotes.v080.improvement1": "Gemini 세션 연장 주기 완화: keep-alive 및 idle-refresh 간격 조정으로 유휴 시 Gemini 세션이 덜 만료되도록 했습니다. Gemini 패널마다 다음 연장 시점을 보여주는 카운트다운 타이머가 표시됩니다.",
         "releaseNotes.v071.fix1": "미리보기 변수 렌더링: 메인 프롬프트 인라인/마스터 미리보기에서 {{last_response}}, {{chat_thread}}가 잘려 보이던 문제 수정; 마크다운 파싱 전 플레이스홀더 분리.",
@@ -440,7 +444,7 @@ const translations = {
         "features.session.title": "セッション永続化",
         "features.session.desc": "環境は自動的に保存されます。レイアウト、アクティブなサービス、特定のURLを正確に復元。",
         "features.privacy.title": "プライバシー最優先",
-        "features.privacy.desc": "公式サービスに直接ログイン。仲介者なし、認証情報の保存なし。セッションは隔離されたサンドボックス環境で実行。",
+        "features.privacy.desc": "公式サービスに直接ログイン。外部ブラウザのクッキー同期はChromeを使用し、未インストール時はMicrosoft Edge（v0.8.1+）。仲介者なし、認証情報の保存なし。セッションは隔離サンドボックスで実行。",
         "features.fileUpload.title": "ユニバーサルファイルサポート",
         "features.fileUpload.desc": "画像やテキストをドラッグ＆ドロップまたはペースト。検証済みの2ステップワークフローで複数のAIに同時アップロード。",
 
@@ -542,7 +546,9 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "リリース履歴",
-        "releaseNotes.lastUpdated": "最終更新: 2026年3月17日",
+        "releaseNotes.lastUpdated": "最終更新: 2026年3月18日",
+        "releaseNotes.v081.imp1": "Perplexityログイン検出: ログイン状態の判定を強化（日英CTA、認証パス、表示ベースのログインUI、短いグレース）。loginセレクタ拡張。Login Requiredバッジが実セッションとより一致。",
+        "releaseNotes.v081.imp2": "Microsoft Edgeでの外部ログイン: Chrome未インストール時はWindows・macOSでEdge（Chromium）を使用。Edgeのみの環境でもGemini等のGoogle連携が可能。",
         "releaseNotes.v080.feature1": "プロンプトビルダー: Mermaid・コード・LaTeXプレビュー: カスタムプロンプトビルダーおよびメインプロンプトのライブプレビューで、コードブロック（シンタックスハイライト）、Mermaid図、LaTeX数式が専用プレビューセクションでレンダリングされます。Mermaidはズーム・フィット・全画面対応、LaTeXはKaTeXでレンダリング。",
         "releaseNotes.v080.improvement1": "Geminiセッション延長周期の緩和: keep-aliveとidle-refreshの間隔を調整し、アイドル時のGeminiセッション切れを軽減。Geminiパネルごとに次回延長までのカウントダウンタイマーを表示。",
         "releaseNotes.v071.fix1": "プレビュー変数レンダリング: メインプロンプトのインライン/マスタープレビューで {{last_response}}、{{chat_thread}} が途中で切れて表示される問題を修正。マークダウン解析前にプレースホルダーを分割。",

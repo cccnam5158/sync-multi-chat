@@ -714,7 +714,7 @@ function geminiIdleRefreshTick() {
         for (const wc of targets) {
             if (wc.isDestroyed()) continue;
             if (geminiResponseInProgressByWcId.get(wc.id)) continue; // response in progress, do not refresh
-            wc.reload();
+            wc.loadURL(getServiceResetUrl('gemini'));
         }
         const reloaded = targets.filter(wc => !wc.isDestroyed() && !geminiResponseInProgressByWcId.get(wc.id));
         if (reloaded.length > 0) {
@@ -1205,6 +1205,9 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
 
                     if (views[service].view && !views[service].view.webContents.isDestroyed()) {
                         const wc = views[service].view.webContents;
+                        if (service === 'gemini') {
+                            await forceGeminiResetNavigation(wc, 'send-prompt');
+                        }
 
                         // 1. Handle File Uploads if present
                         if (filePaths && filePaths.length > 0 && selectors.fileInputSelector) {
@@ -1778,42 +1781,46 @@ function getServiceResetUrl(service) {
     return url;
 }
 
-/** Try to start a new Gemini chat via in-app button click to preserve session (no full loadURL).
- *  Full load to /app clears sessionStorage and can show login again. Returns true if URL is now /app. */
-async function tryGeminiInAppNewChat(wc) {
-    if (!wc || wc.isDestroyed()) return false;
-    const urlBefore = wc.getURL();
-    if (!urlBefore || !urlBefore.includes('gemini.google.com') || urlBefore.includes('accounts.google.com')) return false;
-    try {
-        const clicked = await wc.executeJavaScript(`
-            (function() {
-                var sel = 'a[href="/app"], a[href="https://gemini.google.com/app"], button[aria-label*="New chat"], button[aria-label*="New Chat"], [data-test-id*="new-chat"], [data-testid*="new-chat"]';
-                var el = document.querySelector(sel);
-                if (el) { el.click(); return true; }
-                var links = document.querySelectorAll('a[href*="/app"]');
-                for (var i = 0; i < links.length; i++) {
-                    var a = links[i];
-                    var h = (a.getAttribute && a.getAttribute('href')) || a.href || '';
-                    if (h === '/app' || h === 'https://gemini.google.com/app' || a.href === 'https://gemini.google.com/app') { a.click(); return true; }
-                }
-                var clickables = document.querySelectorAll('a, button, [role="button"], [data-test-id*="chat"]');
-                for (var j = 0; j < clickables.length; j++) {
-                    var t = (clickables[j].textContent || '').trim();
-                    if (t === 'New chat' || t === 'Start new chat' || t.indexOf('New chat') === 0 || t.indexOf('Start new chat') === 0) {
-                        clickables[j].click();
-                        return true;
-                    }
-                }
-                return false;
-            })();
-        `);
-        if (!clicked) return false;
-        await new Promise(r => setTimeout(r, 800));
-        const urlAfter = wc.getURL();
-        return !!(urlAfter && new RegExp('^https://gemini\\.google\\.com/app/?$').test(urlAfter));
-    } catch (e) {
-        return false;
+/** Force canonical URL navigation and wait until webContents stops loading. */
+function loadUrlWithWait(wc, url, reason = 'navigate', timeoutMs = 12000) {
+    return new Promise((resolve) => {
+        if (!wc || wc.isDestroyed()) return resolve(false);
+
+        let done = false;
+        let timerId = null;
+
+        const finish = (ok) => {
+            if (done) return;
+            done = true;
+            if (timerId) clearTimeout(timerId);
+            wc.removeListener('did-stop-loading', onStopLoading);
+            resolve(ok);
+        };
+
+        const onStopLoading = () => finish(true);
+        wc.on('did-stop-loading', onStopLoading);
+
+        timerId = setTimeout(() => {
+            console.warn(`[Gemini] Timed out waiting for load stop (${reason})`);
+            finish(false);
+        }, timeoutMs);
+
+        try {
+            wc.loadURL(url);
+        } catch (e) {
+            console.error(`[Gemini] loadURL failed (${reason}):`, e);
+            finish(false);
+        }
+    });
+}
+
+async function forceGeminiResetNavigation(wc, reason) {
+    const url = getServiceResetUrl('gemini');
+    const ok = await loadUrlWithWait(wc, url, reason);
+    if (ok && mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+        resetGeminiIdleTimerForAllSlots();
     }
+    return ok;
 }
 
 ipcMain.on('new-chat', () => {
@@ -1829,17 +1836,13 @@ ipcMain.on('new-chat', () => {
 
         (async () => {
             for (const { instanceKey, wc } of getEnabledSingleInstances()) {
-                if (singleAiService === 'gemini') {
-                    const done = await tryGeminiInAppNewChat(wc);
-                    if (done) {
-                        console.log(`[SingleAI][${instanceKey}] New chat via in-app button, session preserved`);
-                        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) resetGeminiIdleTimerForAllSlots();
-                        continue;
-                    }
-                }
                 try {
                     console.log(`[SingleAI] Resetting chat for ${instanceKey} to ${url}`);
-                    wc.loadURL(url);
+                    if (singleAiService === 'gemini') {
+                        await forceGeminiResetNavigation(wc, `new-chat:${instanceKey}`);
+                    } else {
+                        wc.loadURL(url);
+                    }
                 } catch (e) {
                     console.error(`[SingleAI] Failed to reset ${instanceKey}:`, e);
                 }
@@ -1857,16 +1860,12 @@ ipcMain.on('new-chat', () => {
             delete lastKnownMultiUrls[service];
             console.log(`[MultiAI] Cleared lastKnownMultiUrls[${service}] for new chat`);
 
-            if (service === 'gemini') {
-                const done = await tryGeminiInAppNewChat(wc);
-                if (done) {
-                    console.log('[Gemini] New chat via in-app button, session preserved');
-                    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) resetGeminiIdleTimerForAllSlots();
-                    continue;
-                }
-            }
             console.log(`Resetting chat for ${service} to ${url}`);
-            wc.loadURL(url);
+            if (service === 'gemini') {
+                await forceGeminiResetNavigation(wc, 'new-chat:multi');
+            } else {
+                wc.loadURL(url);
+            }
         }
     })();
 });
@@ -1880,14 +1879,8 @@ ipcMain.on('new-chat-for-service', (event, service) => {
 
     if (service === 'gemini' && wc && !wc.isDestroyed()) {
         (async () => {
-            const done = await tryGeminiInAppNewChat(wc);
-            if (done) {
-                console.log('[Gemini] New chat via in-app button, session preserved');
-                if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) resetGeminiIdleTimerForAllSlots();
-                return;
-            }
             console.log(`Resetting chat for ${service} to ${url}`);
-            wc.loadURL(url);
+            await forceGeminiResetNavigation(wc, 'new-chat-for-service');
         })();
     } else {
         console.log(`Resetting chat for ${service} to ${url}`);
@@ -4083,6 +4076,9 @@ ipcMain.on('send-prompt-to-instances', async (event, text, instanceKeys, filePat
             }
 
             const wc = viewObj.view.webContents;
+            if (service === 'gemini') {
+                await forceGeminiResetNavigation(wc, `send-prompt-to-instances:${instanceKey}`);
+            }
 
             // 1) File uploads (if present)
             if (hasFiles && selectors.fileInputSelector) {

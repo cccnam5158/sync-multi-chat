@@ -95,6 +95,82 @@ function resetAllGeminiIdleTimers() {
     });
 }
 
+function getResetUrlsForCurrentMode(onlySlotKey = null) {
+    const resetUrls = {};
+    if (chatMode === 'single') {
+        const base = getServiceResetUrl(singleAiService);
+        if (!base) return resetUrls;
+        for (let i = 0; i < SINGLE_MODE_MAX_INSTANCES; i++) {
+            if (!singleAiActiveInstances[i]) continue;
+            const instanceKey = `${singleAiService}-${i}`;
+            if (onlySlotKey && instanceKey !== onlySlotKey) continue;
+            resetUrls[instanceKey] = base;
+        }
+        return resetUrls;
+    }
+
+    const activeServices = enforceMultiToggleLimit();
+    activeServices.forEach(service => {
+        if (onlySlotKey && service !== onlySlotKey) return;
+        const base = getServiceResetUrl(service);
+        if (base) resetUrls[service] = base;
+    });
+    return resetUrls;
+}
+
+async function applyResetUrlsToCurrentSession(resetUrls) {
+    const keys = Object.keys(resetUrls || {});
+    if (keys.length === 0 || !currentSessionId) return;
+
+    try {
+        const existingSession = await historyManager.getSession(currentSessionId);
+        if (!existingSession) return;
+
+        const nextUrls = { ...(existingSession.urls || {}) };
+        keys.forEach((k) => { nextUrls[k] = resetUrls[k]; });
+
+        const nextSingleAiConfig = existingSession.singleAiConfig
+            ? { ...existingSession.singleAiConfig, urls: { ...(existingSession.singleAiConfig.urls || {}), ...resetUrls } }
+            : null;
+        const nextMultiAiConfig = existingSession.multiAiConfig
+            ? { ...existingSession.multiAiConfig, urls: { ...(existingSession.multiAiConfig.urls || {}), ...resetUrls } }
+            : null;
+
+        await historyManager.saveSession({
+            ...existingSession,
+            id: currentSessionId,
+            prompt: masterInput?.value ?? existingSession.prompt ?? '',
+            isAnonymousMode,
+            isScrollSyncEnabled,
+            urls: nextUrls,
+            singleAiConfig: nextSingleAiConfig,
+            multiAiConfig: nextMultiAiConfig,
+        });
+
+        loadHistoryList({ preserveScroll: true });
+    } catch (e) {
+        console.error('[History] Failed to apply reset URLs to current session:', e);
+    }
+}
+
+async function resetCurrentSessionViews({ onlySlotKey = null } = {}) {
+    const resetUrls = getResetUrlsForCurrentMode(onlySlotKey);
+    await applyResetUrlsToCurrentSession(resetUrls);
+
+    if (onlySlotKey) {
+        if (chatMode === 'single') {
+            window.electronAPI.newChatForInstance(onlySlotKey);
+        } else {
+            window.electronAPI.newChatForService(onlySlotKey);
+        }
+        if (isGeminiSlot(onlySlotKey)) resetGeminiIdleTimerForSlot(onlySlotKey);
+        return;
+    }
+
+    window.electronAPI.newChat();
+    resetAllGeminiIdleTimers();
+}
+
 // Handle New Chat Button Click
 newChatBtn.addEventListener('click', async () => {
     // Save current session first (if there is one)
@@ -891,16 +967,15 @@ sendBtn.addEventListener('click', () => {
     sendPrompt();
 });
 
-// Handle Enter Key (Ctrl+Enter to send)
-masterInput.addEventListener('keydown', (e) => {
+// Handle Enter Key shortcuts for chat reset/new chat
+masterInput.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter') {
         if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
-            // Ctrl+Shift+Enter: New Chat
+            // Ctrl+Shift+Enter: Reset current session views to new-chat URLs (no new history entry)
             e.preventDefault();
-            window.electronAPI.newChat();
-            resetAllGeminiIdleTimers();
+            await resetCurrentSessionViews();
         } else if (e.ctrlKey || e.metaKey) {
-            // Ctrl+Enter: Send Prompt
+            // Ctrl+Enter: Broadcast prompt to active webviews
             e.preventDefault();
             sendPrompt();
         }
@@ -908,7 +983,7 @@ masterInput.addEventListener('keydown', (e) => {
 });
 
 let pendingConfirmation = false;
-const MAIN_INPUT_PLACEHOLDER = `Type your prompt here... (Ctrl+Enter for send, Ctrl+Shift+Enter for New Chat)
+const MAIN_INPUT_PLACEHOLDER = `Type your prompt here... (Ctrl+Enter for send, Ctrl+Shift+Enter for Reset Chat)
 
 · Type "/" slash command to load and insert a saved custom prompt template.
 · Type "{{" to insert global/system variable.`;
@@ -1645,81 +1720,8 @@ function createSlot(container, slotKey) {
     newChatBtn.innerHTML = newChatSvg;
     newChatBtn.title = 'New Chat';
     newChatBtn.addEventListener('click', async () => {
-        // Save current session first (if there is one)
-        if (currentSessionId) {
-            await saveCurrentSession();
-        }
-
-        // Generate new session ID and create new history entry
-        let currentUrls = {};
-        if (chatMode === 'single') {
-            // Single AI Mode: collect URLs from instances
-            activeServiceKeys.forEach(key => {
-                const el = document.getElementById(`url-text-${key}`);
-                if (el && el.dataset && el.dataset.url) {
-                    currentUrls[key] = el.dataset.url;
-                }
-            });
-        } else {
-            // Multi AI Mode: collect URLs from services
-            const activeServices = Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k);
-            activeServices.forEach(s => {
-                const el = document.getElementById(`url-text-${s}`);
-                if (el && el.dataset && el.dataset.url) {
-                    currentUrls[s] = el.dataset.url;
-                }
-            });
-        }
-
-        // IMPORTANT: this "New Chat" resets only this slotKey.
-        // Ensure the new session uses base/reset URL for the slot being reset.
-        if (chatMode === 'single') {
-            const base = getServiceResetUrl(singleAiService);
-            if (base) currentUrls[slotKey] = base;
-        } else {
-            const base = getServiceResetUrl(slotKey);
-            if (base) currentUrls[slotKey] = base;
-        }
-
-        currentSessionId = generateId();
-        const newSessionData = {
-            id: currentSessionId,
-            title: `Chat ${new Date().toLocaleTimeString()}`,
-            layout: currentLayout,
-            chatMode: chatMode,
-            singleAiConfig: chatMode === 'single' ? {
-                service: singleAiService,
-                activeInstances: singleAiActiveInstances,
-                urls: currentUrls
-            } : null,
-            multiAiConfig: chatMode === 'multi' ? {
-                activeServices: Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k),
-                urls: currentUrls
-            } : null,
-            activeServices: chatMode === 'multi' ? Object.entries(toggles).filter(([_, t]) => t.checked).map(([k]) => k) : [],
-            prompt: '',
-            isAnonymousMode: isAnonymousMode,
-            isScrollSyncEnabled: isScrollSyncEnabled,
-            urls: currentUrls,
-            createdAt: new Date().toISOString(),
-        };
-
-        // Save new session to history
-        await historyManager.saveSession(newSessionData);
-
-        // Persist new session ID to localStorage
-        localStorage.setItem(currentSessionIdKey, currentSessionId);
-
-        // Refresh history list to show new active chat
-        loadHistoryList();
-
-        // Notify main process to start new chat
-        if (chatMode === 'single') {
-            window.electronAPI.newChatForInstance(slotKey);
-        } else {
-            window.electronAPI.newChatForService(slotKey);
-        }
-        if (isGeminiSlot(slotKey)) resetGeminiIdleTimerForSlot(slotKey);
+        // URL bar New Chat resets only this slot and must not create a new history entry.
+        await resetCurrentSessionViews({ onlySlotKey: slotKey });
     });
 
     // Copy URL button - overlapping squares icon
@@ -4081,10 +4083,10 @@ if (sendBtn) {
         setTimeout(() => saveCurrentSession(), 2000);
     });
 }
-// Also catch Ctrl+Enter on masterInput
+// Keep autosave on Ctrl+Enter broadcast path.
 if (masterInput) {
     masterInput.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !e.shiftKey) {
             saveCurrentSession();
             // Save again after delay to capture URL changes
             setTimeout(() => saveCurrentSession(), 2000);

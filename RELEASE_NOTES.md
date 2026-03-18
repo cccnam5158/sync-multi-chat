@@ -1,5 +1,13 @@
 # Release Notes
 
+## v0.8.1 (2026-03-18)
+
+### ⬆️ Improvements
+*   **Perplexity login detection**: More reliable logged-in vs logged-out state in the webview—explicit detection for login CTAs and auth paths (KO/EN), visibility-based checks for login UI elements, short grace period to avoid flicker from transient DOM, and expanded `loginButtonSelector` in config. The **Login Required** badge should align better with the real session state.
+*   **External login with Microsoft Edge**: When Google Chrome is not installed, **Log in with external browser** now automatically uses **Microsoft Edge** (Chromium) on Windows and macOS, so environments that only have Edge can complete Gemini / Google-based flows without installing Chrome.
+
+---
+
 ## v0.8.0 (2026-03-17)
 
 ### ✨ New Features
