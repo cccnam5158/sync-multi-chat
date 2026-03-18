@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Automation Scaffold v3</title>
+  <link rel="stylesheet" href="https://unpkg.com/@xyflow/react@12/dist/style.css" />
+  <style>
+    :root {
+      --background: 224 71.4% 4.1%;
+      --foreground: 210 20% 98%;
+      --card: 224 71.4% 4.1%;
+      --popover: 224 71.4% 4.1%;
+      --primary: 263.4 70% 50.4%;
+      --primary-foreground: 210 20% 98%;
+      --secondary: 215 27.9% 16.9%;
+      --secondary-foreground: 210 20% 98%;
+      --muted: 215 27.9% 16.9%;
+      --muted-foreground: 217.9 10.6% 64.9%;
+      --accent: 215 27.9% 16.9%;
+      --border: 215 27.9% 16.9%;
+      --success: 142 71% 45%;
+      --warning: 38 92% 58%;
+      --danger: 0 76% 62%;
+      --surface: 222 47% 8%;
+      --radius: 14px;
+      --shadow: 0 22px 50px rgba(0, 0, 0, 0.42);
+      --font-sans: "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body, #root { height: 100%; }
+    body {
+      margin: 0;
+      background: hsl(var(--background));
+      color: hsl(var(--foreground));
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    button, input, textarea, select { font: inherit; }
+    button {
+      cursor: pointer;
+      border: 0;
+      border-radius: 12px;
+      transition: 0.18s ease;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% -10%, hsl(var(--primary) / 0.08), transparent 28%),
+        hsl(var(--background));
+    }
+
+    .history-sidebar {
+      border-right: 1px solid hsl(var(--border));
+      background: hsl(220 15% 18%);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .sidebar-header,
+    .sidebar-footer {
+      padding: 14px 16px;
+      border-bottom: 1px solid hsl(var(--border));
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid hsl(var(--border));
+      border-bottom: 0;
+      margin-top: auto;
+    }
+
+    .sidebar-header h2 {
+      margin: 0;
+      font-size: 0.94rem;
+      font-weight: 700;
+    }
+
+    .sidebar-header p {
+      margin: 6px 0 0;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+
+    .history-list {
+      padding: 14px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .history-item {
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--card) / 0.84);
+      border-radius: var(--radius);
+      padding: 12px;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+
+    .history-item strong {
+      display: block;
+      color: hsl(var(--foreground));
+      margin-bottom: 6px;
+      font-size: 0.82rem;
+    }
+
+    .main-shell {
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .topbar {
+      padding: 14px 18px;
+      border-bottom: 1px solid hsl(var(--border));
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      background: linear-gradient(180deg, hsl(var(--background)), hsl(var(--surface)));
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .topbar p {
+      margin: 5px 0 0;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.8rem;
+      line-height: 1.5;
+      max-width: 760px;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      height: 34px;
+      padding: 0 12px;
+      background: hsl(var(--secondary));
+      color: hsl(var(--foreground));
+      border: 1px solid hsl(var(--border));
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .btn:hover { background: hsl(var(--accent)); }
+    .btn.primary {
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
+      border-color: transparent;
+    }
+    .btn.primary:hover { filter: brightness(1.04); }
+    .btn.ghost { background: transparent; }
+    .btn.success {
+      background: hsl(var(--success));
+      border-color: transparent;
+      color: white;
+    }
+    .btn.warning {
+      background: hsl(var(--warning));
+      border-color: transparent;
+      color: #111827;
+    }
+
+    .builder-meta {
+      padding: 12px 18px;
+      border-bottom: 1px solid hsl(var(--border));
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      background: hsl(223 30% 8%);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary));
+      color: hsl(var(--muted-foreground));
+      font-size: 0.73rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .pill.good {
+      color: hsl(var(--foreground));
+      border-color: hsl(var(--success) / 0.36);
+      background: hsl(var(--success) / 0.12);
+    }
+
+    .pill.warn {
+      color: hsl(var(--foreground));
+      border-color: hsl(var(--warning) / 0.45);
+      background: hsl(var(--warning) / 0.12);
+    }
+
+    .builder-stage {
+      display: grid;
+      grid-template-columns: 280px 1fr 340px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .left-panel,
+    .right-panel {
+      min-width: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: hsl(222 37% 10%);
+    }
+
+    .left-panel {
+      border-right: 1px solid hsl(var(--border));
+    }
+
+    .right-panel {
+      border-left: 1px solid hsl(var(--border));
+      background:
+        radial-gradient(circle at top, hsl(var(--primary) / 0.08), transparent 26%),
+        hsl(222 37% 10%);
+    }
+
+    .panel-section {
+      padding: 14px;
+      border-bottom: 1px solid hsl(var(--border));
+    }
+
+    .panel-section h3 {
+      margin: 0;
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .panel-section p {
+      margin: 6px 0 0;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.76rem;
+      line-height: 1.45;
+    }
+
+    .panel-scroll {
+      flex: 1;
+      overflow: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .workflow-card,
+    .palette-card,
+    .inspector-card,
+    .console-card {
+      border: 1px solid hsl(var(--border));
+      border-radius: 16px;
+      background: hsl(var(--card));
+      padding: 12px;
+    }
+
+    .workflow-card.active {
+      border-color: hsl(var(--primary) / 0.45);
+      background: hsl(var(--primary) / 0.12);
+    }
+
+    .workflow-card strong,
+    .palette-card strong,
+    .inspector-card strong,
+    .console-card strong {
+      display: block;
+      margin-bottom: 6px;
+      color: hsl(var(--foreground));
+      font-size: 0.81rem;
+    }
+
+    .subtext {
+      color: hsl(var(--muted-foreground));
+      font-size: 0.77rem;
+      line-height: 1.5;
+    }
+
+    .node-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .node-btn {
+      min-height: 58px;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary));
+      color: hsl(var(--foreground));
+      text-align: left;
+    }
+
+    .node-btn small {
+      display: block;
+      margin-top: 4px;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.68rem;
+      line-height: 1.35;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      background:
+        radial-gradient(circle at top, hsl(var(--primary) / 0.06), transparent 30%),
+        hsl(223 31% 7%);
+    }
+
+    .canvas-topbar {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .canvas-topbar > * {
+      pointer-events: auto;
+    }
+
+    .mini-toolbar,
+    .status-bar {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      background: hsl(var(--popover) / 0.92);
+      border: 1px solid hsl(var(--border));
+      border-radius: 14px;
+      padding: 8px 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .mini-toolbar .btn,
+    .status-bar .btn {
+      height: 30px;
+      font-size: 0.72rem;
+      padding: 0 10px;
+    }
+
+    .status-line {
+      color: hsl(var(--muted-foreground));
+      font-size: 0.73rem;
+      white-space: nowrap;
+    }
+
+    .reactflow-wrapper {
+      position: absolute;
+      inset: 0;
+    }
+
+    .flow-node {
+      min-width: 220px;
+      max-width: 270px;
+      border-radius: 16px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--popover));
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+      overflow: hidden;
+    }
+
+    .flow-node.selected {
+      border-color: hsl(var(--primary));
+      box-shadow: 0 0 0 1px hsl(var(--primary) / 0.3), 0 16px 32px rgba(0, 0, 0, 0.34);
+    }
+
+    .flow-node.start { border-color: hsl(var(--success) / 0.45); }
+    .flow-node.parallel { border-color: hsl(var(--warning) / 0.5); }
+    .flow-node.result { border-color: hsl(var(--primary) / 0.48); }
+
+    .flow-node-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary));
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .flow-node-title {
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .flow-node-badge {
+      font-size: 0.66rem;
+      font-weight: 800;
+      color: hsl(var(--muted-foreground));
+      border: 1px solid hsl(var(--border));
+      border-radius: 999px;
+      padding: 4px 7px;
+      background: hsl(var(--card));
+      white-space: nowrap;
+    }
+
+    .flow-node-body {
+      padding: 11px 12px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.73rem;
+      line-height: 1.45;
+    }
+
+    .node-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .node-label {
+      color: hsl(var(--foreground));
+      font-weight: 700;
+      font-size: 0.71rem;
+    }
+
+    .node-chip {
+      border-radius: 999px;
+      background: hsl(var(--secondary));
+      border: 1px solid hsl(var(--border));
+      padding: 4px 7px;
+      font-size: 0.67rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .node-prompt {
+      border-radius: 12px;
+      background: hsl(var(--surface));
+      border: 1px solid hsl(var(--border));
+      padding: 10px;
+      font-size: 0.7rem;
+      color: hsl(var(--muted-foreground));
+      line-height: 1.5;
+    }
+
+    .node-prompt strong {
+      display: block;
+      margin-bottom: 4px;
+      color: hsl(var(--foreground));
+      font-size: 0.68rem;
+    }
+
+    .handle-tag {
+      width: 10px !important;
+      height: 10px !important;
+      background: hsl(var(--primary)) !important;
+      border: 2px solid hsl(var(--popover)) !important;
+    }
+
+    .right-panel .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .right-panel .field label {
+      color: hsl(var(--muted-foreground));
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .right-panel .field input,
+    .right-panel .field textarea,
+    .right-panel .field select {
+      width: 100%;
+      border: 1px solid hsl(var(--border));
+      border-radius: 12px;
+      background: hsl(var(--secondary));
+      color: hsl(var(--foreground));
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    .right-panel .field textarea {
+      min-height: 100px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      gap: 10px;
+      align-items: start;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      color: hsl(var(--muted-foreground));
+      margin-bottom: 8px;
+    }
+
+    .kv strong {
+      color: hsl(var(--foreground));
+      font-size: 0.73rem;
+      font-weight: 700;
+    }
+
+    .bottom-console {
+      border-top: 1px solid hsl(var(--border));
+      background: hsl(223 33% 9%);
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      min-height: 180px;
+      max-height: 240px;
+      overflow: hidden;
+    }
+
+    .console-pane {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid hsl(var(--border));
+    }
+
+    .console-pane:last-child {
+      border-right: 0;
+    }
+
+    .console-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid hsl(var(--border));
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .console-head h4 {
+      margin: 0;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .console-body {
+      padding: 12px 14px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .console-line {
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: hsl(var(--muted-foreground));
+      border-left: 3px solid hsl(var(--border));
+      padding-left: 10px;
+    }
+
+    .console-line.good { border-left-color: hsl(var(--success)); }
+    .console-line.warn { border-left-color: hsl(var(--warning)); }
+    .console-line.info { border-left-color: hsl(var(--primary)); }
+
+    .legend {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.72rem;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: hsl(var(--muted-foreground));
+    }
+
+    .legend-dot.good { background: hsl(var(--success)); }
+    .legend-dot.warn { background: hsl(var(--warning)); }
+    .legend-dot.primary { background: hsl(var(--primary)); }
+
+    .react-flow__controls,
+    .react-flow__minimap {
+      background: hsl(var(--popover));
+      border: 1px solid hsl(var(--border));
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .react-flow__controls-button {
+      background: transparent;
+      color: hsl(var(--foreground));
+      border-bottom: 1px solid hsl(var(--border));
+    }
+
+    .react-flow__controls-button:hover {
+      background: hsl(var(--secondary));
+    }
+
+    .react-flow__attribution {
+      display: none;
+    }
+
+    .react-flow__background {
+      background-color: transparent;
+    }
+
+    @media (max-width: 1440px) {
+      .builder-stage {
+        grid-template-columns: 250px 1fr 300px;
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .app-shell {
+        grid-template-columns: 220px 1fr;
+      }
+      .builder-stage {
+        grid-template-columns: 240px 1fr;
+      }
+      .right-panel {
+        display: none;
+      }
+      .bottom-console {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+      .history-sidebar {
+        display: none;
+      }
+      .builder-stage {
+        grid-template-columns: 1fr;
+      }
+      .left-panel {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="module">
+    import * as React from "https://esm.sh/react@18.3.1?dev";
+    import { createRoot } from "https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1&dev";
+    import {
+      ReactFlow,
+      ReactFlowProvider,
+      Background,
+      Controls,
+      MiniMap,
+      Handle,
+      Position,
+      addEdge,
+      useEdgesState,
+      useNodesState,
+      MarkerType
+    } from "https://esm.sh/@xyflow/react@12.8.5?deps=react@18.3.1,react-dom@18.3.1&dev";
+
+    const { useCallback, useMemo, useState } = React;
+
+    const e = React.createElement;
+
+    function FlowNode({ id, data, selected }) {
+      return e(
+        "div",
+        { className: `flow-node ${data.kind || ""} ${selected ? "selected" : ""}`.trim() },
+        e(Handle, { type: "target", position: Position.Top, className: "handle-tag" }),
+        e(
+          "div",
+          { className: "flow-node-header" },
+          e("div", { className: "flow-node-title" }, data.title),
+          e("div", { className: "flow-node-badge" }, data.badge || "STEP")
+        ),
+        e(
+          "div",
+          { className: "flow-node-body" },
+          e(
+            "div",
+            { className: "node-row" },
+            e("span", { className: "node-label" }, "Service"),
+            e("span", { className: "node-chip" }, data.service || "-")
+          ),
+          e(
+            "div",
+            { className: "node-row" },
+            e("span", { className: "node-label" }, "Mode"),
+            e("span", { className: "node-chip" }, data.mode || "Single")
+          ),
+          e(
+            "div",
+            { className: "node-row" },
+            e("span", { className: "node-label" }, "Output"),
+            e("span", { className: "node-chip" }, data.outputVar || "-")
+          ),
+          e(
+            "div",
+            { className: "node-prompt" },
+            e("strong", null, "Prompt"),
+            data.prompt
+          )
+        ),
+        e(Handle, { type: "source", position: Position.Bottom, className: "handle-tag" })
+      );
+    }
+
+    const nodeTypes = {
+      workflowNode: FlowNode
+    };
+
+    const baseNodes = [
+      {
+        id: "start",
+        type: "workflowNode",
+        position: { x: 120, y: 80 },
+        data: {
+          title: "Start Trigger",
+          badge: "TRIGGER",
+          kind: "start",
+          service: "Main Prompt",
+          mode: "Manual",
+          outputVar: "user_query",
+          prompt: "메인 입력창의 현재 텍스트를 user_query 변수로 전달"
+        }
+      },
+      {
+        id: "research",
+        type: "workflowNode",
+        position: { x: 120, y: 270 },
+        data: {
+          title: "Research",
+          badge: "STEP 1",
+          kind: "task",
+          service: "Perplexity",
+          mode: "Single",
+          outputVar: "research_result",
+          prompt: "다음 주제에 대해 최신 정보를 조사해줘: {{user_query}}"
+        }
+      },
+      {
+        id: "verify",
+        type: "workflowNode",
+        position: { x: 460, y: 270 },
+        data: {
+          title: "Parallel Verify",
+          badge: "STEP 2",
+          kind: "parallel",
+          service: "ChatGPT + Claude",
+          mode: "Parallel",
+          outputVar: "verify_result",
+          prompt: "조사 결과를 검증하고 잘못된 정보가 있으면 지적해줘: {{research_result}}"
+        }
+      },
+      {
+        id: "summary",
+        type: "workflowNode",
+        position: { x: 800, y: 270 },
+        data: {
+          title: "Final Summary",
+          badge: "STEP 3",
+          kind: "result",
+          service: "Gemini",
+          mode: "Single",
+          outputVar: "final_summary",
+          prompt: "research_result와 verify_result를 종합해 핵심만 요약해줘."
+        }
+      }
+    ];
+
+    const baseEdges = [
+      { id: "e-start-research", source: "start", target: "research", markerEnd: { type: MarkerType.ArrowClosed } },
+      { id: "e-research-verify", source: "research", target: "verify", markerEnd: { type: MarkerType.ArrowClosed } },
+      { id: "e-verify-summary", source: "verify", target: "summary", markerEnd: { type: MarkerType.ArrowClosed } }
+    ];
+
+    const paletteItems = [
+      {
+        type: "research",
+        label: "Research Node",
+        desc: "조사형 step 추가",
+        create: (index) => ({
+          id: `research_${index}`,
+          type: "workflowNode",
+          position: { x: 180 + index * 40, y: 120 + index * 40 },
+          data: {
+            title: "Research",
+            badge: "STEP",
+            kind: "task",
+            service: "Perplexity",
+            mode: "Single",
+            outputVar: `research_${index}`,
+            prompt: "최신 정보를 조사해줘: {{user_query}}"
+          }
+        })
+      },
+      {
+        type: "verify",
+        label: "Verify Node",
+        desc: "검증형 step 추가",
+        create: (index) => ({
+          id: `verify_${index}`,
+          type: "workflowNode",
+          position: { x: 260 + index * 30, y: 220 + index * 34 },
+          data: {
+            title: "Verify",
+            badge: "STEP",
+            kind: "parallel",
+            service: "ChatGPT + Claude",
+            mode: "Parallel",
+            outputVar: `verify_${index}`,
+            prompt: "결과를 검증해줘: {{previous_output}}"
+          }
+        })
+      },
+      {
+        type: "branch",
+        label: "Branch Node",
+        desc: "조건 분기 표현",
+        create: (index) => ({
+          id: `branch_${index}`,
+          type: "workflowNode",
+          position: { x: 340 + index * 28, y: 160 + index * 36 },
+          data: {
+            title: "Conditional Branch",
+            badge: "BRANCH",
+            kind: "parallel",
+            service: "Rule Engine",
+            mode: "If / Else",
+            outputVar: `branch_${index}`,
+            prompt: "confidence < 0.7 이면 재검증, 아니면 요약으로 진행"
+          }
+        })
+      },
+      {
+        type: "summary",
+        label: "Summary Node",
+        desc: "최종 정리 step",
+        create: (index) => ({
+          id: `summary_${index}`,
+          type: "workflowNode",
+          position: { x: 420 + index * 24, y: 300 + index * 32 },
+          data: {
+            title: "Summary",
+            badge: "RESULT",
+            kind: "result",
+            service: "Gemini",
+            mode: "Single",
+            outputVar: `summary_${index}`,
+            prompt: "모든 결과를 요약하고 action items를 정리해줘."
+          }
+        })
+      }
+    ];
+
+    function App() {
+      const [nodes, setNodes, onNodesChange] = useNodesState(baseNodes);
+      const [edges, setEdges, onEdgesChange] = useEdgesState(baseEdges);
+      const [selectedNodeId, setSelectedNodeId] = useState("verify");
+      const [validationMode, setValidationMode] = useState("clean");
+      const [workflowName, setWorkflowName] = useState("Research → Verify → Summarize");
+      const [triggerType, setTriggerType] = useState("Manual");
+
+      const selectedNode = useMemo(
+        () => nodes.find((node) => node.id === selectedNodeId) || null,
+        [nodes, selectedNodeId]
+      );
+
+      const onConnect = useCallback(
+        (params) => setEdges((eds) => addEdge({ ...params, markerEnd: { type: MarkerType.ArrowClosed } }, eds)),
+        [setEdges]
+      );
+
+      const onNodeClick = useCallback((_, node) => {
+        setSelectedNodeId(node.id);
+      }, []);
+
+      const updateSelectedNode = useCallback((patch) => {
+        if (!selectedNodeId) return;
+        setNodes((current) =>
+          current.map((node) =>
+            node.id === selectedNodeId
+              ? { ...node, data: { ...node.data, ...patch } }
+              : node
+          )
+        );
+      }, [selectedNodeId, setNodes]);
+
+      const addPaletteNode = useCallback((item) => {
+        setNodes((current) => {
+          const created = item.create(current.length + 1);
+          setSelectedNodeId(created.id);
+          return [...current, created];
+        });
+      }, [setNodes]);
+
+      const deleteSelectedNode = useCallback(() => {
+        if (!selectedNodeId || selectedNodeId === "start") return;
+        setNodes((current) => current.filter((node) => node.id !== selectedNodeId));
+        setEdges((current) => current.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
+        setSelectedNodeId("start");
+      }, [selectedNodeId, setNodes, setEdges]);
+
+      const selectedServiceSummary = selectedNode ? selectedNode.data.service : "선택 없음";
+
+      const validationItems = validationMode === "issues"
+        ? [
+            { tone: "warn", text: "Verify node는 outputVar는 있으나 fallback path가 없습니다. Phase 2에서 branch 정책 연결이 필요합니다." },
+            { tone: "warn", text: "Claude attention fallback이 정의되어 있으나, resume action에서 mainWindow focus 이동 플로우가 비어 있습니다." },
+            { tone: "info", text: "backgroundThrottling: false 가정이 포함되어 있습니다. 실제 구현 시 createBackgroundView()에서 명시해야 합니다." }
+          ]
+        : [
+            { tone: "good", text: "모든 주요 node가 outputVar를 갖고 있어 다음 step 변수 바인딩이 가능합니다." },
+            { tone: "good", text: "Trigger → Research → Verify → Summary 체인이 닫혀 있으며 dry-run 상 순환 참조가 없습니다." },
+            { tone: "info", text: "이 목업은 React Flow 기반이며, 실제 구현 시 workflow-store / workflow-engine과 연결하는 수준의 구조입니다." }
+          ];
+
+      return e(
+        "div",
+        { className: "app-shell" },
+        e(
+          "aside",
+          { className: "history-sidebar" },
+          e(
+            "div",
+            { className: "sidebar-header" },
+            e("h2", null, "Chat History"),
+            e("p", null, "실제 앱 셸 감각을 유지하되, 현재 포커스는 Advanced Builder 완성형 목업입니다.")
+          ),
+          e(
+            "div",
+            { className: "history-list" },
+            e("div", { className: "history-item" }, e("strong", null, "Automation ideation thread"), "Builder/Run Strip/Result Side Sheet 논의"),
+            e("div", { className: "history-item" }, e("strong", null, "Cross-check preset design"), "Compare + Summarize 프리셋 반복 테스트"),
+            e("div", { className: "history-item" }, e("strong", null, "Current thread summary"), "{{chat_thread}} 기반 빠른 요약 실험")
+          ),
+          e(
+            "div",
+            { className: "sidebar-footer" },
+            e("button", { className: "btn ghost", style: { width: "100%" } }, "Back To Main App")
+          )
+        ),
+        e(
+          "main",
+          { className: "main-shell" },
+          e(
+            "section",
+            { className: "topbar" },
+            e(
+              "div",
+              null,
+              e("h1", null, "Workflow Automation Scaffold v3"),
+              e(
+                "p",
+                null,
+                "v2의 스토리텔링형 scaffold를 바탕으로, 이번 버전은 Advanced Builder를 실제 구현에 가까운 React Flow 기반 편집 화면으로 구체화했습니다. 좌측 팔레트, 중앙 노드 캔버스, 우측 속성 패널, 하단 validation/test panel을 포함합니다."
+              )
+            ),
+            e(
+              "div",
+              { className: "toolbar-actions" },
+              e("button", { className: "btn ghost" }, "Quick Automation"),
+              e("button", { className: "btn" }, "Open Hub"),
+              e("button", { className: "btn" }, "Duplicate Preset"),
+              e("button", { className: "btn warning", onClick: () => setValidationMode(validationMode === "clean" ? "issues" : "clean") }, validationMode === "clean" ? "Simulate Issues" : "Resolve Issues"),
+              e("button", { className: "btn primary" }, "Save Workflow"),
+              e("button", { className: "btn success" }, "Test Run")
+            )
+          ),
+          e(
+            "section",
+            { className: "builder-meta" },
+            e("span", { className: "pill good" }, "Phase 2 · Builder Surface"),
+            e("span", { className: "pill" }, "Workflow: " + workflowName),
+            e("span", { className: "pill" }, "Trigger: " + triggerType),
+            e("span", { className: "pill good" }, "Selected Service: " + selectedServiceSummary),
+            e("span", { className: validationMode === "issues" ? "pill warn" : "pill good" }, validationMode === "issues" ? "Validation: warnings detected" : "Validation: ready to test"),
+            e("span", { className: "pill" }, "Mode: Node Editor + Inspector + Dry Run")
+          ),
+          e(
+            "section",
+            { className: "builder-stage" },
+            e(
+              "aside",
+              { className: "left-panel" },
+              e(
+                "div",
+                { className: "panel-section" },
+                e("h3", null, "Workflow Library"),
+                e("p", null, "프리셋 복제에서 시작하는 것이 현재 제품 전략에 더 적합합니다.")
+              ),
+              e(
+                "div",
+                { className: "panel-scroll" },
+                e("div", { className: "workflow-card active" }, e("strong", null, workflowName), e("div", { className: "subtext" }, "Preset copy · 최근 수정됨 · Research / Verify / Summarize")),
+                e("div", { className: "workflow-card" }, e("strong", null, "Compare + Summarize"), e("div", { className: "subtext" }, "Cross Check 기반 quick preset")),
+                e("div", { className: "workflow-card" }, e("strong", null, "Summarize Current Thread"), e("div", { className: "subtext" }, "{{chat_thread}} 기반 lightweight preset")),
+                e(
+                  "div",
+                  { className: "palette-card" },
+                  e("strong", null, "Node Palette"),
+                  e("div", { className: "subtext" }, "아래 버튼으로 실제 캔버스에 step node를 추가할 수 있습니다."),
+                  e(
+                    "div",
+                    { className: "node-buttons" },
+                    ...paletteItems.map((item) =>
+                      e(
+                        "button",
+                        {
+                          key: item.type,
+                          className: "node-btn",
+                          onClick: () => addPaletteNode(item)
+                        },
+                        item.label,
+                        e("small", null, item.desc)
+                      )
+                    )
+                  )
+                ),
+                e(
+                  "div",
+                  { className: "palette-card" },
+                  e("strong", null, "Builder Notes"),
+                  e("div", { className: "subtext" },
+                    "이 목업은 Phase 1의 Quick Run을 대체하지 않습니다. v3에서 정리한 대로 Builder는 고급 사용자용 surface이며, 프리셋 검증 이후 본격 노출하는 전략이 바람직합니다.")
+                )
+              )
+            ),
+            e(
+              "div",
+              { className: "canvas-wrap" },
+              e(
+                "div",
+                { className: "canvas-topbar" },
+                e(
+                  "div",
+                  { className: "mini-toolbar" },
+                  e("button", { className: "btn ghost" }, "Auto Layout"),
+                  e("button", { className: "btn ghost" }, "Center"),
+                  e("button", { className: "btn ghost" }, "Clone Node"),
+                  e("button", { className: "btn ghost", onClick: deleteSelectedNode }, "Delete Selected")
+                ),
+                e(
+                  "div",
+                  { className: "status-bar" },
+                  e("span", { className: "status-line" }, "Drag nodes, reconnect edges, inspect properties"),
+                  e("span", { className: "pill good" }, "React Flow Active")
+                )
+              ),
+              e(
+                "div",
+                { className: "reactflow-wrapper" },
+                e(
+                  ReactFlow,
+                  {
+                    nodes,
+                    edges,
+                    nodeTypes,
+                    onNodesChange,
+                    onEdgesChange,
+                    onConnect,
+                    onNodeClick,
+                    fitView: true,
+                    fitViewOptions: { padding: 0.2 },
+                    proOptions: { hideAttribution: true },
+                    defaultEdgeOptions: {
+                      animated: false,
+                      style: { stroke: "hsl(217.9 10.6% 64.9%)", strokeWidth: 2 }
+                    }
+                  },
+                  e(Background, { gap: 24, size: 1, color: "rgba(148,163,184,0.18)" }),
+                  e(Controls, null),
+                  e(MiniMap, {
+                    pannable: true,
+                    zoomable: true,
+                    nodeStrokeColor: (node) => {
+                      if (node.id === selectedNodeId) return "hsl(263.4 70% 50.4%)";
+                      if (node.data.kind === "start") return "hsl(142 71% 45%)";
+                      if (node.data.kind === "parallel") return "hsl(38 92% 58%)";
+                      return "hsl(217.9 10.6% 64.9%)";
+                    },
+                    nodeColor: (node) => {
+                      if (node.id === selectedNodeId) return "rgba(139,92,246,0.4)";
+                      return "rgba(30,41,59,0.9)";
+                    },
+                    maskColor: "rgba(2,6,23,0.55)"
+                  })
+                )
+              )
+            ),
+            e(
+              "aside",
+              { className: "right-panel" },
+              e(
+                "div",
+                { className: "panel-section" },
+                e("h3", null, "Node Inspector"),
+                e("p", null, "선택된 node의 속성, prompt, outputVar, retry/timeout 성격을 조정하는 실제 구현형 패널입니다.")
+              ),
+              e(
+                "div",
+                { className: "panel-scroll" },
+                selectedNode
+                  ? e(
+                      React.Fragment,
+                      null,
+                      e(
+                        "div",
+                        { className: "inspector-card" },
+                        e("strong", null, "Selected Node"),
+                        e("div", { className: "kv" }, e("strong", null, "Node ID"), e("span", null, selectedNode.id)),
+                        e("div", { className: "kv" }, e("strong", null, "Kind"), e("span", null, selectedNode.data.kind || "task")),
+                        e("div", { className: "kv" }, e("strong", null, "Service"), e("span", null, selectedNode.data.service || "-"))
+                      ),
+                      e(
+                        "div",
+                        { className: "inspector-card" },
+                        e("strong", null, "Editable Properties"),
+                        e(
+                          "div",
+                          { className: "field" },
+                          e("label", null, "Title"),
+                          e("input", {
+                            value: selectedNode.data.title,
+                            onChange: (evt) => updateSelectedNode({ title: evt.target.value })
+                          })
+                        ),
+                        e(
+                          "div",
+                          { className: "field" },
+                          e("label", null, "Service"),
+                          e("select", {
+                            value: selectedNode.data.service,
+                            onChange: (evt) => updateSelectedNode({ service: evt.target.value })
+                          },
+                            e("option", { value: "Main Prompt" }, "Main Prompt"),
+                            e("option", { value: "Perplexity" }, "Perplexity"),
+                            e("option", { value: "ChatGPT" }, "ChatGPT"),
+                            e("option", { value: "Claude" }, "Claude"),
+                            e("option", { value: "Gemini" }, "Gemini"),
+                            e("option", { value: "ChatGPT + Claude" }, "ChatGPT + Claude"),
+                            e("option", { value: "Rule Engine" }, "Rule Engine")
+                          )
+                        ),
+                        e(
+                          "div",
+                          { className: "field" },
+                          e("label", null, "Output Variable"),
+                          e("input", {
+                            value: selectedNode.data.outputVar,
+                            onChange: (evt) => updateSelectedNode({ outputVar: evt.target.value })
+                          })
+                        ),
+                        e(
+                          "div",
+                          { className: "field" },
+                          e("label", null, "Prompt"),
+                          e("textarea", {
+                            value: selectedNode.data.prompt,
+                            onChange: (evt) => updateSelectedNode({ prompt: evt.target.value })
+                          })
+                        ),
+                        e(
+                          "div",
+                          { className: "row" },
+                          e("button", { className: "btn primary" }, "Apply"),
+                          e("button", { className: "btn ghost" }, "Reset"),
+                          e("button", { className: "btn ghost" }, "Preview Output")
+                        )
+                      ),
+                      e(
+                        "div",
+                        { className: "inspector-card" },
+                        e("strong", null, "Design Intent"),
+                        e("div", { className: "subtext" },
+                          "v3는 Builder를 실제에 가깝게 표현하되, 여전히 프리셋 복제에서 시작하는 방향을 유지합니다. 즉, 이 화면은 power user용이며 Quick Run 우선 전략을 보완하는 고급 surface입니다.")
+                      )
+                    )
+                  : e(
+                      "div",
+                      { className: "inspector-card" },
+                      e("strong", null, "No Selection"),
+                      e("div", { className: "subtext" }, "캔버스에서 node를 선택하면 속성 편집기가 열립니다.")
+                    )
+              )
+            )
+          ),
+          e(
+            "section",
+            { className: "bottom-console" },
+            e(
+              "div",
+              { className: "console-pane" },
+              e(
+                "div",
+                { className: "console-head" },
+                e("h4", null, "Validation / Test Console"),
+                e(
+                  "div",
+                  { className: "legend" },
+                  e("span", null, e("span", { className: "legend-dot good" }), "good"),
+                  e("span", null, e("span", { className: "legend-dot warn" }), "warn"),
+                  e("span", null, e("span", { className: "legend-dot primary" }), "info")
+                )
+              ),
+              e(
+                "div",
+                { className: "console-body" },
+                ...validationItems.map((item, idx) =>
+                  e("div", { key: idx, className: `console-line ${item.tone}` }, item.text)
+                )
+              )
+            ),
+            e(
+              "div",
+              { className: "console-pane" },
+              e(
+                "div",
+                { className: "console-head" },
+                e("h4", null, "Dry Run Preview"),
+                e(
+                  "div",
+                  { className: "row" },
+                  e("button", { className: "btn ghost" }, "Copy JSON"),
+                  e("button", { className: "btn primary" }, "Run Dry Test")
+                )
+              ),
+              e(
+                "div",
+                { className: "console-body" },
+                e(
+                  "div",
+                  { className: "console-card" },
+                  e("strong", null, "Resolved Execution Plan"),
+                  e("div", { className: "subtext" },
+                    "1. user_query from main prompt\n2. Research with Perplexity\n3. Parallel verify with ChatGPT + Claude\n4. Summarize with Gemini\n5. Present result in Result Side Sheet and allow inject-to-main-input")
+                ),
+                e(
+                  "div",
+                  { className: "console-card" },
+                  e("strong", null, "Phase Fit"),
+                  e("div", { className: "subtext" },
+                    "이 Builder 자체는 Phase 2+ surface이지만, 프리셋 복제와 test run 흐름이 살아있기 때문에 실제 구현 논의에 바로 연결 가능한 수준의 mockup입니다.")
+                )
+              )
+            )
+          )
+        )
+      );
+    }
+
+    function RootApp() {
+      return e(
+        ReactFlowProvider,
+        null,
+        e(App)
+      );
+    }
+
+    createRoot(document.getElementById("root")).render(e(RootApp));
+  </script>
+</body>
+</html>

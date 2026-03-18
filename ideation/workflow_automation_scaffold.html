@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Automation Scaffold</title>
+  <style>
+    :root {
+      --background: 224 71.4% 4.1%;
+      --foreground: 210 20% 98%;
+      --card: 224 71.4% 4.1%;
+      --card-foreground: 210 20% 98%;
+      --popover: 224 71.4% 4.1%;
+      --popover-foreground: 210 20% 98%;
+      --primary: 263.4 70% 50.4%;
+      --primary-foreground: 210 20% 98%;
+      --secondary: 215 27.9% 16.9%;
+      --secondary-foreground: 210 20% 98%;
+      --muted: 215 27.9% 16.9%;
+      --muted-foreground: 217.9 10.6% 64.9%;
+      --accent: 215 27.9% 16.9%;
+      --accent-foreground: 210 20% 98%;
+      --destructive: 0 62.8% 30.6%;
+      --destructive-foreground: 210 20% 98%;
+      --border: 215 27.9% 16.9%;
+      --input: 215 27.9% 16.9%;
+      --ring: 263.4 70% 50.4%;
+      --radius: 0.75rem;
+      --surface: 222 47% 8%;
+      --success: 142 70% 45%;
+      --warning: 42 90% 55%;
+      --danger: 0 72% 58%;
+      --font-sans: "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      background: hsl(var(--background));
+      color: hsl(var(--foreground));
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: 0;
+      border-radius: var(--radius);
+      transition: 0.18s ease;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .app {
+      display: flex;
+      height: 100vh;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 250px;
+      background: hsl(220 15% 18%);
+      border-right: 1px solid hsl(var(--border));
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header,
+    .sidebar-footer {
+      padding: 12px;
+      border-bottom: 1px solid hsl(var(--border));
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid hsl(var(--border));
+      border-bottom: 0;
+      margin-top: auto;
+    }
+
+    .sidebar-title {
+      margin: 0;
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
+    .history-list {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: auto;
+    }
+
+    .history-item {
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--card) / 0.65);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.84rem;
+      line-height: 1.35;
+    }
+
+    .history-item strong {
+      color: hsl(var(--foreground));
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .topbar-note {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 18px;
+      border-bottom: 1px solid hsl(var(--border));
+      background: linear-gradient(180deg, hsl(var(--background)), hsl(var(--surface)));
+    }
+
+    .topbar-note h1 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .topbar-note p {
+      margin: 4px 0 0;
+      font-size: 0.82rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .scenario-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      padding: 8px 12px;
+      background: hsl(var(--secondary));
+      color: hsl(var(--secondary-foreground));
+      border: 1px solid hsl(var(--border));
+      font-size: 0.8rem;
+    }
+
+    .chip:hover {
+      background: hsl(var(--accent));
+    }
+
+    .views {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 18px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .view-card {
+      border-radius: var(--radius);
+      border: 1px solid hsl(var(--border));
+      background:
+        radial-gradient(circle at top, hsl(var(--primary) / 0.08), transparent 35%),
+        hsl(var(--card));
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .view-card.pending {
+      opacity: 0.55;
+    }
+
+    .view-card.running {
+      border-color: hsl(var(--primary));
+      box-shadow: 0 0 0 1px hsl(var(--primary) / 0.22), 0 0 24px hsl(var(--primary) / 0.08);
+    }
+
+    .view-card.done {
+      border-color: hsl(var(--success));
+    }
+
+    .view-header {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-bottom: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary) / 0.9);
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.74rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: hsl(var(--muted-foreground));
+    }
+
+    .status-dot.running { background: hsl(var(--primary)); }
+    .status-dot.done { background: hsl(var(--success)); }
+    .status-dot.waiting { background: hsl(var(--warning)); }
+
+    .view-body {
+      padding: 14px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .bubble {
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: hsl(var(--secondary));
+      border: 1px solid hsl(var(--border));
+    }
+
+    .bubble strong {
+      color: hsl(var(--foreground));
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.76rem;
+      letter-spacing: 0.02em;
+    }
+
+    .bubble.user {
+      background: hsl(var(--primary) / 0.14);
+      border-color: hsl(var(--primary) / 0.3);
+    }
+
+    .resize-handle {
+      height: 10px;
+      border-top: 1px solid hsl(var(--border));
+      border-bottom: 1px solid hsl(var(--border));
+      background:
+        linear-gradient(90deg, transparent, hsl(var(--muted-foreground) / 0.35), transparent);
+      flex-shrink: 0;
+    }
+
+    .run-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 18px;
+      border-top: 1px solid hsl(var(--border));
+      border-bottom: 1px solid hsl(var(--border));
+      background: hsl(223 35% 10%);
+      min-height: 58px;
+      flex-shrink: 0;
+    }
+
+    .run-strip-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .run-strip-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .run-strip-title span {
+      color: hsl(var(--muted-foreground));
+      font-weight: 500;
+    }
+
+    .service-track {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.78rem;
+    }
+
+    .service-track strong {
+      color: hsl(var(--foreground));
+      font-weight: 600;
+    }
+
+    .progress {
+      width: 240px;
+      max-width: 100%;
+      height: 8px;
+      background: hsl(var(--secondary));
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress > div {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, hsl(var(--primary)), hsl(206 100% 64%));
+      transition: width 0.35s ease;
+    }
+
+    .run-strip-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .controls {
+      min-height: 228px;
+      max-height: 60vh;
+      background: hsl(var(--background));
+      border-top: 1px solid hsl(var(--border));
+      display: flex;
+      flex-direction: column;
+      padding: 16px 24px 18px;
+      gap: 14px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .controls-row.space-between {
+      justify-content: space-between;
+    }
+
+    .btn {
+      height: 34px;
+      padding: 0 12px;
+      background: hsl(var(--secondary));
+      color: hsl(var(--foreground));
+      border: 1px solid hsl(var(--border));
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .btn:hover {
+      background: hsl(var(--accent));
+    }
+
+    .btn.primary {
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
+      border-color: transparent;
+    }
+
+    .btn.primary:hover {
+      filter: brightness(1.05);
+    }
+
+    .btn.ghost {
+      background: transparent;
+    }
+
+    .btn.destructive {
+      background: hsl(var(--destructive));
+      color: hsl(var(--destructive-foreground));
+      border-color: transparent;
+    }
+
+    .service-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      border-radius: var(--radius);
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary));
+      font-size: 0.78rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .service-toggle.active {
+      color: hsl(var(--foreground));
+      border-color: hsl(var(--primary) / 0.6);
+      background: hsl(var(--primary) / 0.15);
+    }
+
+    .service-toggle input {
+      accent-color: hsl(var(--primary));
+    }
+
+    .input-card {
+      position: relative;
+      border: 1px solid hsl(var(--border));
+      border-radius: var(--radius);
+      background: hsl(var(--card));
+      overflow: hidden;
+      display: flex;
+      min-height: 126px;
+    }
+
+    .input-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .input-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid hsl(var(--border));
+      color: hsl(var(--muted-foreground));
+      font-size: 0.76rem;
+    }
+
+    .input-toolbar .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .micro-btn {
+      padding: 5px 8px;
+      border-radius: 8px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary));
+      color: hsl(var(--muted-foreground));
+      font-size: 0.73rem;
+    }
+
+    textarea {
+      width: 100%;
+      flex: 1;
+      resize: none;
+      padding: 14px 16px;
+      background: transparent;
+      color: hsl(var(--foreground));
+      border: 0;
+      outline: 0;
+      line-height: 1.5;
+      font-size: 0.92rem;
+    }
+
+    .inline-preview {
+      width: 36%;
+      min-width: 280px;
+      border-left: 1px solid hsl(var(--border));
+      background: hsl(var(--surface));
+      display: flex;
+      flex-direction: column;
+    }
+
+    .preview-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid hsl(var(--border));
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.76rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .preview-body {
+      padding: 14px;
+      overflow: auto;
+      font-size: 0.82rem;
+      color: hsl(var(--muted-foreground));
+      line-height: 1.5;
+    }
+
+    .preview-body strong {
+      color: hsl(var(--foreground));
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.66);
+      backdrop-filter: blur(8px);
+      display: none;
+      z-index: 1000;
+    }
+
+    .overlay.open {
+      display: block;
+    }
+
+    .modal,
+    .sheet {
+      position: fixed;
+      z-index: 1010;
+      display: none;
+    }
+
+    .modal.open,
+    .sheet.open {
+      display: block;
+    }
+
+    .modal {
+      inset: 50% auto auto 50%;
+      transform: translate(-50%, -50%);
+      width: min(1080px, calc(100vw - 40px));
+      max-height: calc(100vh - 48px);
+      overflow: hidden;
+      border-radius: 20px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--popover));
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px;
+      border-bottom: 1px solid hsl(var(--border));
+      gap: 16px;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .modal-header p {
+      margin: 4px 0 0;
+      font-size: 0.8rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .modal-body {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 560px;
+      max-height: calc(100vh - 140px);
+    }
+
+    .hub-sidebar {
+      border-right: 1px solid hsl(var(--border));
+      background: hsl(var(--surface));
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .hub-tab {
+      text-align: left;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: transparent;
+      color: hsl(var(--muted-foreground));
+      border: 1px solid transparent;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .hub-tab.active {
+      background: hsl(var(--primary) / 0.15);
+      color: hsl(var(--foreground));
+      border-color: hsl(var(--primary) / 0.4);
+    }
+
+    .hub-content {
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .section-title {
+      margin: 0 0 8px;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .section-text {
+      margin: 0 0 18px;
+      font-size: 0.82rem;
+      color: hsl(var(--muted-foreground));
+      line-height: 1.5;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .preset-card {
+      border: 1px solid hsl(var(--border));
+      border-radius: 16px;
+      padding: 16px;
+      background: hsl(var(--card));
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 220px;
+    }
+
+    .preset-card h3 {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .preset-card p {
+      margin: 0;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.74rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .flow span {
+      background: hsl(var(--secondary));
+      border: 1px solid hsl(var(--border));
+      padding: 5px 8px;
+      border-radius: 999px;
+    }
+
+    .card-footer {
+      display: flex;
+      gap: 8px;
+      margin-top: auto;
+      flex-wrap: wrap;
+    }
+
+    .builder-shell {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 16px;
+      min-height: 470px;
+    }
+
+    .builder-list {
+      border: 1px solid hsl(var(--border));
+      border-radius: 16px;
+      padding: 12px;
+      background: hsl(var(--surface));
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .builder-item {
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--card));
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+
+    .builder-item.active {
+      border-color: hsl(var(--primary) / 0.45);
+      background: hsl(var(--primary) / 0.12);
+    }
+
+    .builder-canvas {
+      border: 1px solid hsl(var(--border));
+      border-radius: 16px;
+      padding: 16px;
+      background: hsl(var(--card));
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .field input,
+    .field select {
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary));
+      color: hsl(var(--foreground));
+      padding: 0 12px;
+    }
+
+    .step {
+      border: 1px solid hsl(var(--border));
+      border-radius: 16px;
+      background: hsl(var(--surface));
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .step-header h4 {
+      margin: 0;
+      font-size: 0.85rem;
+    }
+
+    .step-connector {
+      display: flex;
+      justify-content: center;
+      color: hsl(var(--muted-foreground));
+      font-size: 1.1rem;
+    }
+
+    .sheet {
+      top: 0;
+      right: 0;
+      width: min(480px, 92vw);
+      height: 100vh;
+      background: hsl(var(--popover));
+      border-left: 1px solid hsl(var(--border));
+      box-shadow: -12px 0 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .sheet-inner {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sheet-header {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid hsl(var(--border));
+    }
+
+    .sheet-header h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .sheet-header p {
+      margin: 6px 0 0;
+      font-size: 0.8rem;
+      color: hsl(var(--muted-foreground));
+      line-height: 1.45;
+    }
+
+    .sheet-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 14px 18px 0;
+      flex-wrap: wrap;
+    }
+
+    .sheet-tabs button.active {
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
+      border-color: transparent;
+    }
+
+    .sheet-content {
+      padding: 16px 18px 18px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .result-block {
+      border: 1px solid hsl(var(--border));
+      border-radius: 14px;
+      padding: 14px;
+      background: hsl(var(--surface));
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .result-block strong {
+      color: hsl(var(--foreground));
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 22px;
+      right: 22px;
+      width: min(360px, calc(100vw - 32px));
+      background: hsl(var(--popover));
+      border: 1px solid hsl(var(--border));
+      border-radius: 16px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
+      z-index: 1020;
+      display: none;
+      padding: 14px;
+      gap: 12px;
+    }
+
+    .toast.open {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .toast-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .toast-text {
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .toast-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.76rem;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    @media (max-width: 1180px) {
+      .preset-grid {
+        grid-template-columns: 1fr;
+      }
+      .views {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .modal-body {
+        grid-template-columns: 1fr;
+      }
+      .hub-sidebar {
+        border-right: 0;
+        border-bottom: 1px solid hsl(var(--border));
+        flex-direction: row;
+        overflow: auto;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .sidebar {
+        display: none;
+      }
+      .views {
+        grid-template-columns: 1fr;
+      }
+      .inline-preview {
+        display: none;
+      }
+      .builder-shell {
+        grid-template-columns: 1fr;
+      }
+      .meta-grid {
+        grid-template-columns: 1fr;
+      }
+      .run-strip {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .run-strip-actions {
+        justify-content: flex-end;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2 class="sidebar-title">Chat History</h2>
+      </div>
+      <div class="history-list">
+        <div class="history-item">
+          <strong>Deep research on MCP</strong>
+          오늘 14:31 · Compare + Summarize 실행 기록
+        </div>
+        <div class="history-item">
+          <strong>Workflow ideas for Electron</strong>
+          오늘 13:10 · Thread 요약 생성
+        </div>
+        <div class="history-item">
+          <strong>AI response comparison</strong>
+          어제 22:48 · Cross Check 결과 저장
+        </div>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn ghost" style="width:100%;">Clear All</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="topbar-note">
+        <div>
+          <h1>Workflow Automation Scaffold</h1>
+          <p>v1~v3 ideation을 바탕으로, 기존 앱 구조를 참고한 사용자 여정 확인용 독립 HTML 스캐폴드입니다.</p>
+        </div>
+        <div class="scenario-actions">
+          <button class="chip" data-scenario="idle">초기 상태</button>
+          <button class="chip" data-scenario="hub">Automation Hub</button>
+          <button class="chip" data-scenario="running">실행 중</button>
+          <button class="chip" data-scenario="result">결과 확인</button>
+          <button class="chip" data-scenario="builder">Builder 보기</button>
+          <button class="chip" data-scenario="attention">Human Fallback</button>
+        </div>
+      </section>
+
+      <section class="views" id="views">
+        <article class="view-card" data-service="chatgpt">
+          <div class="view-header">
+            <span>ChatGPT</span>
+            <span class="status-badge"><span class="status-dot"></span><span class="status-text">Foreground</span></span>
+          </div>
+          <div class="view-body">
+            <div class="bubble user">
+              <strong>User</strong>
+              기존 메인 채팅은 계속 유지됩니다. 워크플로우는 별도 hidden window에서 실행됩니다.
+            </div>
+            <div class="bubble">
+              <strong>Assistant</strong>
+              현재 이 카드들은 실제 웹뷰 대신 사용자 여정 확인을 위한 placeholder입니다.
+            </div>
+          </div>
+        </article>
+
+        <article class="view-card" data-service="claude">
+          <div class="view-header">
+            <span>Claude</span>
+            <span class="status-badge"><span class="status-dot"></span><span class="status-text">Foreground</span></span>
+          </div>
+          <div class="view-body">
+            <div class="bubble">
+              <strong>Context</strong>
+              기존 `Cross Check`와 `Custom Prompt Builder`는 그대로 유지되고, 워크플로우는 그 위의 automation layer로 동작합니다.
+            </div>
+          </div>
+        </article>
+
+        <article class="view-card" data-service="gemini">
+          <div class="view-header">
+            <span>Gemini</span>
+            <span class="status-badge"><span class="status-dot"></span><span class="status-text">Foreground</span></span>
+          </div>
+          <div class="view-body">
+            <div class="bubble">
+              <strong>Quick Action</strong>
+              Compare + Summarize, Research → Verify → Summarize, Summarize Current Thread 같은 프리셋부터 시작합니다.
+            </div>
+          </div>
+        </article>
+
+        <article class="view-card" data-service="perplexity">
+          <div class="view-header">
+            <span>Perplexity</span>
+            <span class="status-badge"><span class="status-dot"></span><span class="status-text">Foreground</span></span>
+          </div>
+          <div class="view-body">
+            <div class="bubble">
+              <strong>Trust UX</strong>
+              실행 중 무엇이 돌아가는지, 현재 채팅이 안전한지, 어떤 결과가 생성됐는지 항상 보여주는 것이 중요합니다.
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <div class="resize-handle"></div>
+
+      <section class="run-strip hidden" id="run-strip">
+        <div class="run-strip-main">
+          <div class="run-strip-title">
+            <strong id="run-title">Research → Verify → Summarize</strong>
+            <span id="run-step-label">Step 2/3 · Verify</span>
+          </div>
+          <div class="service-track" id="run-track">
+            <span><span class="status-dot done"></span><strong>Perplexity</strong> done</span>
+            <span><span class="status-dot running"></span><strong>ChatGPT</strong> running</span>
+            <span><span class="status-dot waiting"></span><strong>Claude</strong> waiting</span>
+            <span><span class="status-dot"></span><strong>Gemini</strong> pending</span>
+          </div>
+        </div>
+        <div class="run-strip-actions">
+          <div class="progress"><div id="run-progress-bar"></div></div>
+          <button class="btn ghost" id="open-result-from-strip">상세</button>
+          <button class="btn destructive" id="cancel-run-btn">취소</button>
+        </div>
+      </section>
+
+      <section class="controls">
+        <div class="controls-row space-between">
+          <div class="controls-row">
+            <button class="btn">New Chat</button>
+            <button class="btn">Copy Chat Thread</button>
+            <button class="btn">Copy Last Response</button>
+            <button class="btn" id="open-hub-btn">Cross Check / Automation</button>
+            <button class="btn">Anonymous</button>
+            <button class="btn">Scroll Sync</button>
+            <button class="btn">1x4</button>
+            <button class="btn ghost">2x2</button>
+          </div>
+          <button class="btn ghost">Prompt Collapse</button>
+        </div>
+
+        <div class="controls-row">
+          <label class="service-toggle active"><input type="checkbox" checked /> ChatGPT</label>
+          <label class="service-toggle active"><input type="checkbox" checked /> Claude</label>
+          <label class="service-toggle active"><input type="checkbox" checked /> Gemini</label>
+          <label class="service-toggle"><input type="checkbox" /> Grok</label>
+          <label class="service-toggle active"><input type="checkbox" checked /> Perplexity</label>
+          <label class="service-toggle"><input type="checkbox" /> Genspark</label>
+          <button class="btn ghost" style="margin-left:auto;">Chat Mode Settings</button>
+        </div>
+
+        <div class="input-card">
+          <div class="input-pane">
+            <div class="input-toolbar">
+              <span>Main Prompt Area</span>
+              <div class="toolbar-actions">
+                <button class="micro-btn">/ slash</button>
+                <button class="micro-btn">{{ variable }}</button>
+                <button class="micro-btn">Preview</button>
+                <button class="micro-btn">CPB</button>
+              </div>
+            </div>
+            <textarea id="main-prompt">다음 주제에 대해 최신 정보를 조사하고, 서로 다른 AI의 관점으로 교차 검증한 뒤 핵심만 요약해줘.
+
+주제: MCP 기반 멀티에이전트 워크플로우 UX 설계</textarea>
+          </div>
+          <aside class="inline-preview">
+            <div class="preview-header">
+              <span>Inline Preview</span>
+              <span>Live</span>
+            </div>
+            <div class="preview-body">
+              <strong>Quick Automation 추천</strong>
+              <p>이 프롬프트는 `Research → Verify → Summarize` 프리셋과 잘 맞습니다.</p>
+              <p>입력 텍스트를 `{{user_query}}`에 바인딩하고, 조사 결과를 검증 후 메인 입력창으로 다시 주입하는 흐름을 테스트할 수 있습니다.</p>
+              <div class="legend">
+                <span><span class="status-dot done"></span> 완료</span>
+                <span><span class="status-dot running"></span> 실행 중</span>
+                <span><span class="status-dot waiting"></span> 주의 필요</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="controls-row space-between">
+          <div class="controls-row">
+            <button class="btn">Attach</button>
+            <button class="btn primary">Send</button>
+            <button class="btn primary" id="quick-run-btn">Run Workflow</button>
+          </div>
+          <div class="controls-row">
+            <button class="btn ghost">Open CPB</button>
+            <button class="btn ghost" id="open-builder-btn">Advanced Builder</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+
+  <section class="modal" id="automation-modal" aria-hidden="true">
+    <div class="modal-header">
+      <div>
+        <h2>Automation Hub Lite</h2>
+        <p>기존 Cross Check 진입점을 확장한 quick automation 허브입니다. Phase 1은 프리셋 실행과 결과 재사용에 집중합니다.</p>
+      </div>
+      <button class="btn ghost" data-close-modal>닫기</button>
+    </div>
+    <div class="modal-body">
+      <aside class="hub-sidebar">
+        <button class="hub-tab active" data-tab="quick">Quick Workflows</button>
+        <button class="hub-tab" data-tab="compare">Compare Responses</button>
+        <button class="hub-tab" data-tab="builder">Build Workflow</button>
+        <button class="hub-tab" data-tab="runs">Recent Runs</button>
+      </aside>
+
+      <div class="hub-content">
+        <div class="hub-panel" data-panel="quick">
+          <h3 class="section-title">첫 번째로 유용한 사용자 여정</h3>
+          <p class="section-text">Phase 1에서는 빈 Builder보다 프리셋 3개가 먼저 노출됩니다. 사용자는 즉시 가치를 경험하고, 필요할 때만 Builder로 이동합니다.</p>
+          <div class="preset-grid">
+            <article class="preset-card">
+              <h3>Compare + Summarize</h3>
+              <p>현재 활성 서비스들의 마지막 응답을 수집하고 비교 프롬프트를 돌린 뒤, 핵심 차이와 권장 답변을 하나로 정리합니다.</p>
+              <div class="flow">
+                <span>Extract last responses</span>
+                <span>Compare</span>
+                <span>Summarize</span>
+              </div>
+              <div class="card-footer">
+                <button class="btn primary" data-run="compare">실행</button>
+                <button class="btn ghost">미리보기</button>
+              </div>
+            </article>
+
+            <article class="preset-card">
+              <h3>Research → Verify → Summarize</h3>
+              <p>Perplexity 또는 Genspark로 조사하고, ChatGPT/Claude로 검증한 뒤, Gemini로 최종 요약을 만드는 백그라운드 체인입니다.</p>
+              <div class="flow">
+                <span>Research</span>
+                <span>Parallel verify</span>
+                <span>Final summary</span>
+              </div>
+              <div class="card-footer">
+                <button class="btn primary" data-run="research">실행</button>
+                <button class="btn ghost">변수 입력</button>
+              </div>
+            </article>
+
+            <article class="preset-card">
+              <h3>Summarize Current Thread</h3>
+              <p>`{{chat_thread}}`를 기반으로 현재 대화를 요약하거나 액션 아이템으로 변환합니다. 구현 복잡도는 낮고 체감 가치는 빠릅니다.</p>
+              <div class="flow">
+                <span>Read current thread</span>
+                <span>Summarize</span>
+                <span>Reuse in prompt</span>
+              </div>
+              <div class="card-footer">
+                <button class="btn primary" data-run="thread">실행</button>
+                <button class="btn ghost">CPB로 저장</button>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="hub-panel hidden" data-panel="compare">
+          <h3 class="section-title">Compare Responses</h3>
+          <p class="section-text">기존 Cross Check 사용자에게는 이 화면이 가장 익숙합니다. v3에서는 이를 Automation Layer의 첫 진입점으로 재해석합니다.</p>
+          <div class="result-block">
+            <strong>Predefined Prompt</strong>
+            아래 응답들을 비교하고 정확성, 누락 정보, 관점 차이를 분석한 뒤 가장 신뢰할 수 있는 답변 방향을 정리해줘.
+          </div>
+          <div class="card-footer">
+            <button class="btn primary" data-run="compare">Compare + Summarize 실행</button>
+            <button class="btn ghost">Edit Prompt</button>
+          </div>
+        </div>
+
+        <div class="hub-panel hidden" data-panel="builder">
+          <h3 class="section-title">Advanced Builder</h3>
+          <p class="section-text">Builder는 Phase 2에서 열리는 고급 기능입니다. 이 스캐폴드에서는 CPB와 유사한 정보 구조로 워크플로우 편집 흐름을 보여줍니다.</p>
+          <div class="builder-shell">
+            <aside class="builder-list">
+              <div class="builder-item active">
+                <strong>딥 리서치 + 팩트체크</strong><br />
+                프리셋 복제본 · 최근 수정됨
+              </div>
+              <div class="builder-item">
+                <strong>Compare + Summarize</strong><br />
+                내 프리셋
+              </div>
+              <div class="builder-item">
+                <strong>Current Thread Summary</strong><br />
+                내 프리셋
+              </div>
+              <button class="btn ghost">+ 새 워크플로우</button>
+            </aside>
+
+            <section class="builder-canvas">
+              <div class="meta-grid">
+                <label class="field">
+                  Workflow Name
+                  <input value="Research → Verify → Summarize" />
+                </label>
+                <label class="field">
+                  Trigger
+                  <select>
+                    <option selected>Manual</option>
+                    <option>On Prompt</option>
+                    <option>Scheduled</option>
+                  </select>
+                </label>
+              </div>
+
+              <article class="step">
+                <div class="step-header">
+                  <h4>Step 1 · Research</h4>
+                  <div class="controls-row">
+                    <button class="micro-btn">Perplexity</button>
+                    <button class="micro-btn">Single</button>
+                  </div>
+                </div>
+                <div class="result-block">
+                  <strong>Prompt</strong>
+                  다음 주제에 대해 최신 정보를 조사해줘: {{user_query}}
+                </div>
+              </article>
+
+              <div class="step-connector">↓</div>
+
+              <article class="step">
+                <div class="step-header">
+                  <h4>Step 2 · Verify</h4>
+                  <div class="controls-row">
+                    <button class="micro-btn">ChatGPT</button>
+                    <button class="micro-btn">Claude</button>
+                    <button class="micro-btn">Parallel</button>
+                  </div>
+                </div>
+                <div class="result-block">
+                  <strong>Prompt</strong>
+                  다음 조사 결과를 검증해줘: {{research_result}}
+                </div>
+              </article>
+
+              <div class="step-connector">↓</div>
+
+              <article class="step">
+                <div class="step-header">
+                  <h4>Step 3 · Summary</h4>
+                  <div class="controls-row">
+                    <button class="micro-btn">Gemini</button>
+                    <button class="micro-btn">Single</button>
+                  </div>
+                </div>
+                <div class="result-block">
+                  <strong>Prompt</strong>
+                  조사와 검증 결과를 종합해 핵심만 요약해줘.
+                </div>
+              </article>
+
+              <div class="card-footer">
+                <button class="btn primary" data-run="research">테스트 실행</button>
+                <button class="btn ghost">프리셋으로 저장</button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="hub-panel hidden" data-panel="runs">
+          <h3 class="section-title">Recent Runs</h3>
+          <p class="section-text">결과는 단순 완료 알림이 아니라 재사용 가능한 자산으로 보여줘야 합니다.</p>
+          <div class="result-block">
+            <strong>14:31 · Compare + Summarize · Completed</strong>
+            최종 결과를 메인 입력창에 재주입했고, 이후 추가 질문이 이어졌습니다.
+          </div>
+          <div class="result-block">
+            <strong>13:08 · Research → Verify → Summarize · Paused</strong>
+            Claude 인증 필요로 일시 중지됨. Human Fallback 동선이 필요합니다.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="sheet" id="result-sheet" aria-hidden="true">
+    <div class="sheet-inner">
+      <div class="sheet-header">
+        <h3 id="sheet-title">Workflow Result</h3>
+        <p id="sheet-subtitle">완료된 자동화 결과를 복사, 재주입, 저장하는 흐름을 확인할 수 있습니다.</p>
+      </div>
+      <div class="sheet-tabs">
+        <button class="btn active" data-result-tab="summary">최종 요약</button>
+        <button class="btn" data-result-tab="research">리서치</button>
+        <button class="btn" data-result-tab="verify">검증</button>
+      </div>
+      <div class="sheet-content" id="sheet-content">
+        <div class="result-block">
+          <strong>최종 요약</strong>
+          MCP 기반 멀티에이전트 UX는 “빌더를 먼저 노출”하기보다, `Cross Check` 확장형 Automation Hub를 통해 Quick Run을 먼저 제공하는 것이 적절합니다. 사용자는 결과를 메인 입력창에 다시 주입하거나, 프리셋으로 저장해 반복 사용하게 됩니다.
+        </div>
+        <div class="card-footer">
+          <button class="btn primary" id="reuse-result-btn">메인 입력창에 붙여넣기</button>
+          <button class="btn ghost">복사</button>
+          <button class="btn ghost">CPB로 저장</button>
+          <button class="btn ghost" id="close-sheet-btn">닫기</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="toast" id="attention-toast">
+    <div class="toast-title">Claude requires attention</div>
+    <div class="toast-text">
+      백그라운드 검증 단계에서 인증이 필요합니다. 현재 메인 채팅은 유지되며, 해결 후 워크플로우를 이어서 실행할 수 있습니다.
+    </div>
+    <div class="toast-actions">
+      <button class="btn primary" id="resolve-attention-btn">해결하기</button>
+      <button class="btn ghost" id="dismiss-toast-btn">이번 실행 중단</button>
+    </div>
+  </div>
+
+  <script>
+    const overlay = document.getElementById("overlay");
+    const automationModal = document.getElementById("automation-modal");
+    const resultSheet = document.getElementById("result-sheet");
+    const runStrip = document.getElementById("run-strip");
+    const runProgressBar = document.getElementById("run-progress-bar");
+    const sheetTitle = document.getElementById("sheet-title");
+    const sheetSubtitle = document.getElementById("sheet-subtitle");
+    const sheetContent = document.getElementById("sheet-content");
+    const toast = document.getElementById("attention-toast");
+    const mainPrompt = document.getElementById("main-prompt");
+    const runTitle = document.getElementById("run-title");
+    const runStepLabel = document.getElementById("run-step-label");
+    const runTrack = document.getElementById("run-track");
+
+    const resultTabs = document.querySelectorAll("[data-result-tab]");
+    const hubTabs = document.querySelectorAll(".hub-tab");
+    const hubPanels = document.querySelectorAll(".hub-panel");
+    const scenarioButtons = document.querySelectorAll("[data-scenario]");
+    const serviceCards = [...document.querySelectorAll(".view-card")];
+
+    const scenarios = {
+      compare: {
+        title: "Compare + Summarize",
+        step: "Step 1/2 · Compare",
+        progress: 38,
+        track: [
+          ["ChatGPT", "running"],
+          ["Claude", "done"],
+          ["Gemini", "pending"],
+          ["Perplexity", "done"]
+        ]
+      },
+      research: {
+        title: "Research → Verify → Summarize",
+        step: "Step 2/3 · Verify",
+        progress: 64,
+        track: [
+          ["Perplexity", "done"],
+          ["ChatGPT", "running"],
+          ["Claude", "waiting"],
+          ["Gemini", "pending"]
+        ]
+      },
+      thread: {
+        title: "Summarize Current Thread",
+        step: "Step 1/1 · Summarize",
+        progress: 84,
+        track: [
+          ["Current Thread", "done"],
+          ["Gemini", "running"]
+        ]
+      }
+    };
+
+    const resultContentMap = {
+      summary: `
+        <div class="result-block">
+          <strong>최종 요약</strong>
+          v3 방향에서 가장 중요한 점은 워크플로우 기능을 별도 대기능으로 띄우지 않고, 기존 Cross Check 진입점을 확장한 Automation Hub Lite로 제품에 자연스럽게 스며들게 하는 것입니다. Phase 1의 핵심 가치는 Builder가 아니라 Quick Run, 실행 상태 가시성, 결과 재사용입니다.
+        </div>
+      `,
+      research: `
+        <div class="result-block">
+          <strong>리서치 결과</strong>
+          조사 단계에서는 최신 정보 수집이 주 목적이며, 결과는 다음 스텝의 \`{{research_result}}\` 변수로 전달됩니다. 실제 구현에서는 백그라운드 view가 새 대화 URL로 시작해야 포그라운드 대화 오염을 막을 수 있습니다.
+        </div>
+      `,
+      verify: `
+        <div class="result-block">
+          <strong>검증 결과</strong>
+          ChatGPT와 Claude가 병렬로 검증한 결과를 normalizedText로 합쳐 다음 Summary 스텝으로 넘깁니다. 사용자는 여기서 특정 서비스 결과만 다시 복사하거나, 메인 입력창으로 가져가 추가 질문을 이어갈 수 있습니다.
+        </div>
+      `
+    };
+
+    function setOverlay(open) {
+      overlay.classList.toggle("open", open);
+    }
+
+    function openModal() {
+      automationModal.classList.add("open");
+      setOverlay(true);
+    }
+
+    function closeModal() {
+      automationModal.classList.remove("open");
+      if (!resultSheet.classList.contains("open")) {
+        setOverlay(false);
+      }
+    }
+
+    function openSheet(title = "Workflow Result", subtitle = "완료된 자동화 결과를 복사, 재주입, 저장하는 흐름을 확인할 수 있습니다.") {
+      sheetTitle.textContent = title;
+      sheetSubtitle.textContent = subtitle;
+      resultSheet.classList.add("open");
+      setOverlay(true);
+    }
+
+    function closeSheet() {
+      resultSheet.classList.remove("open");
+      if (!automationModal.classList.contains("open")) {
+        setOverlay(false);
+      }
+    }
+
+    function setHubTab(tab) {
+      hubTabs.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
+      hubPanels.forEach((panel) => panel.classList.toggle("hidden", panel.dataset.panel !== tab));
+    }
+
+    function setResultTab(tab) {
+      resultTabs.forEach((btn) => btn.classList.toggle("active", btn.dataset.resultTab === tab));
+      sheetContent.innerHTML = `
+        ${resultContentMap[tab]}
+        <div class="card-footer">
+          <button class="btn primary" id="reuse-result-btn">메인 입력창에 붙여넣기</button>
+          <button class="btn ghost">복사</button>
+          <button class="btn ghost">CPB로 저장</button>
+          <button class="btn ghost" id="close-sheet-btn">닫기</button>
+        </div>
+      `;
+      bindDynamicSheetActions();
+    }
+
+    function bindDynamicSheetActions() {
+      const reuseBtn = document.getElementById("reuse-result-btn");
+      const closeBtn = document.getElementById("close-sheet-btn");
+      if (reuseBtn) {
+        reuseBtn.addEventListener("click", () => {
+          mainPrompt.value = "아래 워크플로우 결과를 바탕으로 다음 액션 아이템을 만들어줘.\n\n" +
+            "1. Automation Hub Lite를 기존 Cross Check 진입점에 통합\n" +
+            "2. Run Strip으로 실행 상태 가시화\n" +
+            "3. Result Side Sheet에서 메인 입력창 재주입";
+          closeSheet();
+        });
+      }
+      if (closeBtn) {
+        closeBtn.addEventListener("click", closeSheet);
+      }
+    }
+
+    function resetCards() {
+      serviceCards.forEach((card) => {
+        card.classList.remove("running", "done", "pending");
+        const dot = card.querySelector(".status-dot");
+        const text = card.querySelector(".status-text");
+        dot.className = "status-dot";
+        text.textContent = "Foreground";
+      });
+    }
+
+    function setCardState(service, state, label) {
+      const card = document.querySelector(`.view-card[data-service="${service}"]`);
+      if (!card) return;
+      card.classList.remove("running", "done", "pending");
+      if (state) card.classList.add(state);
+      const dot = card.querySelector(".status-dot");
+      const text = card.querySelector(".status-text");
+      dot.className = `status-dot ${state || ""}`.trim();
+      text.textContent = label;
+    }
+
+    function applyRunScenario(key) {
+      const scenario = scenarios[key];
+      if (!scenario) return;
+      resetCards();
+      runStrip.classList.remove("hidden");
+      runTitle.textContent = scenario.title;
+      runStepLabel.textContent = scenario.step;
+      runProgressBar.style.width = `${scenario.progress}%`;
+      runTrack.innerHTML = scenario.track.map(([name, state]) => {
+        const label = state === "done" ? "done" : state === "running" ? "running" : state === "waiting" ? "attention" : "pending";
+        return `<span><span class="status-dot ${state}"></span><strong>${name}</strong> ${label}</span>`;
+      }).join("");
+
+      if (key === "compare") {
+        setCardState("claude", "done", "Ready");
+        setCardState("perplexity", "done", "Ready");
+        setCardState("chatgpt", "running", "Comparing");
+        setCardState("gemini", "pending", "Will summarize");
+      } else if (key === "research") {
+        setCardState("perplexity", "done", "Research done");
+        setCardState("chatgpt", "running", "Verifying");
+        setCardState("claude", "pending", "Queued");
+        setCardState("gemini", "pending", "Waiting");
+      } else if (key === "thread") {
+        setCardState("gemini", "running", "Summarizing");
+      }
+    }
+
+    function clearRunState() {
+      runStrip.classList.add("hidden");
+      resetCards();
+      toast.classList.remove("open");
+    }
+
+    function showAttentionToast() {
+      applyRunScenario("research");
+      runStepLabel.textContent = "Step 2/3 · Verify paused";
+      toast.classList.add("open");
+      setOverlay(true);
+      if (automationModal.classList.contains("open")) closeModal();
+    }
+
+    function applyScenario(name) {
+      if (name === "idle") {
+        closeModal();
+        closeSheet();
+        clearRunState();
+      } else if (name === "hub") {
+        closeSheet();
+        clearRunState();
+        openModal();
+        setHubTab("quick");
+      } else if (name === "running") {
+        closeModal();
+        closeSheet();
+        toast.classList.remove("open");
+        applyRunScenario("research");
+      } else if (name === "result") {
+        closeModal();
+        toast.classList.remove("open");
+        applyRunScenario("compare");
+        openSheet("Workflow Result · Compare + Summarize", "결과는 완료 알림이 아니라 다음 액션의 출발점입니다.");
+        setResultTab("summary");
+      } else if (name === "builder") {
+        clearRunState();
+        openModal();
+        setHubTab("builder");
+      } else if (name === "attention") {
+        showAttentionToast();
+      }
+    }
+
+    document.getElementById("open-hub-btn").addEventListener("click", () => {
+      openModal();
+      setHubTab("quick");
+    });
+
+    document.getElementById("quick-run-btn").addEventListener("click", () => {
+      openModal();
+      setHubTab("quick");
+    });
+
+    document.getElementById("open-builder-btn").addEventListener("click", () => {
+      openModal();
+      setHubTab("builder");
+    });
+
+    document.querySelectorAll("[data-close-modal]").forEach((btn) => btn.addEventListener("click", closeModal));
+    overlay.addEventListener("click", () => {
+      closeModal();
+      closeSheet();
+      toast.classList.remove("open");
+    });
+
+    hubTabs.forEach((btn) => {
+      btn.addEventListener("click", () => setHubTab(btn.dataset.tab));
+    });
+
+    resultTabs.forEach((btn) => {
+      btn.addEventListener("click", () => setResultTab(btn.dataset.resultTab));
+    });
+
+    document.querySelectorAll("[data-run]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const runKey = btn.dataset.run;
+        closeModal();
+        toast.classList.remove("open");
+        applyRunScenario(runKey);
+      });
+    });
+
+    document.getElementById("open-result-from-strip").addEventListener("click", () => {
+      openSheet("Workflow Result", "실행 결과를 다시 프롬프트에 주입하거나 저장하는 흐름을 보여줍니다.");
+      setResultTab("summary");
+    });
+
+    document.getElementById("cancel-run-btn").addEventListener("click", () => {
+      clearRunState();
+    });
+
+    document.getElementById("resolve-attention-btn").addEventListener("click", () => {
+      toast.classList.remove("open");
+      openSheet("Human Fallback", "인증 해결 후 워크플로우를 이어서 실행할 수 있는 전환 동선을 표현합니다.");
+      sheetContent.innerHTML = `
+        <div class="result-block">
+          <strong>Attention Needed</strong>
+          Claude foreground view로 전환해 인증을 완료한 뒤, \`계속 실행\` 버튼으로 Step 2를 재개합니다. 메인 채팅은 유지되고, 사용자는 자동화가 무엇을 하고 있는지 명확히 볼 수 있어야 합니다.
+        </div>
+        <div class="card-footer">
+          <button class="btn primary" id="resume-run-btn">계속 실행</button>
+          <button class="btn ghost" id="close-sheet-btn">닫기</button>
+        </div>
+      `;
+      bindDynamicSheetActions();
+      document.getElementById("resume-run-btn").addEventListener("click", () => {
+        closeSheet();
+        applyRunScenario("research");
+        runStepLabel.textContent = "Step 2/3 · Verify resumed";
+      });
+    });
+
+    document.getElementById("dismiss-toast-btn").addEventListener("click", () => {
+      toast.classList.remove("open");
+      clearRunState();
+    });
+
+    scenarioButtons.forEach((btn) => {
+      btn.addEventListener("click", () => applyScenario(btn.dataset.scenario));
+    });
+
+    bindDynamicSheetActions();
+    applyScenario("idle");
+  </script>
+</body>
+</html>

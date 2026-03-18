@@ -1,0 +1,2392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Automation Scaffold v4</title>
+  <link rel="stylesheet" href="https://unpkg.com/@xyflow/react@12/dist/style.css" />
+  <style>
+    :root {
+      --background: 224 71.4% 4.1%;
+      --foreground: 210 20% 98%;
+      --card: 224 71.4% 4.1%;
+      --primary: 263.4 70% 50.4%;
+      --primary-foreground: 210 20% 98%;
+      --secondary: 215 27.9% 16.9%;
+      --secondary-foreground: 210 20% 98%;
+      --muted: 215 27.9% 16.9%;
+      --muted-foreground: 217.9 10.6% 64.9%;
+      --accent: 215 27.9% 16.9%;
+      --border: 215 27.9% 16.9%;
+      --success: 142 71% 45%;
+      --warning: 38 92% 58%;
+      --danger: 0 76% 62%;
+      --surface: 222 47% 8%;
+      --radius: 16px;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+      --font-sans: "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top, hsl(var(--primary) / 0.1), transparent 24%),
+        hsl(var(--background));
+      color: hsl(var(--foreground));
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    button, input, textarea, select { font: inherit; }
+    button {
+      cursor: pointer;
+      border: 0;
+      border-radius: 12px;
+      transition: 0.18s ease;
+    }
+
+    .hidden { display: none !important; }
+
+    .guide-toggle {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 40;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 46px;
+      padding: 0 16px;
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
+      box-shadow: var(--shadow);
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+
+    .guide-toggle:hover {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+
+    .guide-indicator {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.14);
+    }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 240px 1fr 320px;
+      overflow: hidden;
+    }
+
+    body.guide-off .app {
+      grid-template-columns: 240px 1fr;
+    }
+
+    body.guide-off .guide-panel,
+    body.guide-off .guide-copy {
+      display: none !important;
+    }
+
+    .sidebar,
+    .inspector {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: hsl(220 15% 18%);
+      border-right: 1px solid hsl(var(--border));
+    }
+
+    .inspector {
+      border-right: 0;
+      border-left: 1px solid hsl(var(--border));
+      background:
+        radial-gradient(circle at top, hsl(var(--primary) / 0.08), transparent 28%),
+        hsl(222 37% 10%);
+    }
+
+    .panel-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid hsl(var(--border));
+    }
+
+    .panel-header h2,
+    .panel-header h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 800;
+    }
+
+    .panel-header p {
+      margin: 6px 0 0;
+      font-size: 0.79rem;
+      line-height: 1.5;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .sidebar-body,
+    .inspector-body {
+      padding: 14px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .history-item,
+    .mini-card,
+    .insight-card,
+    .guide-callout {
+      border: 1px solid hsl(var(--border));
+      border-radius: var(--radius);
+      background: hsl(var(--card) / 0.84);
+      padding: 12px;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.8rem;
+      line-height: 1.55;
+    }
+
+    .history-item strong,
+    .mini-card strong,
+    .insight-card strong,
+    .guide-callout strong {
+      display: block;
+      margin-bottom: 6px;
+      color: hsl(var(--foreground));
+      font-size: 0.83rem;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 14px;
+      border-top: 1px solid hsl(var(--border));
+    }
+
+    .btn {
+      height: 34px;
+      padding: 0 12px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary));
+      color: hsl(var(--secondary-foreground));
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .btn:hover { background: hsl(var(--accent)); }
+    .btn.primary {
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
+      border-color: transparent;
+    }
+    .btn.primary:hover { filter: brightness(1.04); }
+    .btn.ghost { background: transparent; }
+    .btn.success {
+      background: hsl(var(--success));
+      border-color: transparent;
+      color: white;
+    }
+    .btn.warning {
+      background: hsl(var(--warning));
+      border-color: transparent;
+      color: #111827;
+    }
+
+    .main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .topbar {
+      padding: 14px 18px;
+      border-bottom: 1px solid hsl(var(--border));
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      background: linear-gradient(180deg, hsl(var(--background)), hsl(var(--surface)));
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid hsl(var(--primary) / 0.3);
+      background: hsl(var(--primary) / 0.12);
+      color: hsl(var(--foreground));
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: hsl(var(--success));
+      box-shadow: 0 0 0 5px hsl(var(--success) / 0.12);
+    }
+
+    .title-wrap h1 {
+      margin: 10px 0 0;
+      font-size: 1.08rem;
+      line-height: 1.3;
+    }
+
+    .title-wrap p {
+      margin: 6px 0 0;
+      max-width: 760px;
+      font-size: 0.81rem;
+      line-height: 1.55;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .scenario-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .chip {
+      height: 34px;
+      padding: 0 12px;
+      border: 1px solid hsl(var(--border));
+      border-radius: 12px;
+      background: hsl(var(--secondary));
+      color: hsl(var(--secondary-foreground));
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .chip:hover,
+    .chip.active {
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
+      border-color: transparent;
+    }
+
+    .journey-bar {
+      padding: 12px 18px 14px;
+      border-bottom: 1px solid hsl(var(--border));
+      background: hsl(223 30% 8%);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .journey-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .journey-meta strong {
+      font-size: 0.84rem;
+    }
+
+    .journey-meta span {
+      font-size: 0.76rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .journey-steps {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .journey-step {
+      min-width: 0;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--card) / 0.7);
+    }
+
+    .journey-step.active {
+      border-color: hsl(var(--primary) / 0.5);
+      background: hsl(var(--primary) / 0.12);
+    }
+
+    .journey-step.done {
+      border-color: hsl(var(--success) / 0.5);
+      background: hsl(var(--success) / 0.1);
+    }
+
+    .journey-step small {
+      display: block;
+      margin-bottom: 5px;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.67rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .journey-step strong {
+      display: block;
+      font-size: 0.78rem;
+      line-height: 1.35;
+    }
+
+    .journey-step p {
+      margin: 6px 0 0;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.72rem;
+      line-height: 1.45;
+    }
+
+    .workspace {
+      flex: 1;
+      min-height: 0;
+      padding: 16px 18px 18px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .views-stage {
+      border: 1px solid hsl(var(--border));
+      border-radius: 22px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
+        hsl(223 31% 9%);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .stage-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid hsl(var(--border));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .stage-header strong {
+      font-size: 0.84rem;
+    }
+
+    .stage-header span {
+      font-size: 0.75rem;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .stage-grid {
+      padding: 14px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .view-card {
+      min-height: 154px;
+      border-radius: 18px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--card) / 0.78);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .view-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -20px -30px auto;
+      width: 90px;
+      height: 90px;
+      border-radius: 999px;
+      background: hsl(var(--primary) / 0.08);
+      filter: blur(12px);
+    }
+
+    .view-card strong {
+      font-size: 0.83rem;
+    }
+
+    .status-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary));
+      color: hsl(var(--muted-foreground));
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .pill.good {
+      border-color: hsl(var(--success) / 0.4);
+      background: hsl(var(--success) / 0.12);
+      color: hsl(var(--foreground));
+    }
+
+    .pill.warn {
+      border-color: hsl(var(--warning) / 0.45);
+      background: hsl(var(--warning) / 0.12);
+      color: hsl(var(--foreground));
+    }
+
+    .controls-shell {
+      padding: 14px;
+      border-top: 1px solid hsl(var(--border));
+      background: hsl(222 34% 8%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .run-strip {
+      display: none;
+      border: 1px solid hsl(var(--border));
+      border-radius: 18px;
+      background: hsl(var(--card) / 0.9);
+      padding: 12px 14px;
+      gap: 14px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .run-strip.active {
+      display: flex;
+    }
+
+    .run-head strong {
+      display: block;
+      font-size: 0.83rem;
+      margin-bottom: 4px;
+    }
+
+    .run-head span {
+      color: hsl(var(--muted-foreground));
+      font-size: 0.75rem;
+    }
+
+    .run-track {
+      min-width: 260px;
+      flex: 1;
+      height: 9px;
+      border-radius: 999px;
+      background: hsl(var(--secondary));
+      overflow: hidden;
+    }
+
+    .run-progress {
+      height: 100%;
+      width: 38%;
+      background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--success)));
+      border-radius: inherit;
+    }
+
+    .main-input-card {
+      border: 1px solid hsl(var(--border));
+      border-radius: 18px;
+      background: hsl(var(--card) / 0.86);
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .main-input-card textarea,
+    .field textarea,
+    .field input,
+    .field select {
+      width: 100%;
+      border: 1px solid hsl(var(--border));
+      border-radius: 14px;
+      background: hsl(var(--secondary));
+      color: hsl(var(--foreground));
+      padding: 12px 13px;
+      outline: none;
+    }
+
+    .main-input-card textarea {
+      min-height: 82px;
+      resize: vertical;
+    }
+
+    .automation-surface {
+      border: 1px solid hsl(var(--border));
+      border-radius: 22px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top, hsl(var(--primary) / 0.08), transparent 26%),
+        hsl(223 31% 8%);
+      box-shadow: var(--shadow);
+    }
+
+    .surface-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid hsl(var(--border));
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .surface-header strong {
+      display: block;
+      font-size: 0.92rem;
+    }
+
+    .surface-header p {
+      margin: 6px 0 0;
+      font-size: 0.79rem;
+      line-height: 1.5;
+      color: hsl(var(--muted-foreground));
+      max-width: 760px;
+    }
+
+    .tab-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .nav-btn {
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 12px;
+      border: 1px solid hsl(var(--border));
+      background: transparent;
+      color: hsl(var(--muted-foreground));
+      font-size: 0.76rem;
+      font-weight: 800;
+    }
+
+    .nav-btn.active {
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
+      border-color: transparent;
+    }
+
+    .tab-panel {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .preset-card {
+      border: 1px solid hsl(var(--border));
+      border-radius: 20px;
+      background: hsl(var(--card) / 0.86);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 250px;
+    }
+
+    .preset-card h4,
+    .run-card h4 {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    .preset-card p,
+    .run-card p,
+    .section-copy {
+      margin: 0;
+      font-size: 0.79rem;
+      line-height: 1.55;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .check-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .check-item {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      font-size: 0.77rem;
+      color: hsl(var(--foreground));
+      line-height: 1.45;
+    }
+
+    .check-item::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      margin-top: 5px;
+      border-radius: 999px;
+      background: hsl(var(--success));
+      box-shadow: 0 0 0 5px hsl(var(--success) / 0.12);
+      flex: 0 0 auto;
+    }
+
+    .card-actions {
+      margin-top: auto;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .overview-bottom {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .run-card,
+    .note-card {
+      border: 1px solid hsl(var(--border));
+      border-radius: 18px;
+      background: hsl(var(--card) / 0.82);
+      padding: 14px;
+    }
+
+    .run-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #builder-root {
+      min-height: 900px;
+      border-radius: 20px;
+      overflow: hidden;
+      background: hsl(222 37% 8%);
+      border: 1px solid hsl(var(--border));
+    }
+
+    .sheet {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      bottom: 24px;
+      width: min(420px, calc(100vw - 48px));
+      transform: translateX(calc(100% + 32px));
+      transition: transform 0.24s ease;
+      z-index: 32;
+      pointer-events: none;
+    }
+
+    .sheet.active {
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    .sheet-inner {
+      height: 100%;
+      border: 1px solid hsl(var(--border));
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at top, hsl(var(--primary) / 0.08), transparent 28%),
+        hsl(223 31% 9%);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sheet-header,
+    .sheet-body,
+    .sheet-footer {
+      padding: 16px;
+    }
+
+    .sheet-header {
+      border-bottom: 1px solid hsl(var(--border));
+    }
+
+    .sheet-header h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .sheet-header p {
+      margin: 6px 0 0;
+      font-size: 0.79rem;
+      line-height: 1.55;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .sheet-body {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .sheet-block {
+      border: 1px solid hsl(var(--border));
+      border-radius: 16px;
+      background: hsl(var(--card) / 0.84);
+      padding: 12px;
+      font-size: 0.79rem;
+      line-height: 1.55;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .sheet-block strong {
+      display: block;
+      margin-bottom: 6px;
+      color: hsl(var(--foreground));
+      font-size: 0.82rem;
+    }
+
+    .sheet-footer {
+      border-top: 1px solid hsl(var(--border));
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translate(-50%, calc(100% + 40px));
+      width: min(700px, calc(100vw - 48px));
+      border: 1px solid hsl(var(--warning) / 0.4);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(250, 204, 21, 0.12), rgba(15, 23, 42, 0.98));
+      box-shadow: var(--shadow);
+      padding: 16px;
+      transition: transform 0.24s ease;
+      z-index: 36;
+    }
+
+    .toast.active {
+      transform: translate(-50%, 0);
+    }
+
+    .toast-title {
+      font-size: 0.92rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .toast p {
+      margin: 0;
+      font-size: 0.8rem;
+      line-height: 1.55;
+      color: hsl(var(--foreground));
+    }
+
+    .toast-actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    code {
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: hsl(var(--secondary));
+      color: hsl(var(--foreground));
+      font-size: 0.74rem;
+    }
+
+    @media (max-width: 1400px) {
+      .app {
+        grid-template-columns: 220px 1fr;
+      }
+
+      .inspector {
+        display: none;
+      }
+    }
+
+    @media (max-width: 1120px) {
+      .journey-steps,
+      .overview-grid,
+      .overview-bottom,
+      .stage-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .main-input-card {
+        grid-template-columns: 1fr;
+      }
+
+      .scenario-row {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body class="guide-on">
+  <button class="guide-toggle" id="guide-toggle" type="button">
+    <span class="guide-indicator"></span>
+    <span id="guide-toggle-label">Guide Mode ON</span>
+  </button>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="panel-header">
+        <h2>Chat History</h2>
+        <p>기존 앱의 사이드바 구조를 유지하되, 이번 버전은 <code>Automation Layer</code>와 <code>Advanced Builder</code>가 함께 보이는 완결형 프로토타입입니다.</p>
+      </div>
+      <div class="sidebar-body">
+        <div class="history-item">
+          <strong>Automation ideation thread</strong>
+          v1, v2, v3 ideation을 병합한 사용자 여정 정리
+        </div>
+        <div class="history-item">
+          <strong>Cross Check preset expansion</strong>
+          Compare + Summarize를 Quick Workflow entry로 재정의
+        </div>
+        <div class="history-item">
+          <strong>Workflow builder research</strong>
+          자유 배치형이 아닌 단계형 AI 지정 UX 검토
+        </div>
+        <div class="history-item">
+          <strong>Result reuse validation</strong>
+          결과를 메인 입력창에 재주입하는 후속 대화 흐름 검증
+        </div>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn ghost" style="width: 100%;">Back To Main App</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="title-wrap">
+          <span class="eyebrow">Workflow Automation v4</span>
+          <h1>v2의 사용자 여정 + v3의 Builder를 병합한 완결형 스캐폴드</h1>
+          <p class="guide-panel" id="scene-caption">
+            Guide Mode가 켜져 있을 때는 상단 설명, Journey, 우측 해설, Builder 내부 보조 설명이 함께 보여 제품 컨셉을 설명합니다. 끄면 기존 앱에 가까운 표면만 남아 실제 화면 인지를 더 쉽게 확인할 수 있습니다.
+          </p>
+        </div>
+        <div class="scenario-row">
+          <button class="chip active" data-scene="entry">Entry</button>
+          <button class="chip" data-scene="quick-run">Quick Run</button>
+          <button class="chip" data-scene="running">Running</button>
+          <button class="chip" data-scene="result">Result</button>
+          <button class="chip" data-scene="builder">Builder</button>
+          <button class="chip" data-scene="attention">Attention</button>
+        </div>
+      </header>
+
+      <section class="journey-bar guide-panel">
+        <div class="journey-meta">
+          <strong id="journey-title">사용자 첫 여정 · Entry</strong>
+          <span id="journey-copy">기존 앱 구조 안에서 automation을 어떻게 발견하고 이해하는지 먼저 보여줍니다.</span>
+        </div>
+        <div class="journey-steps">
+          <div class="journey-step active" data-journey="entry">
+            <small>01</small>
+            <strong>Entry</strong>
+            <p>Cross Check 확장형 진입으로 학습 비용을 낮춤</p>
+          </div>
+          <div class="journey-step" data-journey="quick-run">
+            <small>02</small>
+            <strong>Quick Run</strong>
+            <p>빈 Builder보다 프리셋으로 즉시 가치 체감</p>
+          </div>
+          <div class="journey-step" data-journey="running">
+            <small>03</small>
+            <strong>Running</strong>
+            <p>메인 채팅을 가리지 않는 Run Strip</p>
+          </div>
+          <div class="journey-step" data-journey="result">
+            <small>04</small>
+            <strong>Result Reuse</strong>
+            <p>완료가 아니라 다음 프롬프트의 시작점</p>
+          </div>
+          <div class="journey-step" data-journey="builder">
+            <small>05</small>
+            <strong>Advanced Builder</strong>
+            <p>좌→우 단계형 AI 역할 지정 편집기</p>
+          </div>
+          <div class="journey-step" data-journey="attention">
+            <small>06</small>
+            <strong>Attention</strong>
+            <p>로그인/인증 이슈를 실패가 아닌 복구 흐름으로 표시</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="workspace">
+        <section class="views-stage">
+          <div class="stage-header">
+            <div>
+              <strong>Foreground Chat Workspace</strong>
+              <span>기존 앱의 웹뷰 영역을 대체하는 placeholder입니다.</span>
+            </div>
+            <div class="status-row">
+              <span class="pill good">Layout: 2x2</span>
+              <span class="pill">Cross Check Ready</span>
+              <span class="pill">Automation Available</span>
+            </div>
+          </div>
+          <div class="stage-grid">
+            <article class="view-card">
+              <strong>Claude</strong>
+              <div class="status-row">
+                <span class="pill good">Context</span>
+                <span class="pill">Reasoning</span>
+              </div>
+              <p class="section-copy">장문 추론과 구조화 정리에 강한 lane 후보</p>
+            </article>
+            <article class="view-card">
+              <strong>Gemini</strong>
+              <div class="status-row">
+                <span class="pill good">Fast</span>
+                <span class="pill">Synthesis</span>
+              </div>
+              <p class="section-copy">빠른 합성 및 중간 요약 역할에 적합</p>
+            </article>
+            <article class="view-card">
+              <strong>ChatGPT</strong>
+              <div class="status-row">
+                <span class="pill good">Generalist</span>
+                <span class="pill">Ideation</span>
+              </div>
+              <p class="section-copy">일반 목적 검토, 재서술, 대안 제시에 강함</p>
+            </article>
+            <article class="view-card">
+              <strong>Grok</strong>
+              <div class="status-row">
+                <span class="pill warn">Contrast</span>
+                <span class="pill">Provocation</span>
+              </div>
+              <p class="section-copy">반대 관점, 빠른 sanity check, edge-case 탐색에 활용</p>
+            </article>
+          </div>
+          <div class="controls-shell">
+            <div class="run-strip" id="run-strip">
+              <div class="run-head">
+                <strong id="run-title">Research → Verify → Summarize</strong>
+                <span id="run-copy">Step 2/4 · Claude, GPT-4o, Gemini 병렬 검토 중</span>
+              </div>
+              <div class="run-track">
+                <div class="run-progress" id="run-progress"></div>
+              </div>
+              <div class="status-row">
+                <span class="pill good">Claude OK</span>
+                <span class="pill good">GPT-4o OK</span>
+                <span class="pill">Gemini Running</span>
+              </div>
+            </div>
+
+            <div class="main-input-card">
+              <label class="field">
+                <div style="margin-bottom: 8px; font-size: 0.8rem; font-weight: 800;">Main Prompt</div>
+                <textarea id="main-input">현재 질문을 각 AI의 강점에 맞게 재구성하고, 병렬 검토 후 가장 신뢰할 수 있는 초안을 만들어줘.</textarea>
+              </label>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                <button class="btn" data-scene="quick-run">Automation Hub 열기</button>
+                <button class="btn ghost" data-scene="builder">Builder 보기</button>
+                <button class="btn primary">Send Prompt</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="automation-surface">
+          <div class="surface-header">
+            <div>
+              <strong id="surface-title">Automation Hub Lite</strong>
+              <p id="surface-copy">Quick Run, Builder, Runs 히스토리를 한 표면 안에서 연결해, 기능 소개와 실제 사용 흐름을 동시에 검증합니다.</p>
+            </div>
+            <div class="tab-row">
+              <button class="nav-btn active" data-tab="overview">Quick Workflows</button>
+              <button class="nav-btn" data-tab="builder">Advanced Builder</button>
+              <button class="nav-btn" data-tab="runs">Recent Runs</button>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-panel="overview">
+            <div class="overview-grid">
+              <article class="preset-card">
+                <div class="status-row">
+                  <span class="pill good">Phase 1</span>
+                  <span class="pill">Safe Entry</span>
+                </div>
+                <h4>Compare + Summarize</h4>
+                <p>현재 질문을 공통 포맷으로 재구성한 뒤 Claude, Gemini, GPT-4o, Grok에 병렬로 보내고 차이점과 합의안을 만들어 메인 입력창으로 재주입합니다.</p>
+                <div class="check-list">
+                  <div class="check-item">AI별 강점을 명시적으로 지정할 수 있어 “왜 이 모델을 쓰는지”가 드러남</div>
+                  <div class="check-item">각 단계별 프롬프트를 수정해도 전체 흐름은 좌→우로 고정되어 혼동을 줄임</div>
+                </div>
+                <div class="guide-callout guide-panel">
+                  <strong>Guide</strong>
+                  기존 Cross Check와 가장 자연스럽게 연결되는 첫 번째 preset입니다.
+                </div>
+                <div class="card-actions">
+                  <button class="btn primary" data-scene="running">Quick Run</button>
+                  <button class="btn ghost" data-scene="result">Sample Result</button>
+                </div>
+              </article>
+
+              <article class="preset-card">
+                <div class="status-row">
+                  <span class="pill good">Phase 1</span>
+                  <span class="pill">Web + Verify</span>
+                </div>
+                <h4>Research → Verify → Summarize</h4>
+                <p>Perplexity로 최신 정보를 모으고, Claude와 GPT-4o로 검증한 뒤 Gemini로 요약합니다. 외부 리서치와 내부 합성을 모두 다루는 실전형 흐름입니다.</p>
+                <div class="check-list">
+                  <div class="check-item">수집, 검증, 합성 역할을 분리해 AI 간 차별점을 드러냄</div>
+                  <div class="check-item">문제가 생기면 attention toast로 foreground 복귀를 유도</div>
+                </div>
+                <div class="guide-callout guide-panel">
+                  <strong>Guide</strong>
+                  기술 데모가 아니라 실제 사용 흐름에서 가장 설득력 있는 preset입니다.
+                </div>
+                <div class="card-actions">
+                  <button class="btn primary" data-scene="running">Run Simulation</button>
+                  <button class="btn ghost" data-scene="builder">Builder로 열기</button>
+                </div>
+              </article>
+
+              <article class="preset-card">
+                <div class="status-row">
+                  <span class="pill">Phase 2</span>
+                  <span class="pill warn">Power User</span>
+                </div>
+                <h4>Role Relay Builder</h4>
+                <p>Planner → Critic → Writer처럼 각 AI에게 역할을 명시적으로 부여해, 단순 병렬 비교가 아니라 단계별 협업을 구성하는 고급 편집 흐름입니다.</p>
+                <div class="check-list">
+                  <div class="check-item">자유 배치 대신 route preset 복제 기반으로 진입해 n8n/Zapier 연상을 줄임</div>
+                  <div class="check-item">핵심 가치는 “AI 선택 + 강점 지정 + 단계 프롬프트”에 집중</div>
+                </div>
+                <div class="guide-callout guide-panel">
+                  <strong>Guide</strong>
+                  Builder는 초반 surface가 아니라, Quick Run 가치가 납득된 뒤 들어오는 단계입니다.
+                </div>
+                <div class="card-actions">
+                  <button class="btn primary" data-scene="builder">Open Builder</button>
+                </div>
+              </article>
+            </div>
+
+            <div class="overview-bottom">
+              <section class="note-card">
+                <h4 style="margin: 0 0 8px;">이번 v4에서 강화한 점</h4>
+                <div class="check-list">
+                  <div class="check-item">Guide Mode를 켜면 컨셉 설명 패널이 함께 보여 제품 방향을 설명할 수 있음</div>
+                  <div class="check-item">Guide Mode를 끄면 앱 구조에 가까운 표면만 남아 실제 사용 감각을 평가하기 쉬움</div>
+                  <div class="check-item">Builder가 자유 노드 편집기가 아니라, 좌→우 route composer라는 성격을 분명히 함</div>
+                </div>
+              </section>
+              <section class="note-card guide-panel">
+                <h4 style="margin: 0 0 8px;">왜 자유 배치형이 아닌가</h4>
+                <p class="section-copy">
+                  사용자가 화면을 보자마자 <code>n8n</code>이나 <code>Zapier</code>처럼 인식하면, 현재 제품의 핵심 가치인 “각 AI 서비스의 특장점 지정”보다 “복잡한 워크플로우 툴”이라는 인상이 먼저 생깁니다.
+                  이번 Builder는 노드 편집기보다 <strong>AI 역할 배정 보드</strong>에 가깝습니다.
+                </p>
+              </section>
+            </div>
+          </div>
+
+          <div class="tab-panel hidden" data-panel="builder">
+            <div id="builder-root"></div>
+          </div>
+
+          <div class="tab-panel hidden" data-panel="runs">
+            <div class="run-list">
+              <article class="run-card">
+                <div class="status-row" style="margin-bottom: 8px;">
+                  <span class="pill good">Completed</span>
+                  <span class="pill">15:02</span>
+                </div>
+                <h4>Compare + Summarize</h4>
+                <p>Claude는 기준 정의, GPT-4o는 대안 구조, Gemini는 요약 정리, Grok은 반대 관점 체크를 담당했습니다. 최종 합의안을 메인 입력창에 재주입해 후속 질문으로 이어졌습니다.</p>
+                <div class="card-actions">
+                  <button class="btn primary" data-scene="result">Result 열기</button>
+                  <button class="btn ghost">Duplicate</button>
+                </div>
+              </article>
+              <article class="run-card">
+                <div class="status-row" style="margin-bottom: 8px;">
+                  <span class="pill warn">Attention Needed</span>
+                  <span class="pill">13:34</span>
+                </div>
+                <h4>Research → Verify → Summarize</h4>
+                <p>Claude 인증 갱신이 필요해 Verify 단계에서 중단되었습니다. foreground로 복귀해 해결한 뒤 resume 할 수 있습니다.</p>
+                <div class="card-actions">
+                  <button class="btn warning" data-scene="attention">Attention Flow</button>
+                  <button class="btn ghost">Resume Later</button>
+                </div>
+              </article>
+              <article class="run-card">
+                <div class="status-row" style="margin-bottom: 8px;">
+                  <span class="pill">Draft</span>
+                  <span class="pill">Route Preset</span>
+                </div>
+                <h4>Role Relay Builder</h4>
+                <p>Planner → Critic → Writer 흐름의 초안입니다. Builder에서 stage prompt와 AI strengths를 편집하면 바로 test run으로 이어집니다.</p>
+                <div class="card-actions">
+                  <button class="btn primary" data-scene="builder">Builder 열기</button>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <aside class="inspector guide-panel">
+      <div class="panel-header">
+        <h3>Guide / Inspector</h3>
+        <p>현재 씬의 목적, 왜 이 UX가 필요한지, 실제 앱 통합 시 연결 포인트를 함께 설명합니다.</p>
+      </div>
+      <div class="inspector-body">
+        <div class="insight-card">
+          <strong id="insight-title">Entry를 단순화</strong>
+          <div id="insight-copy">
+            새 최상위 버튼을 늘리기보다 <code>Cross Check / Automation</code> 확장형으로 진입시키는 편이 기존 mental model 보존에 유리합니다.
+          </div>
+        </div>
+        <div class="mini-card">
+          <strong>Scene Purpose</strong>
+          <div id="inspector-purpose">사용자가 automation을 어디서 발견하고 어떻게 이해하는지 보여줍니다.</div>
+        </div>
+        <div class="mini-card">
+          <strong>Codebase Fit</strong>
+          <div id="inspector-tech">
+            <code>controls-container</code>, <code>cross-check-modal</code>, <code>workflow-run-strip</code> 확장형으로 접근하면 현재 렌더러 구조와 충돌을 줄일 수 있습니다.
+          </div>
+        </div>
+        <div class="mini-card">
+          <strong>v4 핵심 차이</strong>
+          자유 노드 배치가 아니라 <strong>좌→우 stage composer</strong>로 바꾸어, 사용자가 복잡한 자동화 툴이 아니라 “AI 역할 배정 기능”으로 인지하도록 유도합니다.
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <aside class="sheet" id="result-sheet">
+    <div class="sheet-inner">
+      <div class="sheet-header">
+        <h3>Workflow Result</h3>
+        <p>최종 결과는 읽기 전용 종료 화면이 아니라, 메인 입력창 재주입과 저장/복제를 유도하는 다음 액션 표면입니다.</p>
+      </div>
+      <div class="sheet-body">
+        <div class="sheet-block">
+          <strong>Consensus Summary</strong>
+          Claude는 판단 기준과 리스크를 정리했고, GPT-4o는 대안 구조를 제안했으며, Gemini는 핵심 문장 5개로 요약했고, Grok은 반례와 약한 연결부를 지적했습니다.
+        </div>
+        <div class="sheet-block">
+          <strong>Reusable Prompt</strong>
+          아래 결과를 바탕으로 실행 가능한 구현 계획을 정리해줘. 특히 각 AI 서비스 역할과 단계별 prompt를 유지하면서 실제 UI 이벤트 구조로 분해해줘.
+        </div>
+        <div class="sheet-block">
+          <strong>Step Breakdown</strong>
+          1. Rephrase question<br />
+          2. Run parallel role prompts<br />
+          3. Merge consensus and disagreements<br />
+          4. Inject summary into main prompt
+        </div>
+      </div>
+      <div class="sheet-footer">
+        <button class="btn primary" id="inject-result-btn">메인 입력창에 붙여넣기</button>
+        <button class="btn">프리셋으로 저장</button>
+        <button class="btn ghost" id="close-result-btn">닫기</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="toast" id="attention-toast">
+    <div class="toast-title">Claude requires attention</div>
+    <p>Verify 단계에서 인증 갱신이 필요합니다. foreground 채팅은 유지되며, 문제를 해결한 뒤 같은 runId로 재개할 수 있습니다.</p>
+    <div class="toast-actions">
+      <button class="btn primary" id="resolve-attention-btn">Foreground로 전환</button>
+      <button class="btn ghost" id="dismiss-attention-btn">이번 실행 중단</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as React from "https://esm.sh/react@18.3.1?dev";
+    import { createRoot } from "https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1&dev";
+    import {
+      Background,
+      Handle,
+      MarkerType,
+      Position,
+      ReactFlow,
+      ReactFlowProvider
+    } from "https://esm.sh/@xyflow/react@12.8.5?deps=react@18.3.1,react-dom@18.3.1&dev";
+
+    const { useEffect, useMemo, useState } = React;
+    const e = React.createElement;
+
+    const SERVICE_LIBRARY = {
+      main: {
+        id: "main",
+        label: "Main Prompt",
+        short: "Prompt",
+        tone: "#64748b",
+        strengths: ["질문 정리", "공통 포맷", "변수 바인딩"]
+      },
+      claude: {
+        id: "claude",
+        label: "claude-3.5-sonnet",
+        short: "Claude",
+        tone: "#8b5cf6",
+        strengths: ["구조화", "장문 추론", "품질 기준"]
+      },
+      gemini: {
+        id: "gemini",
+        label: "gemini-1.5-flash",
+        short: "Gemini",
+        tone: "#14b8a6",
+        strengths: ["속도", "요약", "중간 합성"]
+      },
+      gpt4o: {
+        id: "gpt4o",
+        label: "gpt-4o",
+        short: "GPT-4o",
+        tone: "#3b82f6",
+        strengths: ["범용성", "재서술", "대안 제시"]
+      },
+      grok: {
+        id: "grok",
+        label: "grok-2-1212",
+        short: "Grok",
+        tone: "#f97316",
+        strengths: ["반대 관점", "엣지 케이스", "빠른 sanity check"]
+      },
+      perplexity: {
+        id: "perplexity",
+        label: "perplexity",
+        short: "Perplexity",
+        tone: "#10b981",
+        strengths: ["최신 정보", "웹 검색", "출처 기반 조사"]
+      }
+    };
+
+    const PRESET_TEMPLATES = {
+      compare: {
+        workflowName: "Parallel Compare With Rephrase",
+        triggerType: "Manual",
+        description: "사용자 질문을 공통 프롬프트로 재구성하고, 각 AI 서비스의 강점을 지정해 병렬 비교 후 합의안을 만듭니다.",
+        stageOrder: ["brief", "claude", "gemini", "gpt4o", "grok", "merge", "deliver"],
+        stages: {
+          brief: {
+            id: "brief",
+            kind: "input",
+            lane: 0,
+            row: 1,
+            title: "rephrase-question",
+            role: "공통 프롬프트 정리",
+            serviceId: "main",
+            outputVar: "shared_prompt",
+            selectedStrengths: ["질문 정리", "공통 포맷"],
+            prompt: "사용자 질문을 4개 AI가 같은 기준으로 답할 수 있게 재구성해줘: {{user_query}}"
+          },
+          claude: {
+            id: "claude",
+            kind: "service",
+            lane: 1,
+            row: 0,
+            title: "claude-3.5-sonnet",
+            role: "기준 정의 / 논리 구조 검토",
+            serviceId: "claude",
+            outputVar: "claude_answer",
+            selectedStrengths: ["구조화", "장문 추론"],
+            prompt: "{{shared_prompt}}에 답하되, 판단 기준과 누락 가능성을 명시해줘."
+          },
+          gemini: {
+            id: "gemini",
+            kind: "service",
+            lane: 1,
+            row: 1,
+            title: "gemini-1.5-flash",
+            role: "빠른 1차 요약 / 핵심 포인트",
+            serviceId: "gemini",
+            outputVar: "gemini_answer",
+            selectedStrengths: ["속도", "요약"],
+            prompt: "{{shared_prompt}}에 빠르게 답하고 핵심 bullet만 추려줘."
+          },
+          gpt4o: {
+            id: "gpt4o",
+            kind: "service",
+            lane: 1,
+            row: 2,
+            title: "gpt-4o",
+            role: "대안 구조 / 재서술",
+            serviceId: "gpt4o",
+            outputVar: "gpt4o_answer",
+            selectedStrengths: ["범용성", "대안 제시"],
+            prompt: "{{shared_prompt}}에 답하되, 다른 해결 구조나 표현 방식을 제안해줘."
+          },
+          grok: {
+            id: "grok",
+            kind: "service",
+            lane: 1,
+            row: 3,
+            title: "grok-2-1212",
+            role: "반대 관점 / 엣지 케이스",
+            serviceId: "grok",
+            outputVar: "grok_answer",
+            selectedStrengths: ["반대 관점", "엣지 케이스"],
+            prompt: "{{shared_prompt}}에 답하되, 취약점과 반례를 중심으로 지적해줘."
+          },
+          merge: {
+            id: "merge",
+            kind: "merge",
+            lane: 2,
+            row: 1.5,
+            title: "consensus-brief",
+            role: "합의안 생성 / 차이점 정리",
+            serviceId: "gemini",
+            outputVar: "final_brief",
+            selectedStrengths: ["요약", "중간 합성"],
+            prompt: "claude_answer, gemini_answer, gpt4o_answer, grok_answer를 비교해 합의안과 차이점, 후속 질문 3개를 정리해줘."
+          },
+          deliver: {
+            id: "deliver",
+            kind: "output",
+            lane: 3,
+            row: 1.5,
+            title: "inject-to-main",
+            role: "결과 재주입 / 저장",
+            serviceId: "main",
+            outputVar: "next_prompt",
+            selectedStrengths: ["변수 바인딩"],
+            prompt: "final_brief를 Result Sheet와 Main Prompt에 동시에 노출하고 재사용 액션을 제공한다."
+          }
+        },
+        edges: [
+          ["brief", "claude"],
+          ["brief", "gemini"],
+          ["brief", "gpt4o"],
+          ["brief", "grok"],
+          ["claude", "merge"],
+          ["gemini", "merge"],
+          ["gpt4o", "merge"],
+          ["grok", "merge"],
+          ["merge", "deliver"]
+        ]
+      },
+      research: {
+        workflowName: "Research → Verify → Summarize",
+        triggerType: "Manual",
+        description: "최신 정보 조사, 검증, 최종 요약을 역할별로 나눈 대표적인 실전 preset입니다.",
+        stageOrder: ["brief", "research", "verifyClaude", "verifyGpt", "merge", "deliver"],
+        stages: {
+          brief: {
+            id: "brief",
+            kind: "input",
+            lane: 0,
+            row: 1.5,
+            title: "scope-question",
+            role: "질문 범위 정리",
+            serviceId: "main",
+            outputVar: "research_prompt",
+            selectedStrengths: ["질문 정리", "공통 포맷"],
+            prompt: "사용자 질문을 검색 가능한 리서치 질문으로 정리해줘: {{user_query}}"
+          },
+          research: {
+            id: "research",
+            kind: "service",
+            lane: 1,
+            row: 1.5,
+            title: "perplexity-research",
+            role: "최신 정보 수집",
+            serviceId: "perplexity",
+            outputVar: "research_result",
+            selectedStrengths: ["최신 정보", "출처 기반 조사"],
+            prompt: "{{research_prompt}}에 대해 최신 자료와 주요 출처를 조사해줘."
+          },
+          verifyClaude: {
+            id: "verifyClaude",
+            kind: "service",
+            lane: 2,
+            row: 0.8,
+            title: "claude-verify",
+            role: "논리 검증",
+            serviceId: "claude",
+            outputVar: "verify_logic",
+            selectedStrengths: ["구조화", "품질 기준"],
+            prompt: "{{research_result}}의 논리적 비약이나 누락된 가정을 검토해줘."
+          },
+          verifyGpt: {
+            id: "verifyGpt",
+            kind: "service",
+            lane: 2,
+            row: 2.2,
+            title: "gpt-verify",
+            role: "대안 해석 검증",
+            serviceId: "gpt4o",
+            outputVar: "verify_alt",
+            selectedStrengths: ["범용성", "대안 제시"],
+            prompt: "{{research_result}}를 다른 관점에서 해석하면 어떤 대안이 가능한지 검토해줘."
+          },
+          merge: {
+            id: "merge",
+            kind: "merge",
+            lane: 3,
+            row: 1.5,
+            title: "summary-brief",
+            role: "최종 요약",
+            serviceId: "gemini",
+            outputVar: "summary",
+            selectedStrengths: ["요약", "중간 합성"],
+            prompt: "research_result, verify_logic, verify_alt를 합쳐 실행 가능한 핵심 요약으로 정리해줘."
+          },
+          deliver: {
+            id: "deliver",
+            kind: "output",
+            lane: 4,
+            row: 1.5,
+            title: "result-actions",
+            role: "결과 재활용",
+            serviceId: "main",
+            outputVar: "next_prompt",
+            selectedStrengths: ["변수 바인딩"],
+            prompt: "summary를 main input과 run history에 연결한다."
+          }
+        },
+        edges: [
+          ["brief", "research"],
+          ["research", "verifyClaude"],
+          ["research", "verifyGpt"],
+          ["verifyClaude", "merge"],
+          ["verifyGpt", "merge"],
+          ["merge", "deliver"]
+        ]
+      },
+      relay: {
+        workflowName: "Planner → Critic → Writer Relay",
+        triggerType: "Manual",
+        description: "AI를 병렬 비교만 하는 것이 아니라 역할 릴레이로 사용해, 단계별 prompt 차별화의 가치를 보여줍니다.",
+        stageOrder: ["brief", "plan", "critic", "writer", "deliver"],
+        stages: {
+          brief: {
+            id: "brief",
+            kind: "input",
+            lane: 0,
+            row: 1.5,
+            title: "intent-brief",
+            role: "사용자 의도 정리",
+            serviceId: "main",
+            outputVar: "intent_brief",
+            selectedStrengths: ["질문 정리", "공통 포맷"],
+            prompt: "사용자 요청을 작업 목표, 제약, 기대 결과로 정리해줘: {{user_query}}"
+          },
+          plan: {
+            id: "plan",
+            kind: "service",
+            lane: 1,
+            row: 1.5,
+            title: "planner-claude",
+            role: "Planner",
+            serviceId: "claude",
+            outputVar: "draft_plan",
+            selectedStrengths: ["구조화", "장문 추론"],
+            prompt: "{{intent_brief}}를 바탕으로 단계별 실행 계획을 작성해줘."
+          },
+          critic: {
+            id: "critic",
+            kind: "service",
+            lane: 2,
+            row: 1.5,
+            title: "critic-grok",
+            role: "Critic",
+            serviceId: "grok",
+            outputVar: "critique",
+            selectedStrengths: ["반대 관점", "엣지 케이스"],
+            prompt: "{{draft_plan}}의 허점, 과신, 누락된 edge case를 지적해줘."
+          },
+          writer: {
+            id: "writer",
+            kind: "merge",
+            lane: 3,
+            row: 1.5,
+            title: "writer-gpt",
+            role: "Writer / Final Draft",
+            serviceId: "gpt4o",
+            outputVar: "final_draft",
+            selectedStrengths: ["범용성", "재서술"],
+            prompt: "{{draft_plan}}과 {{critique}}를 종합해 사용자에게 바로 보여줄 최종 초안을 작성해줘."
+          },
+          deliver: {
+            id: "deliver",
+            kind: "output",
+            lane: 4,
+            row: 1.5,
+            title: "inject-draft",
+            role: "메인 입력 재사용",
+            serviceId: "main",
+            outputVar: "next_prompt",
+            selectedStrengths: ["변수 바인딩"],
+            prompt: "final_draft를 result sheet와 main input에 노출한다."
+          }
+        },
+        edges: [
+          ["brief", "plan"],
+          ["plan", "critic"],
+          ["critic", "writer"],
+          ["writer", "deliver"]
+        ]
+      }
+    };
+
+    function clonePreset(id) {
+      return JSON.parse(JSON.stringify(PRESET_TEMPLATES[id]));
+    }
+
+    function stageColor(kind, serviceId) {
+      if (kind === "input") return "rgba(100,116,139,0.22)";
+      if (kind === "output") return "rgba(16,185,129,0.18)";
+      if (kind === "merge") return "rgba(20,184,166,0.18)";
+      return `${SERVICE_LIBRARY[serviceId]?.tone || "#64748b"}26`;
+    }
+
+    function GuidedNode({ data }) {
+      const service = SERVICE_LIBRARY[data.stage.serviceId] || SERVICE_LIBRARY.main;
+      const stage = data.stage;
+      const isSelected = data.isSelected;
+      const wrapperStyle = {
+        width: 252,
+        borderRadius: 22,
+        padding: 14,
+        border: isSelected ? `1px solid ${service.tone}` : "1px solid rgba(148,163,184,0.18)",
+        background: `linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0)), ${stageColor(stage.kind, stage.serviceId)}`,
+        boxShadow: isSelected ? `0 0 0 1px ${service.tone}40, 0 18px 40px rgba(2,6,23,0.35)` : "0 14px 30px rgba(2,6,23,0.28)",
+        color: "rgba(248,250,252,0.96)"
+      };
+      const badgeStyle = {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        minHeight: 26,
+        padding: "0 9px",
+        borderRadius: 999,
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        border: `1px solid ${service.tone}55`,
+        background: `${service.tone}1f`,
+        color: "rgba(248,250,252,0.92)"
+      };
+      const titleStyle = {
+        fontSize: 24,
+        fontWeight: 800,
+        margin: "12px 0 10px",
+        lineHeight: 1.2
+      };
+      const rowStyle = {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        fontSize: 12,
+        color: "rgba(203,213,225,0.88)",
+        marginBottom: 8
+      };
+      const chipWrapStyle = {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 6,
+        marginTop: 10
+      };
+      const chipStyle = {
+        display: "inline-flex",
+        alignItems: "center",
+        minHeight: 24,
+        padding: "0 8px",
+        borderRadius: 999,
+        fontSize: 11,
+        fontWeight: 700,
+        color: "rgba(241,245,249,0.9)",
+        border: "1px solid rgba(148,163,184,0.2)",
+        background: "rgba(15,23,42,0.42)"
+      };
+      const promptStyle = {
+        marginTop: 12,
+        padding: 10,
+        borderRadius: 14,
+        background: "rgba(15,23,42,0.45)",
+        border: "1px solid rgba(148,163,184,0.12)",
+        fontSize: 12,
+        lineHeight: 1.5,
+        color: "rgba(226,232,240,0.82)"
+      };
+
+      return e(
+        "div",
+        { style: wrapperStyle },
+        stage.kind !== "input" && e(Handle, { type: "target", position: Position.Left, style: { background: service.tone, border: "none", width: 8, height: 8 } }),
+        e("div", { style: badgeStyle }, stage.kind === "service" ? "AI Role" : stage.kind),
+        e("div", { style: titleStyle }, stage.title),
+        e("div", { style: rowStyle }, e("span", null, "Service"), e("strong", null, service.label)),
+        e("div", { style: rowStyle }, e("span", null, "Role"), e("span", null, stage.role)),
+        e("div", { style: rowStyle }, e("span", null, "Output"), e("span", null, stage.outputVar)),
+        e(
+          "div",
+          { style: chipWrapStyle },
+          ...stage.selectedStrengths.map((item, index) => e("span", { key: index, style: chipStyle }, item))
+        ),
+        e("div", { style: promptStyle }, stage.prompt),
+        stage.kind !== "output" && e(Handle, { type: "source", position: Position.Right, style: { background: service.tone, border: "none", width: 8, height: 8 } })
+      );
+    }
+
+    const nodeTypes = { guidedNode: GuidedNode };
+
+    function BuilderApp() {
+      const [presetId, setPresetId] = useState("compare");
+      const [workflow, setWorkflow] = useState(() => clonePreset("compare"));
+      const [selectedStageId, setSelectedStageId] = useState("claude");
+
+      useEffect(() => {
+        const stageIds = workflow.stageOrder;
+        if (!stageIds.includes(selectedStageId)) {
+          setSelectedStageId(stageIds[0]);
+        }
+      }, [workflow, selectedStageId]);
+
+      const selectedStage = workflow.stages[selectedStageId];
+      const selectedService = SERVICE_LIBRARY[selectedStage?.serviceId] || SERVICE_LIBRARY.main;
+
+      const nodes = useMemo(() => {
+        return workflow.stageOrder.map((id) => {
+          const stage = workflow.stages[id];
+          const x = 110 + stage.lane * 330;
+          const y = 120 + stage.row * 154;
+          return {
+            id: stage.id,
+            type: "guidedNode",
+            position: { x, y },
+            draggable: false,
+            selectable: true,
+            data: {
+              stage,
+              isSelected: stage.id === selectedStageId
+            }
+          };
+        });
+      }, [workflow, selectedStageId]);
+
+      const edges = useMemo(() => {
+        return workflow.edges.map(([source, target], index) => {
+          return {
+            id: `edge-${source}-${target}-${index}`,
+            source,
+            target,
+            type: "smoothstep",
+            markerEnd: { type: MarkerType.ArrowClosed, color: "rgba(148,163,184,0.68)" },
+            animated: false,
+            style: { stroke: "rgba(148,163,184,0.68)", strokeWidth: 2 }
+          };
+        });
+      }, [workflow]);
+
+      function replacePreset(nextId) {
+        setPresetId(nextId);
+        const nextPreset = clonePreset(nextId);
+        setWorkflow(nextPreset);
+        setSelectedStageId(nextPreset.stageOrder[1] || nextPreset.stageOrder[0]);
+      }
+
+      function updateStage(patch) {
+        setWorkflow((current) => {
+          const next = JSON.parse(JSON.stringify(current));
+          next.stages[selectedStageId] = { ...next.stages[selectedStageId], ...patch };
+          return next;
+        });
+      }
+
+      function handleServiceChange(serviceId) {
+        const serviceMeta = SERVICE_LIBRARY[serviceId] || SERVICE_LIBRARY.main;
+        updateStage({
+          serviceId,
+          title: currentTitleFromService(selectedStage.kind, serviceMeta),
+          selectedStrengths: [...serviceMeta.strengths.slice(0, Math.min(serviceMeta.strengths.length, 2))]
+        });
+      }
+
+      function currentTitleFromService(kind, serviceMeta) {
+        if (kind === "input") return "rephrase-question";
+        if (kind === "output") return "inject-to-main";
+        if (kind === "merge") return `${serviceMeta.short.toLowerCase()}-merge`;
+        return serviceMeta.label;
+      }
+
+      function toggleStrength(strength) {
+        const list = selectedStage.selectedStrengths || [];
+        const next = list.includes(strength)
+          ? list.filter((item) => item !== strength)
+          : [...list, strength];
+        updateStage({ selectedStrengths: next });
+      }
+
+      const validationLines = [
+        "노드 드래그와 자유 연결을 제거해 n8n/Zapier와 다른 인상을 유지합니다.",
+        "각 stage는 service, role, prompt, outputVar를 동시에 가지므로 AI 선택 이유가 드러납니다.",
+        "Builder는 그래프 편집기가 아니라 route preset을 조정하는 AI 역할 지정 보드입니다."
+      ];
+
+      const executionLines = workflow.stageOrder.map((id, index) => {
+        const stage = workflow.stages[id];
+        const serviceLabel = SERVICE_LIBRARY[stage.serviceId]?.short || "Prompt";
+        return `${index + 1}. ${stage.role} · ${serviceLabel} · ${stage.outputVar}`;
+      });
+
+      return e(
+        "div",
+        {
+          style: {
+            height: "100%",
+            display: "grid",
+            gridTemplateRows: "auto auto 1fr auto",
+            minHeight: 900,
+            background: "rgba(2,6,23,0.55)"
+          }
+        },
+        e(
+          "section",
+          {
+            style: {
+              padding: "16px 18px",
+              borderBottom: "1px solid rgba(148,163,184,0.12)",
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 16,
+              alignItems: "flex-start",
+              background: "linear-gradient(180deg, rgba(15,23,42,0.95), rgba(15,23,42,0.78))"
+            }
+          },
+          e(
+            "div",
+            null,
+            e("div", { style: { fontSize: 12, fontWeight: 800, color: "rgba(148,163,184,0.88)", letterSpacing: "0.04em", textTransform: "uppercase" } }, "Advanced Builder"),
+            e("h2", { style: { margin: "8px 0 0", fontSize: 18 } }, workflow.workflowName),
+            e("p", { style: { margin: "6px 0 0", fontSize: 13, lineHeight: 1.55, color: "rgba(203,213,225,0.84)", maxWidth: 760 } }, workflow.description)
+          ),
+          e(
+            "div",
+            { style: { display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" } },
+            e("button", { className: "btn ghost", type: "button" }, "Route Locked"),
+            e("button", { className: "btn", type: "button" }, "Preset Duplicate"),
+            e("button", { className: "btn success", type: "button" }, "Test Run")
+          )
+        ),
+        e(
+          "section",
+          {
+            style: {
+              padding: "12px 18px",
+              borderBottom: "1px solid rgba(148,163,184,0.12)",
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              alignItems: "center",
+              background: "rgba(15,23,42,0.7)"
+            }
+          },
+          e("span", { className: "pill good" }, "L→R Route Composer"),
+          e("span", { className: "pill" }, "Trigger: " + workflow.triggerType),
+          e("span", { className: "pill" }, "Selected Stage: " + (selectedStage?.title || "-")),
+          e("span", { className: "pill" }, "Selected Service: " + selectedService.label),
+          e("span", { className: "pill warn guide-copy" }, "Guide: explanation cards can be hidden globally")
+        ),
+        e(
+          "section",
+          {
+            style: {
+              minHeight: 0,
+              display: "grid",
+              gridTemplateColumns: "280px 1fr 340px",
+              overflow: "hidden"
+            }
+          },
+          e(
+            "aside",
+            {
+              style: {
+                borderRight: "1px solid rgba(148,163,184,0.12)",
+                background: "rgba(15,23,42,0.82)",
+                display: "flex",
+                flexDirection: "column",
+                minWidth: 0
+              }
+            },
+            e(
+              "div",
+              { style: { padding: 16, borderBottom: "1px solid rgba(148,163,184,0.12)" } },
+              e("h3", { style: { margin: 0, fontSize: 14 } }, "Route Presets"),
+              e("p", { style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.55, color: "rgba(148,163,184,0.9)" } }, "빈 캔버스 대신 route preset 복제로 시작해 혼동을 줄입니다.")
+            ),
+            e(
+              "div",
+              { style: { padding: 14, display: "flex", flexDirection: "column", gap: 12, overflow: "auto" } },
+              ...Object.entries(PRESET_TEMPLATES).map(([id, template]) =>
+                e(
+                  "button",
+                  {
+                    key: id,
+                    type: "button",
+                    onClick: () => replacePreset(id),
+                    style: {
+                      textAlign: "left",
+                      padding: 14,
+                      borderRadius: 18,
+                      border: id === presetId ? "1px solid rgba(139,92,246,0.6)" : "1px solid rgba(148,163,184,0.14)",
+                      background: id === presetId ? "rgba(139,92,246,0.14)" : "rgba(15,23,42,0.5)",
+                      color: "rgba(248,250,252,0.96)"
+                    }
+                  },
+                  e("strong", { style: { display: "block", fontSize: 13, marginBottom: 6 } }, template.workflowName),
+                  e("span", { style: { display: "block", fontSize: 12, lineHeight: 1.5, color: "rgba(203,213,225,0.78)" } }, template.description)
+                )
+              ),
+              e(
+                "div",
+                {
+                  style: {
+                    padding: 14,
+                    borderRadius: 18,
+                    border: "1px solid rgba(148,163,184,0.14)",
+                    background: "rgba(15,23,42,0.45)"
+                  }
+                },
+                e("strong", { style: { display: "block", fontSize: 13, marginBottom: 8 } }, "AI Strength Library"),
+                ...Object.values(SERVICE_LIBRARY).filter((item) => item.id !== "main").map((service) =>
+                  e(
+                    "div",
+                    {
+                      key: service.id,
+                      style: {
+                        padding: "10px 0",
+                        borderTop: "1px solid rgba(148,163,184,0.1)"
+                      }
+                    },
+                    e("div", { style: { fontSize: 12, fontWeight: 800, marginBottom: 6 } }, service.label),
+                    e(
+                      "div",
+                      { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+                      ...service.strengths.map((strength, index) =>
+                        e("span", { key: index, className: "pill", style: { minHeight: 24, fontSize: 11 } }, strength)
+                      )
+                    )
+                  )
+                ),
+                e(
+                  "div",
+                  { className: "guide-copy", style: { marginTop: 12, fontSize: 12, lineHeight: 1.55, color: "rgba(148,163,184,0.88)" } },
+                  "이 패널의 목적은 node를 무한히 추가하는 것이 아니라, 각 AI를 어떤 역할에 배정할지 결정하게 만드는 것입니다."
+                )
+              )
+            )
+          ),
+          e(
+            "div",
+            {
+              style: {
+                position: "relative",
+                minWidth: 0,
+                background: "linear-gradient(180deg, rgba(15,23,42,0.42), rgba(2,6,23,0.82))",
+                borderRight: "1px solid rgba(148,163,184,0.12)"
+              }
+            },
+            e(
+              "div",
+              {
+                className: "guide-copy",
+                style: {
+                  position: "absolute",
+                  top: 14,
+                  left: 16,
+                  right: 16,
+                  zIndex: 5,
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                  gap: 10,
+                  pointerEvents: "none"
+                }
+              },
+              e("div", { className: "guide-callout", style: { margin: 0 } }, e("strong", null, "1. Prompt Template"), "질문을 정리하고 모든 branch가 공유할 기준을 만든다."),
+              e("div", { className: "guide-callout", style: { margin: 0 } }, e("strong", null, "2. AI Roles"), "각 AI의 강점과 역할이 분명하게 노출된다."),
+              e("div", { className: "guide-callout", style: { margin: 0 } }, e("strong", null, "3. Merge"), "차이점과 합의안을 통합한다."),
+              e("div", { className: "guide-callout", style: { margin: 0 } }, e("strong", null, "4. Deliver"), "메인 입력창 재주입과 저장 액션으로 연결한다.")
+            ),
+            e(
+              "div",
+              {
+                style: {
+                  height: "100%",
+                  minHeight: 0,
+                  paddingTop: 78
+                }
+              },
+              e(
+                ReactFlow,
+                {
+                  nodes,
+                  edges,
+                  nodeTypes,
+                  fitView: true,
+                  fitViewOptions: { padding: 0.14 },
+                  proOptions: { hideAttribution: true },
+                  nodesDraggable: false,
+                  nodesConnectable: false,
+                  elementsSelectable: true,
+                  zoomOnScroll: false,
+                  zoomOnPinch: false,
+                  panOnDrag: true,
+                  selectionOnDrag: false,
+                  onNodeClick: (_, node) => setSelectedStageId(node.id)
+                },
+                e(Background, { gap: 22, size: 1, color: "rgba(148,163,184,0.14)" })
+              )
+            )
+          ),
+          e(
+            "aside",
+            {
+              style: {
+                background: "rgba(15,23,42,0.85)",
+                display: "flex",
+                flexDirection: "column",
+                minWidth: 0
+              }
+            },
+            e(
+              "div",
+              { style: { padding: 16, borderBottom: "1px solid rgba(148,163,184,0.12)" } },
+              e("h3", { style: { margin: 0, fontSize: 14 } }, "Stage Inspector"),
+              e("p", { style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.55, color: "rgba(148,163,184,0.9)" } }, "각 단계의 AI, prompt, strengths, outputVar를 조정합니다.")
+            ),
+            selectedStage && e(
+              "div",
+              { style: { padding: 14, display: "flex", flexDirection: "column", gap: 12, overflow: "auto" } },
+              e(
+                "div",
+                {
+                  style: {
+                    padding: 14,
+                    borderRadius: 18,
+                    border: "1px solid rgba(148,163,184,0.14)",
+                    background: "rgba(15,23,42,0.5)"
+                  }
+                },
+                e("strong", { style: { display: "block", fontSize: 13, marginBottom: 10 } }, "Selected Stage"),
+                e("div", { style: { fontSize: 12, color: "rgba(203,213,225,0.82)", lineHeight: 1.55 } }, selectedStage.title),
+                e("div", { style: { marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" } },
+                  e("span", { className: "pill" }, "Kind: " + selectedStage.kind),
+                  e("span", { className: "pill" }, "Output: " + selectedStage.outputVar)
+                )
+              ),
+              e(
+                "label",
+                { className: "field", style: { display: "flex", flexDirection: "column", gap: 8 } },
+                e("span", { style: { fontSize: 12, fontWeight: 800 } }, "Stage Title"),
+                e("input", {
+                  value: selectedStage.title,
+                  onChange: (event) => updateStage({ title: event.target.value })
+                })
+              ),
+              e(
+                "label",
+                { className: "field", style: { display: "flex", flexDirection: "column", gap: 8 } },
+                e("span", { style: { fontSize: 12, fontWeight: 800 } }, "Role / Purpose"),
+                e("input", {
+                  value: selectedStage.role,
+                  onChange: (event) => updateStage({ role: event.target.value })
+                })
+              ),
+              e(
+                "label",
+                { className: "field", style: { display: "flex", flexDirection: "column", gap: 8 } },
+                e("span", { style: { fontSize: 12, fontWeight: 800 } }, "Assigned Service"),
+                e(
+                  "select",
+                  {
+                    value: selectedStage.serviceId,
+                    onChange: (event) => handleServiceChange(event.target.value)
+                  },
+                  ...Object.values(SERVICE_LIBRARY).map((service) =>
+                    e("option", { key: service.id, value: service.id }, service.label)
+                  )
+                )
+              ),
+              e(
+                "label",
+                { className: "field", style: { display: "flex", flexDirection: "column", gap: 8 } },
+                e("span", { style: { fontSize: 12, fontWeight: 800 } }, "Output Variable"),
+                e("input", {
+                  value: selectedStage.outputVar,
+                  onChange: (event) => updateStage({ outputVar: event.target.value })
+                })
+              ),
+              e(
+                "div",
+                {
+                  style: {
+                    padding: 14,
+                    borderRadius: 18,
+                    border: "1px solid rgba(148,163,184,0.14)",
+                    background: "rgba(15,23,42,0.5)"
+                  }
+                },
+                e("strong", { style: { display: "block", fontSize: 13, marginBottom: 10 } }, "Strength Focus"),
+                e(
+                  "div",
+                  { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+                  ...selectedService.strengths.map((strength) =>
+                    e(
+                      "button",
+                      {
+                        key: strength,
+                        type: "button",
+                        onClick: () => toggleStrength(strength),
+                        className: "pill",
+                        style: selectedStage.selectedStrengths.includes(strength)
+                          ? {
+                              minHeight: 28,
+                              borderColor: `${selectedService.tone}80`,
+                              background: `${selectedService.tone}26`,
+                              color: "rgba(248,250,252,0.96)"
+                            }
+                          : { minHeight: 28 }
+                      },
+                      strength
+                    )
+                  )
+                ),
+                e(
+                  "div",
+                  { className: "guide-copy", style: { marginTop: 10, fontSize: 12, lineHeight: 1.55, color: "rgba(148,163,184,0.88)" } },
+                  "이 단계에서 어떤 강점을 실제로 활용할지 선택하면, 사용자는 단순히 모델 이름이 아니라 선택 근거를 함께 보게 됩니다."
+                )
+              ),
+              e(
+                "label",
+                { className: "field", style: { display: "flex", flexDirection: "column", gap: 8 } },
+                e("span", { style: { fontSize: 12, fontWeight: 800 } }, "Stage Prompt"),
+                e("textarea", {
+                  value: selectedStage.prompt,
+                  rows: 8,
+                  onChange: (event) => updateStage({ prompt: event.target.value })
+                })
+              )
+            )
+          )
+        ),
+        e(
+          "section",
+          {
+            style: {
+              borderTop: "1px solid rgba(148,163,184,0.12)",
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 0,
+              minHeight: 180,
+              background: "rgba(15,23,42,0.92)"
+            }
+          },
+          e(
+            "div",
+            { style: { padding: 16, borderRight: "1px solid rgba(148,163,184,0.12)" } },
+            e("h4", { style: { margin: 0, fontSize: 14 } }, "Validation Notes"),
+            e(
+              "div",
+              { style: { marginTop: 12, display: "flex", flexDirection: "column", gap: 10 } },
+              ...validationLines.map((line, index) =>
+                e(
+                  "div",
+                  {
+                    key: index,
+                    style: {
+                      padding: 12,
+                      borderRadius: 14,
+                      border: "1px solid rgba(148,163,184,0.12)",
+                      background: "rgba(15,23,42,0.58)",
+                      fontSize: 12,
+                      lineHeight: 1.55,
+                      color: "rgba(203,213,225,0.86)"
+                    }
+                  },
+                  line
+                )
+              )
+            )
+          ),
+          e(
+            "div",
+            { style: { padding: 16 } },
+            e("h4", { style: { margin: 0, fontSize: 14 } }, "Dry Run Preview"),
+            e(
+              "div",
+              {
+                style: {
+                  marginTop: 12,
+                  padding: 14,
+                  borderRadius: 16,
+                  border: "1px solid rgba(148,163,184,0.12)",
+                  background: "rgba(15,23,42,0.58)",
+                  fontSize: 12,
+                  lineHeight: 1.7,
+                  color: "rgba(203,213,225,0.86)",
+                  whiteSpace: "pre-line"
+                }
+              },
+              executionLines.join("\n")
+            )
+          )
+        )
+      );
+    }
+
+    function BuilderRoot() {
+      return e(ReactFlowProvider, null, e(BuilderApp));
+    }
+
+    createRoot(document.getElementById("builder-root")).render(e(BuilderRoot));
+
+    const guideToggle = document.getElementById("guide-toggle");
+    const guideToggleLabel = document.getElementById("guide-toggle-label");
+    const sceneCaption = document.getElementById("scene-caption");
+    const journeyTitle = document.getElementById("journey-title");
+    const journeyCopy = document.getElementById("journey-copy");
+    const insightTitle = document.getElementById("insight-title");
+    const insightCopy = document.getElementById("insight-copy");
+    const inspectorPurpose = document.getElementById("inspector-purpose");
+    const inspectorTech = document.getElementById("inspector-tech");
+    const runStrip = document.getElementById("run-strip");
+    const runTitle = document.getElementById("run-title");
+    const runCopy = document.getElementById("run-copy");
+    const runProgress = document.getElementById("run-progress");
+    const resultSheet = document.getElementById("result-sheet");
+    const attentionToast = document.getElementById("attention-toast");
+    const surfaceTitle = document.getElementById("surface-title");
+    const surfaceCopy = document.getElementById("surface-copy");
+    const mainInput = document.getElementById("main-input");
+    const sceneButtons = [...document.querySelectorAll("[data-scene]")];
+    const journeySteps = [...document.querySelectorAll(".journey-step")];
+    const tabButtons = [...document.querySelectorAll("[data-tab]")];
+    const tabPanels = [...document.querySelectorAll("[data-panel]")];
+
+    const sceneMeta = {
+      entry: {
+        title: "사용자 첫 여정 · Entry",
+        copy: "기존 앱의 Cross Check 확장형 entry 안에서 automation을 발견하는 흐름을 보여줍니다.",
+        caption: "Guide Mode를 켜면 왜 이 화면이 필요한지 함께 설명하고, 끄면 실제 앱과 가까운 표면만 남겨 UI 인지를 검증할 수 있습니다.",
+        insightTitle: "Entry를 새 기능이 아닌 자연스러운 확장으로",
+        insightCopy: "새 버튼을 추가하기보다 기존 진입점 안에 automation을 심는 편이 현재 정보 구조와 충돌이 적습니다.",
+        purpose: "사용자가 automation을 어디서 처음 마주하는지 설명합니다.",
+        tech: "기존 <code>cross-check-modal</code>과 <code>controls-container</code> 확장 전략과 잘 맞습니다.",
+        tab: "overview",
+        run: false,
+        result: false,
+        attention: false,
+        surfaceTitle: "Automation Hub Lite",
+        surfaceCopy: "Quick preset과 Builder 진입을 한 화면에 모아 초기 학습 비용을 낮춥니다."
+      },
+      "quick-run": {
+        title: "사용자 첫 여정 · Quick Run",
+        copy: "Builder보다 먼저 바로 실행 가능한 preset으로 제품 가치를 체감하게 합니다.",
+        caption: "Quick Run은 workflow 기능을 소개하는 동시에, AI별 역할 지정이 실제로 왜 유용한지 가장 짧은 경로로 보여줍니다.",
+        insightTitle: "빈 Builder보다 preset이 먼저",
+        insightCopy: "첫 화면에 복잡한 편집기를 노출하기보다, 이미 잘 정의된 workflow를 실행해 결과 재사용까지 이어지는 흐름이 더 설득력 있습니다.",
+        purpose: "사용자가 먼저 눌러야 할 버튼과 기대 결과를 분명히 보여줍니다.",
+        tech: "초기 구현은 기존 cross-check와 연계한 preset 실행으로 시작하고, 이후 workflow-store와 engine으로 일반화할 수 있습니다.",
+        tab: "overview",
+        run: false,
+        result: false,
+        attention: false,
+        surfaceTitle: "Quick Workflows",
+        surfaceCopy: "빠른 실행, 결과 재활용, Builder 진입이 한 곳에서 이어집니다."
+      },
+      running: {
+        title: "사용자 첫 여정 · Running",
+        copy: "실행 상태는 보여주되 메인 채팅을 가리지 않는 Run Strip이 핵심입니다.",
+        caption: "작은 strip만으로도 어떤 step이 도는지, 어떤 AI가 이미 끝났는지를 알려 신뢰를 높일 수 있습니다.",
+        insightTitle: "상태 가시성은 작지만 선명하게",
+        insightCopy: "background workflow는 invisibility가 아니라 low-noise visibility가 중요합니다.",
+        purpose: "사용자가 자동화가 백그라운드에서 안전하게 실행 중임을 이해하게 합니다.",
+        tech: "<code>workflow-run-strip</code>를 입력창 위 얇은 영역으로 배치하면 현재 레이아웃을 크게 깨지 않습니다.",
+        tab: "overview",
+        run: true,
+        result: false,
+        attention: false,
+        progress: "64%",
+        runTitle: "Compare + Summarize",
+        runCopy: "Step 3/4 · Grok 반대 관점 수집 후 consensus merge 준비 중",
+        surfaceTitle: "Run Monitoring",
+        surfaceCopy: "프리셋이 단순 버튼이 아니라 실제 실행 중 상태로 이어지는 것을 보여줍니다."
+      },
+      result: {
+        title: "사용자 첫 여정 · Result Reuse",
+        copy: "결과를 다음 프롬프트의 시작점으로 재활용하는 흐름이 핵심입니다.",
+        caption: "Result Sheet는 단순 결과창이 아니라, 메인 입력 재주입과 프리셋 저장으로 이어지는 행동 표면입니다.",
+        insightTitle: "완료보다 재사용",
+        insightCopy: "automation의 가치는 run이 끝나는 순간보다, 그 결과가 다음 작업으로 연결되는 순간에 더 크게 드러납니다.",
+        purpose: "사용자가 결과를 복사하는 대신 바로 후속 작업에 연결하도록 돕습니다.",
+        tech: "runs history와 결과 시트를 연결하면 재실행, 복제, main input inject 흐름을 자연스럽게 만들 수 있습니다.",
+        tab: "runs",
+        run: true,
+        result: true,
+        attention: false,
+        progress: "100%",
+        runTitle: "Compare + Summarize",
+        runCopy: "Completed · Final brief ready for main input injection",
+        surfaceTitle: "Recent Runs",
+        surfaceCopy: "완료된 run을 결과 재활용 관점에서 다시 보여줍니다."
+      },
+      builder: {
+        title: "사용자 첫 여정 · Builder",
+        copy: "Builder는 자유 노드 편집기가 아니라, 각 AI의 강점과 단계 프롬프트를 조정하는 route composer입니다.",
+        caption: "첨부 레퍼런스처럼 좌→우 흐름은 유지하되, 사용자가 무엇을 어디에 지정하는지 더 명확하게 보이도록 stage 중심 UX로 바꿨습니다.",
+        insightTitle: "Builder의 가치 재정의",
+        insightCopy: "핵심은 노드 조작이 아니라 AI 역할 배정, strengths 선택, stage prompt 편집입니다.",
+        purpose: "Advanced Builder가 왜 존재하는지, 그리고 왜 freeform editor가 아닌지를 설명합니다.",
+        tech: "React Flow는 렌더링 엔진으로만 쓰고, 실제 UX는 preset-driven route composer로 제한했습니다.",
+        tab: "builder",
+        run: false,
+        result: false,
+        attention: false,
+        surfaceTitle: "Advanced Builder",
+        surfaceCopy: "좌→우 route 안에서 AI 강점 지정과 단계 프롬프트 편집에 집중합니다."
+      },
+      attention: {
+        title: "사용자 첫 여정 · Attention",
+        copy: "로그인 만료나 CAPTCHA는 실패가 아니라 복구가 필요한 attention 상태로 다뤄야 합니다.",
+        caption: "백그라운드 자동화가 멈췄을 때 사용자가 왜 멈췄는지, 무엇을 해야 하는지 바로 이해할 수 있어야 합니다.",
+        insightTitle: "실패가 아닌 복구 흐름",
+        insightCopy: "Foreground 전환과 resume action을 연결하면 사용자는 현재 채팅을 잃지 않고 문제를 해결할 수 있습니다.",
+        purpose: "사람이 개입해야 하는 예외를 제품 흐름 안에 포함합니다.",
+        tech: "toast, foreground focus, resume action 조합은 기존 popup layer 패턴과도 잘 맞습니다.",
+        tab: "runs",
+        run: true,
+        result: false,
+        attention: true,
+        progress: "52%",
+        runTitle: "Research → Verify → Summarize",
+        runCopy: "Paused · Claude verification needs login refresh",
+        surfaceTitle: "Attention Handling",
+        surfaceCopy: "예외 상황도 정상적인 제품 여정의 일부로 표현합니다."
+      }
+    };
+
+    function openTab(tabId) {
+      tabButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.tab === tabId);
+      });
+      tabPanels.forEach((panel) => {
+        panel.classList.toggle("hidden", panel.dataset.panel !== tabId);
+      });
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+    }
+
+    function setScene(scene) {
+      const meta = sceneMeta[scene];
+      if (!meta) return;
+
+      sceneButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.scene === scene);
+      });
+
+      const order = ["entry", "quick-run", "running", "result", "builder", "attention"];
+      const currentIndex = order.indexOf(scene);
+      journeySteps.forEach((step) => {
+        const index = order.indexOf(step.dataset.journey);
+        step.classList.toggle("active", step.dataset.journey === scene);
+        step.classList.toggle("done", index > -1 && index < currentIndex);
+      });
+
+      journeyTitle.textContent = meta.title;
+      journeyCopy.textContent = meta.copy;
+      sceneCaption.textContent = meta.caption;
+      insightTitle.textContent = meta.insightTitle;
+      insightCopy.innerHTML = meta.insightCopy;
+      inspectorPurpose.textContent = meta.purpose;
+      inspectorTech.innerHTML = meta.tech;
+      surfaceTitle.textContent = meta.surfaceTitle;
+      surfaceCopy.textContent = meta.surfaceCopy;
+
+      openTab(meta.tab);
+
+      runStrip.classList.toggle("active", Boolean(meta.run));
+      resultSheet.classList.toggle("active", Boolean(meta.result));
+      attentionToast.classList.toggle("active", Boolean(meta.attention));
+
+      if (meta.runTitle) runTitle.textContent = meta.runTitle;
+      if (meta.runCopy) runCopy.textContent = meta.runCopy;
+      if (meta.progress) runProgress.style.width = meta.progress;
+      if (!meta.progress) runProgress.style.width = "38%";
+    }
+
+    guideToggle.addEventListener("click", () => {
+      document.body.classList.toggle("guide-off");
+      const isGuideOff = document.body.classList.contains("guide-off");
+      guideToggleLabel.textContent = isGuideOff ? "Guide Mode OFF" : "Guide Mode ON";
+    });
+
+    sceneButtons.forEach((button) => {
+      button.addEventListener("click", () => setScene(button.dataset.scene));
+    });
+
+    tabButtons.forEach((button) => {
+      button.addEventListener("click", () => openTab(button.dataset.tab));
+    });
+
+    document.getElementById("inject-result-btn").addEventListener("click", () => {
+      mainInput.value = "아래 합의안을 바탕으로 실제 앱 구조에 맞는 구현 계획을 작성해줘. 특히 workflow-store, workflow-engine, renderer 이벤트를 단계별로 정리해줘.";
+      setScene("result");
+    });
+
+    document.getElementById("close-result-btn").addEventListener("click", () => {
+      resultSheet.classList.remove("active");
+    });
+
+    document.getElementById("resolve-attention-btn").addEventListener("click", () => {
+      attentionToast.classList.remove("active");
+      setScene("builder");
+    });
+
+    document.getElementById("dismiss-attention-btn").addEventListener("click", () => {
+      attentionToast.classList.remove("active");
+      runStrip.classList.remove("active");
+    });
+
+    setScene("entry");
+  </script>
+</body>
+</html>

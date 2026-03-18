@@ -63,6 +63,11 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **REQ-INPUT-017 (Main Input Shortcut Compatibility)**: While using Slash Command or inline variable editing, Ctrl+Enter shall preserve the existing send behavior as the primary send shortcut.
 - **REQ-INPUT-018 (Popup Layer Visibility)**: When input context UI (Slash list, variable autocomplete, unresolved-variable dialog) is open, the system shall present that UI above webview layers without relying on temporary BrowserView resize/shrink.
 - **REQ-INPUT-019 (Popup Layer Backdrop)**: While input context UI is open, the system shall apply an application-level dim/blur treatment over the webview region to maintain popup readability and interaction priority.
+- **REQ-INPUT-020 (Main Prompt Preview Mermaid)**: When the main prompt inline or expanded preview is shown and the prompt text contains a markdown code block with language tag `mermaid` (e.g. ` ```mermaid ` … ` ``` `), the system shall render that block as a Mermaid diagram (e.g. SVG) within the preview. The system shall use a bundled Mermaid library so that this feature works offline in the installed application (exe).
+- **REQ-INPUT-021 (Preview Code Block Sections)**: When the main prompt preview or Custom Prompt Builder or Session Prompt Builder preview is shown, the system shall display each markdown fenced code block (e.g. ` ```mermaid `, ` ```python `, ` ```latex `) as a distinct section block with a header (block type label and controls) and content area, so that preview content is not merged into a single flow.
+- **REQ-INPUT-022 (Mermaid Block Controls)**: For a ` ```mermaid ` block in preview, the system shall provide per-block header controls: Text/Preview toggle and Copy (raw code) button fixed at top-right of the block; when Preview is selected, the block shall show the rendered diagram and Zoom out / Zoom in / Fit / Full screen buttons at the block’s top-right.
+- **REQ-INPUT-023 (Code Block Syntax and Copy)**: For other language code blocks (e.g. ` ```python `) in preview, the system shall display the block in a distinct section with syntax highlighting and a Copy button that copies the raw code to the clipboard.
+- **REQ-INPUT-024 (LaTeX Block)**: For a ` ```latex ` block in preview, the system shall provide Text/Preview toggle and Copy (raw code); when Preview is selected, render the math and provide export as image or copy rendered result to clipboard.
 
 ### 3.4 Cross Check & Anonymous Mode
 - **REQ-CROSS-001**: The system shall provide a "Cross Check" features menu.
@@ -108,6 +113,7 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **REQ-CPB-023 (Variable Highlight)**: While in Preview mode and the "변수 하이라이트" option is enabled, the system shall visually highlight substituted variable values with a distinct style.
 - **REQ-CPB-024 (Unresolved Highlight)**: While in Preview mode and the "미해결만" option is enabled, the system shall highlight only variables that have no assigned value, using a warning style.
 - **REQ-CPB-025 (Format/Cleanup)**: When the "정리" button is clicked, the system shall remove trailing whitespace from each line, collapse 3+ consecutive blank lines to 2, and trim leading/trailing whitespace from the entire text.
+- **REQ-CPB-026 (Mermaid in Preview)**: While in Preview mode (or Live Preview), when the prompt content contains a markdown code block with language tag `mermaid` (e.g. ` ```mermaid ` … ` ``` `), the system shall render that block as a Mermaid diagram within the preview. The same rendering shall apply in the Session Custom Prompt Builder preview. Rendering shall use a bundled Mermaid library to support offline use in the installed application (exe).
 
 ##### 3.4.1.4 Variable System
 
@@ -254,6 +260,10 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **REQ-MODE-065 (Confirmation on Mode Change)**: When restoring a history session would trigger a mode change, the system may optionally display a confirmation dialog informing the user of the mode switch.
 - **REQ-MODE-066 (History Item Mode Indicator)**: The system shall visually indicate the Chat Mode of each history item in the History Sidebar (e.g., icon badge or label showing "Multi" or "Single").
 
+### 3.8 Webview Session Maintenance (Gemini)
+- **REQ-SESSION-001 (Gemini Idle Refresh)**: When one or more Gemini webviews are present and the application has been **idle** (no prompt sent to any service for a configurable period, default 10 minutes), the system shall periodically refresh those Gemini webviews (e.g., via `webContents.reload()`) to help maintain the Gemini login session, without interrupting an in-progress chat.
+- **REQ-SESSION-002 (Idle Definition)**: For the purpose of REQ-SESSION-001, **idle** is defined as: the time since the last prompt was sent (to any active service, including Gemini) exceeds the configured idle threshold; the system shall update the "last prompt sent" timestamp when `send-prompt` or `send-prompt-to-instances` is invoked with Gemini among the targets.
+
 ## 4. Technical Architecture
 
 ### 4.1 Data Persistence
@@ -323,3 +333,6 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 | 2.0 | 2026-01-08 | Added Chat Mode (Single AI / Multi AI) requirements (REQ-MODE-001~053) |
 | 2.1 | 2026-01-08 | Added History Session Restoration & Mode Switching requirements (REQ-MODE-060~066), Updated REQ-HIST-007 |
 | 3.0 | 2026-02-06 | Added Custom Prompt Builder requirements (REQ-CPB-001~085): 3-panel editor layout, 3-tier variable system (System/Global/Local), variable substitution engine, Send with full resolution, Copy Prompt to Input with selective resolution, Import/Export, backward compatibility with legacy prompts. Added NFR-008~009. Updated terminology, data persistence schema, and IPC channels. Removed `{{active_services}}` system variable. Updated Export to preserve variable placeholders and include prompt title + timestamp in filename. |
+| 3.1 | 2026-03-11 | Added Webview Session Maintenance (Gemini): REQ-SESSION-001 (Gemini idle refresh), REQ-SESSION-002 (idle definition). See ideation_20260311_120000_gemini_idle_webview_refresh.md. |
+| 3.2 | 2026-03-12 | Added Mermaid diagram preview: REQ-INPUT-020 (main prompt preview), REQ-CPB-026 (Custom Prompt Builder and Session Prompt Builder preview). See ideation_20260312_120000_mermaid_preview.md. |
+| 3.3 | 2026-03-12 | Added preview code block section UI: REQ-INPUT-021 (distinct section blocks), REQ-INPUT-022 (Mermaid block Text/Preview/Copy and zoom at block top-right), REQ-INPUT-023 (code block syntax highlight and Copy), REQ-INPUT-024 (LaTeX block render, export/copy). Main prompt eye icon and pane-level zoom retained. See ideation_20260312_160000_code_block_section_ui.md. |

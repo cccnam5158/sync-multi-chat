@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Automation Scaffold v5</title>
+  <style>
+    :root {
+      --bg: 224 71.4% 4.1%;
+      --fg: 210 20% 98%;
+      --card: 224 71.4% 4.1%;
+      --primary: 263.4 70% 50.4%;
+      --primary-fg: 210 20% 98%;
+      --secondary: 215 27.9% 16.9%;
+      --secondary-fg: 210 20% 98%;
+      --muted: 217.9 10.6% 64.9%;
+      --accent: 215 27.9% 16.9%;
+      --border: 215 27.9% 16.9%;
+      --success: 142 71% 45%;
+      --warning: 38 92% 58%;
+      --danger: 0 76% 62%;
+      --surface: 222 47% 8%;
+      --radius: 16px;
+      --shadow: 0 24px 60px rgba(0,0,0,0.42);
+      --font: "Segoe UI","Apple SD Gothic Neo","Noto Sans KR",Arial,sans-serif;
+    }
+    *{box-sizing:border-box;margin:0}
+    html{height:100%;width:100%;overflow-x:hidden}
+    body{
+      font-family:var(--font);
+      background:radial-gradient(circle at top,hsl(var(--primary)/.1),transparent 24%),hsl(var(--bg));
+      color:hsl(var(--fg));
+      -webkit-font-smoothing:antialiased;
+      overflow:hidden;
+      height:100%;
+      width:100%;
+      max-width:100vw;
+    }
+    button,input,textarea,select{font:inherit}
+    button{cursor:pointer;border:0;border-radius:12px;transition:.18s ease}
+    .hide{display:none!important}
+
+    /* ── Layout ── */
+    .app{height:100vh;width:100%;max-width:100vw;display:grid;grid-template-columns:240px minmax(0,1fr) 320px;overflow:hidden}
+    body.guide-off .app{grid-template-columns:240px minmax(0,1fr)}
+    body.guide-off .gp{display:none!important}
+
+    .sidebar,.inspector{min-width:0;display:flex;flex-direction:column;background:hsl(220 15% 18%);border-right:1px solid hsl(var(--border))}
+    .inspector{border-right:0;border-left:1px solid hsl(var(--border));background:radial-gradient(circle at top,hsl(var(--primary)/.08),transparent 28%),hsl(222 37% 10%)}
+    .ph{padding:14px 16px;border-bottom:1px solid hsl(var(--border))}
+    .ph h2,.ph h3{font-size:.95rem;font-weight:800}
+    .ph p{margin-top:6px;font-size:.79rem;line-height:1.5;color:hsl(var(--muted))}
+    .sb-body,.insp-body{padding:14px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+    .sb-footer{margin-top:auto;padding:14px;border-top:1px solid hsl(var(--border))}
+
+    .hi,.mc,.ic,.gc{border:1px solid hsl(var(--border));border-radius:var(--radius);background:hsl(var(--card)/.84);padding:12px;color:hsl(var(--muted));font-size:.8rem;line-height:1.55}
+    .hi strong,.mc strong,.ic strong,.gc strong{display:block;margin-bottom:6px;color:hsl(var(--fg));font-size:.83rem}
+
+    .main{min-width:0;max-width:100%;display:flex;flex-direction:column;overflow:hidden}
+
+    /* ── Topbar ── */
+    .topbar{padding:10px 12px 12px;border-bottom:1px solid hsl(var(--border));display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;background:linear-gradient(180deg,hsl(var(--bg)),hsl(var(--surface)))}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;min-height:26px;padding:0 10px;border-radius:999px;border:1px solid hsl(var(--primary)/.3);background:hsl(var(--primary)/.12);color:hsl(var(--fg));font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+    .eyebrow::before{content:"";width:7px;height:7px;border-radius:999px;background:hsl(var(--success));box-shadow:0 0 0 5px hsl(var(--success)/.12)}
+    .tw{min-width:0;flex:1}
+    .tw h1{margin:10px 0 0;font-size:1.08rem;line-height:1.3;word-break:break-word}
+    .tw p{margin:6px 0 0;max-width:100%;font-size:.81rem;line-height:1.55;color:hsl(var(--muted))}
+    .sr{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;flex-shrink:0}
+    .chip{height:34px;padding:0 12px;border:1px solid hsl(var(--border));border-radius:12px;background:hsl(var(--secondary));color:hsl(var(--secondary-fg));font-size:.75rem;font-weight:800}
+    .chip:hover,.chip.on{background:hsl(var(--primary));color:hsl(var(--primary-fg));border-color:transparent}
+
+    /* ── Journey bar ── */
+    .jbar{padding:10px 12px 12px;border-bottom:1px solid hsl(var(--border));background:hsl(223 30% 8%);display:flex;flex-direction:column;gap:8px;min-width:0}
+    .jmeta{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .jmeta strong{font-size:.84rem;min-width:0}
+    .jmeta span{font-size:.76rem;color:hsl(var(--muted));flex-shrink:0}
+    .jsteps{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+    .js{min-width:0;padding:10px 12px;border-radius:12px;border:1px solid hsl(var(--border));background:hsl(var(--card)/.7)}
+    .js.on{border-color:hsl(var(--primary)/.5);background:hsl(var(--primary)/.12)}
+    .js.done{border-color:hsl(var(--success)/.5);background:hsl(var(--success)/.1)}
+    .js small{display:block;margin-bottom:5px;color:hsl(var(--muted));font-size:.67rem;text-transform:uppercase;letter-spacing:.04em}
+    .js strong{display:block;font-size:.78rem;line-height:1.35}
+    .js p{margin:6px 0 0;color:hsl(var(--muted));font-size:.72rem;line-height:1.45}
+
+    /* ── Workspace ── */
+    .ws{flex:1;min-height:0;min-width:0;padding:12px 14px 14px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+
+    /* View Stage */
+    .vstage{border:1px solid hsl(var(--border));border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0)),hsl(223 31% 9%);box-shadow:var(--shadow);overflow:hidden;min-width:0}
+    .sth{padding:10px 12px;border-bottom:1px solid hsl(var(--border));display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .sth strong{font-size:.84rem}
+    .sth span{font-size:.75rem;color:hsl(var(--muted))}
+    .sgrid{padding:12px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .vc{min-height:154px;border-radius:18px;border:1px solid hsl(var(--border));background:hsl(var(--card)/.78);padding:14px;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden}
+    .vc::after{content:"";position:absolute;inset:auto -20px -30px auto;width:90px;height:90px;border-radius:999px;background:hsl(var(--primary)/.08);filter:blur(12px)}
+    .vc strong{font-size:.83rem}
+    .strow{display:flex;flex-wrap:wrap;gap:6px}
+    .pill{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:999px;border:1px solid hsl(var(--border));background:hsl(var(--secondary));color:hsl(var(--muted));font-size:.72rem;font-weight:700}
+    .pill.ok{border-color:hsl(var(--success)/.4);background:hsl(var(--success)/.12);color:hsl(var(--fg))}
+    .pill.w{border-color:hsl(var(--warning)/.45);background:hsl(var(--warning)/.12);color:hsl(var(--fg))}
+
+    /* Controls Shell */
+    .cshell{padding:14px;border-top:1px solid hsl(var(--border));background:hsl(222 34% 8%);display:flex;flex-direction:column;gap:12px}
+    .rstrip{display:none;border:1px solid hsl(var(--border));border-radius:18px;background:hsl(var(--card)/.9);padding:10px 12px;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;min-width:0}
+    .rstrip.on{display:flex}
+    .rhead strong{display:block;font-size:.83rem;margin-bottom:4px}
+    .rhead span{color:hsl(var(--muted));font-size:.75rem}
+    .rtrack{min-width:0;flex:1;max-width:280px;height:9px;border-radius:999px;background:hsl(var(--secondary));overflow:hidden}
+    .rprog{height:100%;width:38%;background:linear-gradient(90deg,hsl(var(--primary)),hsl(var(--success)));border-radius:inherit}
+    .mic{border:1px solid hsl(var(--border));border-radius:18px;background:hsl(var(--card)/.86);padding:12px;display:grid;grid-template-columns:1fr;gap:12px;align-items:end}
+    .mic textarea{width:100%;min-height:82px;resize:vertical;border:1px solid hsl(var(--border));border-radius:14px;background:hsl(var(--secondary));color:hsl(var(--fg));padding:12px 13px;outline:none}
+    .field textarea,.field input,.field select{width:100%;border:1px solid hsl(var(--border));border-radius:14px;background:hsl(var(--secondary));color:hsl(var(--fg));padding:12px 13px;outline:none}
+
+    /* ── Automation Surface ── */
+    .asurf{border:1px solid hsl(var(--border));border-radius:22px;overflow:hidden;background:radial-gradient(circle at top,hsl(var(--primary)/.08),transparent 26%),hsl(223 31% 8%);box-shadow:var(--shadow);min-width:0}
+    .ash{padding:12px 14px;border-bottom:1px solid hsl(var(--border));display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .ash strong{display:block;font-size:.92rem}
+    .ash p{margin:6px 0 0;font-size:.79rem;line-height:1.5;color:hsl(var(--muted));max-width:100%}
+    .tabr{display:flex;flex-wrap:wrap;gap:8px}
+    .nbtn{height:34px;padding:0 12px;border-radius:12px;border:1px solid hsl(var(--border));background:transparent;color:hsl(var(--muted));font-size:.76rem;font-weight:800}
+    .nbtn.on{background:hsl(var(--primary));color:hsl(var(--primary-fg));border-color:transparent}
+    .tpanel{padding:16px;display:flex;flex-direction:column;gap:14px}
+    .ogrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .pc{border:1px solid hsl(var(--border));border-radius:20px;background:hsl(var(--card)/.86);padding:16px;display:flex;flex-direction:column;gap:12px;min-height:250px}
+    .pc h4{margin:0;font-size:.9rem}
+    .pc p,.scopy{margin:0;font-size:.79rem;line-height:1.55;color:hsl(var(--muted))}
+    .cklist{display:flex;flex-direction:column;gap:8px}
+    .cki{display:flex;gap:8px;align-items:flex-start;font-size:.77rem;color:hsl(var(--fg));line-height:1.45}
+    .cki::before{content:"";width:8px;height:8px;margin-top:5px;border-radius:999px;background:hsl(var(--success));box-shadow:0 0 0 5px hsl(var(--success)/.12);flex:0 0 auto}
+    .cact{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap}
+    .obot{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px}
+    .nc{border:1px solid hsl(var(--border));border-radius:18px;background:hsl(var(--card)/.82);padding:14px}
+
+    /* ── Builder (pure CSS/JS, no React Flow) ── */
+    .bld{min-height:min(500px,55vh);display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;background:rgba(2,6,23,.55);min-width:0}
+    .bld-top{padding:12px 14px;border-bottom:1px solid rgba(148,163,184,.12);display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;background:linear-gradient(180deg,rgba(15,23,42,.95),rgba(15,23,42,.78))}
+    .bld-top h2{margin:8px 0 0;font-size:1.1rem;word-break:break-word}
+    .bld-top .sub{margin:6px 0 0;font-size:.82rem;line-height:1.55;color:rgba(203,213,225,.84);max-width:100%}
+    .bld-pills{padding:10px 14px;border-bottom:1px solid rgba(148,163,184,.12);display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:rgba(15,23,42,.7)}
+    .bld-main{min-height:0;min-width:0;display:grid;grid-template-columns:200px minmax(0,1fr) 280px;overflow:hidden}
+    .bld-left{border-right:1px solid rgba(148,163,184,.12);background:rgba(15,23,42,.82);display:flex;flex-direction:column;min-width:0;overflow:auto}
+    .bld-canvas{position:relative;min-width:0;min-height:0;background:linear-gradient(180deg,rgba(15,23,42,.42),rgba(2,6,23,.82));border-right:1px solid rgba(148,163,184,.12);overflow:auto;padding:16px;-webkit-overflow-scrolling:touch}
+    .bld-right{background:rgba(15,23,42,.85);display:flex;flex-direction:column;min-width:0;overflow:auto}
+    .bld-bottom{border-top:1px solid rgba(148,163,184,.12);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;min-height:120px;background:rgba(15,23,42,.92)}
+
+    /* Flow canvas nodes */
+    .flow-canvas{position:relative;min-height:400px}
+    .fnode{position:absolute;width:min(240px,42vw);max-width:240px;border-radius:20px;padding:12px;border:1px solid rgba(148,163,184,.18);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0)),rgba(15,23,42,.6);color:rgba(248,250,252,.96);cursor:pointer;transition:border-color .2s,box-shadow .2s}
+    .fnode.sel{border-color:hsl(var(--primary));box-shadow:0 0 0 1px hsl(var(--primary)/.4),0 18px 40px rgba(2,6,23,.35)}
+    .fnode .nbadge{display:inline-flex;align-items:center;gap:6px;min-height:24px;padding:0 9px;border-radius:999px;font-size:.68rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+    .fnode .ntitle{font-size:1rem;font-weight:800;margin:10px 0 8px;line-height:1.2}
+    .fnode .nrow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.75rem;color:rgba(203,213,225,.88);margin-bottom:6px}
+    .fnode .nchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .fnode .nchip{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;border-radius:999px;font-size:.68rem;font-weight:700;color:rgba(241,245,249,.9);border:1px solid rgba(148,163,184,.2);background:rgba(15,23,42,.42)}
+    .fnode .nprompt{margin-top:10px;padding:8px 10px;border-radius:12px;background:rgba(15,23,42,.45);border:1px solid rgba(148,163,184,.12);font-size:.75rem;line-height:1.5;color:rgba(226,232,240,.82)}
+
+    /* SVG edges */
+    .flow-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+    .flow-svg path{fill:none;stroke:rgba(148,163,184,.5);stroke-width:2}
+    .flow-svg path.animated{stroke-dasharray:8 4;animation:dashflow 1s linear infinite}
+    @keyframes dashflow{to{stroke-dashoffset:-12}}
+
+    /* ── Sheet ── */
+    .sheet{position:fixed;top:24px;right:24px;bottom:24px;width:min(420px,calc(100vw - 48px));transform:translateX(calc(100% + 32px));transition:transform .24s ease;z-index:32;pointer-events:none}
+    .sheet.on{transform:translateX(0);pointer-events:auto}
+    .sheet-in{height:100%;border:1px solid hsl(var(--border));border-radius:22px;background:radial-gradient(circle at top,hsl(var(--primary)/.08),transparent 28%),hsl(223 31% 9%);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+    .sheet-h,.sheet-b,.sheet-f{padding:16px}
+    .sheet-h{border-bottom:1px solid hsl(var(--border))}
+    .sheet-h h3{font-size:1rem}
+    .sheet-h p{margin:6px 0 0;font-size:.79rem;line-height:1.55;color:hsl(var(--muted))}
+    .sheet-b{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px}
+    .sblk{border:1px solid hsl(var(--border));border-radius:16px;background:hsl(var(--card)/.84);padding:12px;font-size:.79rem;line-height:1.55;color:hsl(var(--muted))}
+    .sblk strong{display:block;margin-bottom:6px;color:hsl(var(--fg));font-size:.82rem}
+    .sheet-f{border-top:1px solid hsl(var(--border));display:flex;gap:8px;flex-wrap:wrap}
+
+    /* ── Toast ── */
+    .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,calc(100% + 40px));width:min(700px,calc(100vw - 48px));border:1px solid hsl(var(--warning)/.4);border-radius:18px;background:linear-gradient(180deg,rgba(250,204,21,.12),rgba(15,23,42,.98));box-shadow:var(--shadow);padding:16px;transition:transform .24s ease;z-index:36}
+    .toast.on{transform:translate(-50%,0)}
+    .toast-t{font-size:.92rem;font-weight:800;margin-bottom:8px}
+    .toast p{font-size:.8rem;line-height:1.55;color:hsl(var(--fg))}
+    .toast-a{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+
+    /* ── Buttons ── */
+    .btn{height:34px;padding:0 12px;border:1px solid hsl(var(--border));background:hsl(var(--secondary));color:hsl(var(--secondary-fg));font-size:.78rem;font-weight:700;border-radius:12px}
+    .btn:hover{background:hsl(var(--accent))}
+    .btn.p{background:hsl(var(--primary));color:hsl(var(--primary-fg));border-color:transparent}
+    .btn.p:hover{filter:brightness(1.04)}
+    .btn.g{background:transparent}
+    .btn.s{background:hsl(var(--success));border-color:transparent;color:#fff}
+    .btn.w{background:hsl(var(--warning));border-color:transparent;color:#111827}
+    code{padding:2px 6px;border-radius:8px;background:hsl(var(--secondary));color:hsl(var(--fg));font-size:.74rem}
+
+    /* ── Guide toggle ── */
+    .gtoggle{position:fixed;right:22px;bottom:22px;z-index:40;display:inline-flex;align-items:center;gap:10px;min-height:46px;padding:0 16px;background:hsl(var(--primary));color:hsl(var(--primary-fg));box-shadow:var(--shadow);font-weight:800;letter-spacing:.01em;border-radius:12px}
+    .gtoggle:hover{filter:brightness(1.05);transform:translateY(-1px)}
+    .gind{width:9px;height:9px;border-radius:999px;background:rgba(255,255,255,.8);box-shadow:0 0 0 6px rgba(255,255,255,.14)}
+
+    /* ── Run list ── */
+    .rlist{display:flex;flex-direction:column;gap:12px}
+    .rcard{border:1px solid hsl(var(--border));border-radius:18px;background:hsl(var(--card)/.82);padding:14px}
+    .rcard h4{margin:0;font-size:.9rem}
+    .rcard p{margin:0;font-size:.79rem;line-height:1.55;color:hsl(var(--muted))}
+
+    /* Large: hide inspector to free width */
+    @media(max-width:1400px){
+      .app{grid-template-columns:220px minmax(0,1fr)}
+      .inspector{display:none}
+    }
+    /* Medium: narrow sidebar, single column content grids */
+    @media(max-width:1200px){
+      .app{grid-template-columns:200px minmax(0,1fr)}
+      .jsteps{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .ogrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .obot{grid-template-columns:1fr}
+      .sgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .bld-main{grid-template-columns:180px minmax(0,1fr) 240px}
+    }
+    /* Small: narrow sidebar, single column content, builder canvas only */
+    @media(max-width:900px){
+      .app{grid-template-columns:160px minmax(0,1fr)}
+      .sidebar{min-width:0}
+      .ph p,.hi{overflow:hidden;text-overflow:ellipsis}
+      .jsteps{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .ogrid,.obot,.sgrid{grid-template-columns:1fr}
+      .bld-main{grid-template-columns:1fr}
+      .bld-left,.bld-right{display:none}
+      .bld-bottom{grid-template-columns:1fr}
+    }
+    @media(max-width:600px){
+      .app{grid-template-columns:0 1fr}
+      .sidebar{width:0;min-width:0;padding:0;overflow:hidden;border:0}
+      .sidebar .ph,.sidebar .sb-body,.sidebar .sb-footer{display:none}
+      .jsteps{grid-template-columns:1fr}
+    }
+    /* Mic: 2 columns when space enough */
+    @media(min-width:900px){
+      .mic{grid-template-columns:minmax(0,1fr) auto}
+    }
+  </style>
+</head>
+<body class="guide-on">
+  <button class="gtoggle" id="gtoggle" type="button">
+    <span class="gind"></span>
+    <span id="gtoggle-label">Guide Mode ON</span>
+  </button>
+
+  <div class="app">
+    <!-- ═══ Sidebar ═══ -->
+    <aside class="sidebar">
+      <div class="ph">
+        <h2>Chat History</h2>
+        <p>기존 앱의 사이드바를 유지합니다. 이 v5는 v1~v4 컨셉을 통합한 <code>완전 동작형</code> 프로토타입입니다.</p>
+      </div>
+      <div class="sb-body">
+        <div class="hi"><strong>Automation ideation thread</strong>v1~v3 ideation + POC chat을 병합한 사용자 여정 정리</div>
+        <div class="hi"><strong>Cross Check preset expansion</strong>Compare + Summarize를 Quick Workflow entry로 재정의</div>
+        <div class="hi"><strong>Workflow builder research</strong>자유 배치형이 아닌 단계형 AI 지정 UX 검토</div>
+        <div class="hi"><strong>Result reuse validation</strong>결과를 메인 입력창에 재주입하는 후속 대화 흐름 검증</div>
+      </div>
+      <div class="sb-footer"><button class="btn g" style="width:100%">Back To Main App</button></div>
+    </aside>
+
+    <!-- ═══ Main ═══ -->
+    <main class="main">
+      <header class="topbar">
+        <div class="tw">
+          <span class="eyebrow">Workflow Automation v5</span>
+          <h1>v1~v4 컨셉 통합 + 외부 의존성 제거 완결형 스캐폴드</h1>
+          <p class="gp" id="scene-caption">Guide Mode를 켜면 상단 설명, Journey, 우측 해설, Builder 내부 보조 설명이 함께 보여 제품 컨셉을 설명합니다. 끄면 기존 앱에 가까운 표면만 남습니다.</p>
+        </div>
+        <div class="sr">
+          <button class="chip on" data-scene="entry">Entry</button>
+          <button class="chip" data-scene="quick-run">Quick Run</button>
+          <button class="chip" data-scene="running">Running</button>
+          <button class="chip" data-scene="result">Result</button>
+          <button class="chip" data-scene="builder">Builder</button>
+          <button class="chip" data-scene="attention">Attention</button>
+        </div>
+      </header>
+
+      <section class="jbar gp">
+        <div class="jmeta">
+          <strong id="j-title">사용자 첫 여정 · Entry</strong>
+          <span id="j-copy">기존 앱 구조 안에서 automation을 어떻게 발견하고 이해하는지 보여줍니다.</span>
+        </div>
+        <div class="jsteps">
+          <div class="js on" data-j="entry"><small>01</small><strong>Entry</strong><p>Cross Check 확장형 진입</p></div>
+          <div class="js" data-j="quick-run"><small>02</small><strong>Quick Run</strong><p>프리셋으로 즉시 가치 체감</p></div>
+          <div class="js" data-j="running"><small>03</small><strong>Running</strong><p>메인 채팅을 가리지 않는 Run Strip</p></div>
+          <div class="js" data-j="result"><small>04</small><strong>Result Reuse</strong><p>완료가 아니라 다음 프롬프트의 시작점</p></div>
+          <div class="js" data-j="builder"><small>05</small><strong>Advanced Builder</strong><p>좌→우 단계형 AI 역할 지정 편집기</p></div>
+          <div class="js" data-j="attention"><small>06</small><strong>Attention</strong><p>로그인/인증 이슈를 복구 흐름으로 표시</p></div>
+        </div>
+      </section>
+
+      <div class="ws">
+        <!-- View Stage -->
+        <section class="vstage">
+          <div class="sth">
+            <div><strong>Foreground Chat Workspace</strong> <span>기존 앱의 웹뷰 영역 placeholder</span></div>
+            <div class="strow">
+              <span class="pill ok">Layout: 2x2</span>
+              <span class="pill">Cross Check Ready</span>
+              <span class="pill">Automation Available</span>
+            </div>
+          </div>
+          <div class="sgrid">
+            <article class="vc"><strong>Claude</strong><div class="strow"><span class="pill ok">Context</span><span class="pill">Reasoning</span></div><p class="scopy">장문 추론과 구조화 정리에 강한 lane 후보</p></article>
+            <article class="vc"><strong>Gemini</strong><div class="strow"><span class="pill ok">Fast</span><span class="pill">Synthesis</span></div><p class="scopy">빠른 합성 및 중간 요약 역할에 적합</p></article>
+            <article class="vc"><strong>ChatGPT</strong><div class="strow"><span class="pill ok">Generalist</span><span class="pill">Ideation</span></div><p class="scopy">일반 목적 검토, 재서술, 대안 제시에 강함</p></article>
+            <article class="vc"><strong>Grok</strong><div class="strow"><span class="pill w">Contrast</span><span class="pill">Provocation</span></div><p class="scopy">반대 관점, 빠른 sanity check, edge-case 탐색에 활용</p></article>
+          </div>
+          <div class="cshell">
+            <div class="rstrip" id="rstrip">
+              <div class="rhead">
+                <strong id="r-title">Research → Verify → Summarize</strong>
+                <span id="r-copy">Step 2/4 · Claude, GPT-4o, Gemini 병렬 검토 중</span>
+              </div>
+              <div class="rtrack"><div class="rprog" id="r-prog"></div></div>
+              <div class="strow">
+                <span class="pill ok">Claude OK</span>
+                <span class="pill ok">GPT-4o OK</span>
+                <span class="pill">Gemini Running</span>
+              </div>
+            </div>
+            <div class="mic">
+              <label class="field">
+                <div style="margin-bottom:8px;font-size:.8rem;font-weight:800">Main Prompt</div>
+                <textarea id="main-input">현재 질문을 각 AI의 강점에 맞게 재구성하고, 병렬 검토 후 가장 신뢰할 수 있는 초안을 만들어줘.</textarea>
+              </label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+                <button class="btn" data-scene="quick-run">Automation Hub 열기</button>
+                <button class="btn g" data-scene="builder">Builder 보기</button>
+                <button class="btn p">Send Prompt</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Automation Surface -->
+        <section class="asurf">
+          <div class="ash">
+            <div>
+              <strong id="surf-title">Automation Hub Lite</strong>
+              <p id="surf-copy">Quick Run, Builder, Runs 히스토리를 한 표면 안에서 연결해, 기능 소개와 실제 사용 흐름을 동시에 검증합니다.</p>
+            </div>
+            <div class="tabr">
+              <button class="nbtn on" data-tab="overview">Quick Workflows</button>
+              <button class="nbtn" data-tab="builder">Advanced Builder</button>
+              <button class="nbtn" data-tab="runs">Recent Runs</button>
+            </div>
+          </div>
+
+          <!-- Tab: Overview -->
+          <div class="tpanel" data-panel="overview">
+            <div class="ogrid">
+              <article class="pc">
+                <div class="strow"><span class="pill ok">Phase 1</span><span class="pill">Safe Entry</span></div>
+                <h4>Compare + Summarize</h4>
+                <p>현재 질문을 공통 포맷으로 재구성한 뒤 Claude, Gemini, GPT-4o, Grok에 병렬로 보내고 차이점과 합의안을 만들어 메인 입력창으로 재주입합니다.</p>
+                <div class="cklist">
+                  <div class="cki">AI별 강점을 명시적으로 지정할 수 있어 "왜 이 모델을 쓰는지"가 드러남</div>
+                  <div class="cki">각 단계별 프롬프트를 수정해도 전체 흐름은 좌→우로 고정되어 혼동을 줄임</div>
+                </div>
+                <div class="gc gp"><strong>Guide</strong>기존 Cross Check와 가장 자연스럽게 연결되는 첫 번째 preset입니다.</div>
+                <div class="cact">
+                  <button class="btn p" data-scene="running">Quick Run</button>
+                  <button class="btn g" data-scene="result">Sample Result</button>
+                </div>
+              </article>
+              <article class="pc">
+                <div class="strow"><span class="pill ok">Phase 1</span><span class="pill">Web + Verify</span></div>
+                <h4>Research → Verify → Summarize</h4>
+                <p>Perplexity로 최신 정보를 모으고, Claude와 GPT-4o로 검증한 뒤 Gemini로 요약합니다. 외부 리서치와 내부 합성을 모두 다루는 실전형 흐름입니다.</p>
+                <div class="cklist">
+                  <div class="cki">수집, 검증, 합성 역할을 분리해 AI 간 차별점을 드러냄</div>
+                  <div class="cki">문제가 생기면 attention toast로 foreground 복귀를 유도</div>
+                </div>
+                <div class="gc gp"><strong>Guide</strong>기술 데모가 아니라 실제 사용 흐름에서 가장 설득력 있는 preset입니다.</div>
+                <div class="cact">
+                  <button class="btn p" data-scene="running">Run Simulation</button>
+                  <button class="btn g" data-scene="builder">Builder로 열기</button>
+                </div>
+              </article>
+              <article class="pc">
+                <div class="strow"><span class="pill">Phase 2</span><span class="pill w">Power User</span></div>
+                <h4>Role Relay Builder</h4>
+                <p>Planner → Critic → Writer처럼 각 AI에게 역할을 명시적으로 부여해, 단순 병렬 비교가 아니라 단계별 협업을 구성하는 고급 편집 흐름입니다.</p>
+                <div class="cklist">
+                  <div class="cki">자유 배치 대신 route preset 복제 기반으로 진입해 n8n/Zapier 연상을 줄임</div>
+                  <div class="cki">핵심 가치는 "AI 선택 + 강점 지정 + 단계 프롬프트"에 집중</div>
+                </div>
+                <div class="gc gp"><strong>Guide</strong>Builder는 초반 surface가 아니라, Quick Run 가치가 납득된 뒤 들어오는 단계입니다.</div>
+                <div class="cact"><button class="btn p" data-scene="builder">Open Builder</button></div>
+              </article>
+            </div>
+            <div class="obot">
+              <section class="nc">
+                <h4 style="margin:0 0 8px">v5에서 달라진 점</h4>
+                <div class="cklist">
+                  <div class="cki">v4의 React+ReactFlow 외부 의존성을 완전히 제거해 단독 HTML로 동작</div>
+                  <div class="cki">Builder를 순수 CSS/JS 기반 flow canvas로 구현해 안정적으로 렌더링</div>
+                  <div class="cki">v1~v4 + ideation v3 + POC chat thread의 핵심 컨셉을 모두 통합</div>
+                  <div class="cki">Guide Mode ON/OFF로 컨셉 설명 / 실제 앱 느낌 전환 가능</div>
+                </div>
+              </section>
+              <section class="nc gp">
+                <h4 style="margin:0 0 8px">왜 자유 배치형이 아닌가</h4>
+                <p class="scopy">사용자가 화면을 보자마자 <code>n8n</code>이나 <code>Zapier</code>처럼 인식하면, 현재 제품의 핵심 가치인 "각 AI 서비스의 특장점 지정"보다 "복잡한 워크플로우 툴"이라는 인상이 먼저 생깁니다. Builder는 노드 편집기보다 <strong>AI 역할 배정 보드</strong>에 가깝습니다.</p>
+              </section>
+            </div>
+          </div>
+
+          <!-- Tab: Builder -->
+          <div class="tpanel hide" data-panel="builder">
+            <div class="bld" id="builder-root">
+              <div class="bld-top">
+                <div>
+                  <div style="font-size:.75rem;font-weight:800;color:rgba(148,163,184,.88);letter-spacing:.04em;text-transform:uppercase">Advanced Builder</div>
+                  <h2 id="bld-wf-name">Parallel Compare With Rephrase</h2>
+                  <p class="sub" id="bld-wf-desc">사용자 질문을 공통 프롬프트로 재구성하고, 각 AI 서비스의 강점을 지정해 병렬 비교 후 합의안을 만듭니다.</p>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+                  <button class="btn g">Route Locked</button>
+                  <button class="btn">Preset Duplicate</button>
+                  <button class="btn s">Test Run</button>
+                </div>
+              </div>
+              <div class="bld-pills">
+                <span class="pill ok">L→R Route Composer</span>
+                <span class="pill">Trigger: Manual</span>
+                <span class="pill" id="bld-sel-pill">Selected: claude-3.5-sonnet</span>
+                <span class="pill w gp">Guide: explanation cards can be hidden globally</span>
+              </div>
+              <div class="bld-main">
+                <aside class="bld-left">
+                  <div style="padding:16px;border-bottom:1px solid rgba(148,163,184,.12)">
+                    <h3 style="font-size:.88rem">Route Presets</h3>
+                    <p style="margin:6px 0 0;font-size:.78rem;line-height:1.55;color:rgba(148,163,184,.9)">빈 캔버스 대신 route preset 복제로 시작합니다.</p>
+                  </div>
+                  <div style="padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto" id="preset-list"></div>
+                </aside>
+                <div class="bld-canvas" id="flow-canvas-wrap">
+                  <div class="gp" id="lane-guides" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;pointer-events:none">
+                    <div class="gc" style="margin:0"><strong>1. Prompt Template</strong>질문을 정리하고 공유 기준을 만든다.</div>
+                    <div class="gc" style="margin:0"><strong>2. AI Roles</strong>각 AI의 강점과 역할이 분명하게 노출된다.</div>
+                    <div class="gc" style="margin:0"><strong>3. Merge</strong>차이점과 합의안을 통합한다.</div>
+                    <div class="gc" style="margin:0"><strong>4. Deliver</strong>메인 입력창 재주입과 저장 액션으로 연결한다.</div>
+                  </div>
+                  <div class="flow-canvas" id="flow-canvas">
+                    <svg class="flow-svg" id="flow-svg"></svg>
+                  </div>
+                </div>
+                <aside class="bld-right" id="stage-inspector"></aside>
+              </div>
+              <div class="bld-bottom">
+                <div style="padding:16px;border-right:1px solid rgba(148,163,184,.12)">
+                  <h4 style="font-size:.88rem">Validation Notes</h4>
+                  <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+                    <div style="padding:12px;border-radius:14px;border:1px solid rgba(148,163,184,.12);background:rgba(15,23,42,.58);font-size:.78rem;line-height:1.55;color:rgba(203,213,225,.86)">노드 드래그와 자유 연결을 제거해 n8n/Zapier와 다른 인상을 유지합니다.</div>
+                    <div style="padding:12px;border-radius:14px;border:1px solid rgba(148,163,184,.12);background:rgba(15,23,42,.58);font-size:.78rem;line-height:1.55;color:rgba(203,213,225,.86)">각 stage는 service, role, prompt, outputVar를 동시에 가지므로 AI 선택 이유가 드러납니다.</div>
+                    <div style="padding:12px;border-radius:14px;border:1px solid rgba(148,163,184,.12);background:rgba(15,23,42,.58);font-size:.78rem;line-height:1.55;color:rgba(203,213,225,.86)">Builder는 그래프 편집기가 아니라 route preset을 조정하는 AI 역할 지정 보드입니다.</div>
+                  </div>
+                </div>
+                <div style="padding:16px">
+                  <h4 style="font-size:.88rem">Dry Run Preview</h4>
+                  <pre id="dry-run" style="margin-top:12px;padding:14px;border-radius:16px;border:1px solid rgba(148,163,184,.12);background:rgba(15,23,42,.58);font-size:.78rem;line-height:1.7;color:rgba(203,213,225,.86);white-space:pre-line;font-family:inherit"></pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab: Runs -->
+          <div class="tpanel hide" data-panel="runs">
+            <div class="rlist">
+              <article class="rcard">
+                <div class="strow" style="margin-bottom:8px"><span class="pill ok">Completed</span><span class="pill">15:02</span></div>
+                <h4>Compare + Summarize</h4>
+                <p>Claude는 기준 정의, GPT-4o는 대안 구조, Gemini는 요약 정리, Grok은 반대 관점 체크를 담당했습니다.</p>
+                <div class="cact"><button class="btn p" data-scene="result">Result 열기</button><button class="btn g">Duplicate</button></div>
+              </article>
+              <article class="rcard">
+                <div class="strow" style="margin-bottom:8px"><span class="pill w">Attention Needed</span><span class="pill">13:34</span></div>
+                <h4>Research → Verify → Summarize</h4>
+                <p>Claude 인증 갱신이 필요해 Verify 단계에서 중단되었습니다.</p>
+                <div class="cact"><button class="btn w" data-scene="attention">Attention Flow</button><button class="btn g">Resume Later</button></div>
+              </article>
+              <article class="rcard">
+                <div class="strow" style="margin-bottom:8px"><span class="pill">Draft</span><span class="pill">Route Preset</span></div>
+                <h4>Role Relay Builder</h4>
+                <p>Planner → Critic → Writer 흐름의 초안입니다.</p>
+                <div class="cact"><button class="btn p" data-scene="builder">Builder 열기</button></div>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- ═══ Inspector ═══ -->
+    <aside class="inspector gp">
+      <div class="ph">
+        <h3>Guide / Inspector</h3>
+        <p>현재 씬의 목적, 왜 이 UX가 필요한지, 실제 앱 통합 시 연결 포인트를 설명합니다.</p>
+      </div>
+      <div class="insp-body">
+        <div class="ic"><strong id="ins-title">Entry를 단순화</strong><div id="ins-copy">새 최상위 버튼을 늘리기보다 <code>Cross Check / Automation</code> 확장형으로 진입시키는 편이 기존 mental model 보존에 유리합니다.</div></div>
+        <div class="mc"><strong>Scene Purpose</strong><div id="ins-purpose">사용자가 automation을 어디서 발견하고 어떻게 이해하는지 보여줍니다.</div></div>
+        <div class="mc"><strong>Codebase Fit</strong><div id="ins-tech"><code>controls-container</code>, <code>cross-check-modal</code>, <code>workflow-run-strip</code> 확장형으로 접근하면 현재 렌더러 구조와 충돌을 줄일 수 있습니다.</div></div>
+        <div class="mc"><strong>v5 핵심 차이</strong>외부 CDN 의존성을 완전히 제거해 단독 HTML로 동작하며, v1~v4+ideation v3의 모든 핵심 컨셉을 순수 CSS/JS로 통합한 완결형 프로토타입입니다.</div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ═══ Result Sheet ═══ -->
+  <aside class="sheet" id="result-sheet">
+    <div class="sheet-in">
+      <div class="sheet-h">
+        <h3>Workflow Result</h3>
+        <p>최종 결과는 읽기 전용 종료 화면이 아니라, 메인 입력창 재주입과 저장/복제를 유도하는 다음 액션 표면입니다.</p>
+      </div>
+      <div class="sheet-b">
+        <div class="sblk"><strong>Consensus Summary</strong>Claude는 판단 기준과 리스크를 정리했고, GPT-4o는 대안 구조를 제안했으며, Gemini는 핵심 문장 5개로 요약했고, Grok은 반례와 약한 연결부를 지적했습니다.</div>
+        <div class="sblk"><strong>Reusable Prompt</strong>아래 결과를 바탕으로 실행 가능한 구현 계획을 정리해줘. 특히 각 AI 서비스 역할과 단계별 prompt를 유지하면서 실제 UI 이벤트 구조로 분해해줘.</div>
+        <div class="sblk"><strong>Step Breakdown</strong>1. Rephrase question<br/>2. Run parallel role prompts<br/>3. Merge consensus and disagreements<br/>4. Inject summary into main prompt</div>
+      </div>
+      <div class="sheet-f">
+        <button class="btn p" id="inject-btn">메인 입력창에 붙여넣기</button>
+        <button class="btn">프리셋으로 저장</button>
+        <button class="btn g" id="close-sheet">닫기</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ Attention Toast ═══ -->
+  <div class="toast" id="att-toast">
+    <div class="toast-t">Claude requires attention</div>
+    <p>Verify 단계에서 인증 갱신이 필요합니다. foreground 채팅은 유지되며, 문제를 해결한 뒤 같은 runId로 재개할 수 있습니다.</p>
+    <div class="toast-a">
+      <button class="btn p" id="resolve-btn">Foreground로 전환</button>
+      <button class="btn g" id="dismiss-btn">이번 실행 중단</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ═══════════════════════════════════════════════
+     SERVICE LIBRARY
+  ═══════════════════════════════════════════════ */
+  const SVC = {
+    main:       {id:"main",       label:"Main Prompt",      short:"Prompt",     tone:"#64748b", strengths:["질문 정리","공통 포맷","변수 바인딩"]},
+    claude:     {id:"claude",     label:"claude-3.5-sonnet", short:"Claude",     tone:"#8b5cf6", strengths:["구조화","장문 추론","품질 기준"]},
+    gemini:     {id:"gemini",     label:"gemini-1.5-flash",  short:"Gemini",     tone:"#14b8a6", strengths:["속도","요약","중간 합성"]},
+    gpt4o:      {id:"gpt4o",      label:"gpt-4o",            short:"GPT-4o",     tone:"#3b82f6", strengths:["범용성","재서술","대안 제시"]},
+    grok:       {id:"grok",       label:"grok-2-1212",       short:"Grok",       tone:"#f97316", strengths:["반대 관점","엣지 케이스","빠른 sanity check"]},
+    perplexity: {id:"perplexity", label:"perplexity",        short:"Perplexity", tone:"#10b981", strengths:["최신 정보","웹 검색","출처 기반 조사"]}
+  };
+
+  /* ═══════════════════════════════════════════════
+     PRESET TEMPLATES
+  ═══════════════════════════════════════════════ */
+  const PRESETS = {
+    compare: {
+      name:"Parallel Compare With Rephrase", desc:"사용자 질문을 공통 프롬프트로 재구성하고, 각 AI 서비스의 강점을 지정해 병렬 비교 후 합의안을 만듭니다.",
+      order:["brief","claude","gemini","gpt4o","grok","merge","deliver"],
+      stages:{
+        brief:   {id:"brief",   kind:"input",   lane:0, row:1,   title:"rephrase-question",  role:"공통 프롬프트 정리",     svc:"main",   out:"shared_prompt",  str:["질문 정리","공통 포맷"], prompt:"사용자 질문을 4개 AI가 같은 기준으로 답할 수 있게 재구성해줘: {{user_query}}"},
+        claude:  {id:"claude",  kind:"service", lane:1, row:0,   title:"claude-3.5-sonnet",  role:"기준 정의 / 논리 구조",  svc:"claude", out:"claude_answer",  str:["구조화","장문 추론"],   prompt:"{{shared_prompt}}에 답하되, 판단 기준과 누락 가능성을 명시해줘."},
+        gemini:  {id:"gemini",  kind:"service", lane:1, row:1,   title:"gemini-1.5-flash",   role:"빠른 1차 요약",         svc:"gemini", out:"gemini_answer",  str:["속도","요약"],          prompt:"{{shared_prompt}}에 빠르게 답하고 핵심 bullet만 추려줘."},
+        gpt4o:   {id:"gpt4o",   kind:"service", lane:1, row:2,   title:"gpt-4o",             role:"대안 구조 / 재서술",    svc:"gpt4o",  out:"gpt4o_answer",   str:["범용성","대안 제시"],    prompt:"{{shared_prompt}}에 답하되, 다른 해결 구조나 표현 방식을 제안해줘."},
+        grok:    {id:"grok",    kind:"service", lane:1, row:3,   title:"grok-2-1212",        role:"반대 관점 / 엣지 케이스",svc:"grok",   out:"grok_answer",    str:["반대 관점","엣지 케이스"],prompt:"{{shared_prompt}}에 답하되, 취약점과 반례를 중심으로 지적해줘."},
+        merge:   {id:"merge",   kind:"merge",   lane:2, row:1.5, title:"consensus-brief",    role:"합의안 생성",           svc:"gemini", out:"final_brief",    str:["요약","중간 합성"],     prompt:"claude_answer, gemini_answer, gpt4o_answer, grok_answer를 비교해 합의안과 차이점, 후속 질문 3개를 정리해줘."},
+        deliver: {id:"deliver", kind:"output",  lane:3, row:1.5, title:"inject-to-main",     role:"결과 재주입 / 저장",    svc:"main",   out:"next_prompt",    str:["변수 바인딩"],          prompt:"final_brief를 Result Sheet와 Main Prompt에 동시에 노출한다."}
+      },
+      edges:[["brief","claude"],["brief","gemini"],["brief","gpt4o"],["brief","grok"],["claude","merge"],["gemini","merge"],["gpt4o","merge"],["grok","merge"],["merge","deliver"]]
+    },
+    research: {
+      name:"Research → Verify → Summarize", desc:"최신 정보 조사, 검증, 최종 요약을 역할별로 나눈 대표적인 실전 preset입니다.",
+      order:["brief","research","verifyClaude","verifyGpt","merge","deliver"],
+      stages:{
+        brief:        {id:"brief",        kind:"input",   lane:0, row:1.5, title:"scope-question",      role:"질문 범위 정리",  svc:"main",       out:"research_prompt", str:["질문 정리","공통 포맷"], prompt:"사용자 질문을 검색 가능한 리서치 질문으로 정리해줘: {{user_query}}"},
+        research:     {id:"research",     kind:"service", lane:1, row:1.5, title:"perplexity-research",  role:"최신 정보 수집",  svc:"perplexity", out:"research_result", str:["최신 정보","출처 기반 조사"], prompt:"{{research_prompt}}에 대해 최신 자료와 주요 출처를 조사해줘."},
+        verifyClaude: {id:"verifyClaude", kind:"service", lane:2, row:0.8, title:"claude-verify",        role:"논리 검증",       svc:"claude",     out:"verify_logic",    str:["구조화","품질 기준"], prompt:"{{research_result}}의 논리적 비약이나 누락된 가정을 검토해줘."},
+        verifyGpt:    {id:"verifyGpt",    kind:"service", lane:2, row:2.2, title:"gpt-verify",           role:"대안 해석 검증",  svc:"gpt4o",      out:"verify_alt",      str:["범용성","대안 제시"], prompt:"{{research_result}}를 다른 관점에서 해석하면 어떤 대안이 가능한지 검토해줘."},
+        merge:        {id:"merge",        kind:"merge",   lane:3, row:1.5, title:"summary-brief",        role:"최종 요약",       svc:"gemini",     out:"summary",         str:["요약","중간 합성"], prompt:"research_result, verify_logic, verify_alt를 합쳐 실행 가능한 핵심 요약으로 정리해줘."},
+        deliver:      {id:"deliver",      kind:"output",  lane:4, row:1.5, title:"result-actions",       role:"결과 재활용",     svc:"main",       out:"next_prompt",     str:["변수 바인딩"], prompt:"summary를 main input과 run history에 연결한다."}
+      },
+      edges:[["brief","research"],["research","verifyClaude"],["research","verifyGpt"],["verifyClaude","merge"],["verifyGpt","merge"],["merge","deliver"]]
+    },
+    relay: {
+      name:"Planner → Critic → Writer Relay", desc:"AI를 병렬 비교만 하는 것이 아니라 역할 릴레이로 사용해, 단계별 prompt 차별화의 가치를 보여줍니다.",
+      order:["brief","plan","critic","writer","deliver"],
+      stages:{
+        brief:   {id:"brief",   kind:"input",   lane:0, row:1.5, title:"intent-brief",   role:"사용자 의도 정리",     svc:"main",   out:"intent_brief",str:["질문 정리","공통 포맷"],prompt:"사용자 요청을 작업 목표, 제약, 기대 결과로 정리해줘: {{user_query}}"},
+        plan:    {id:"plan",    kind:"service", lane:1, row:1.5, title:"planner-claude",  role:"Planner",              svc:"claude", out:"draft_plan",  str:["구조화","장문 추론"],  prompt:"{{intent_brief}}를 바탕으로 단계별 실행 계획을 작성해줘."},
+        critic:  {id:"critic",  kind:"service", lane:2, row:1.5, title:"critic-grok",     role:"Critic",               svc:"grok",   out:"critique",    str:["반대 관점","엣지 케이스"],prompt:"{{draft_plan}}의 허점, 과신, 누락된 edge case를 지적해줘."},
+        writer:  {id:"writer",  kind:"merge",   lane:3, row:1.5, title:"writer-gpt",      role:"Writer / Final Draft", svc:"gpt4o",  out:"final_draft", str:["범용성","재서술"],     prompt:"{{draft_plan}}과 {{critique}}를 종합해 최종 초안을 작성해줘."},
+        deliver: {id:"deliver", kind:"output",  lane:4, row:1.5, title:"inject-draft",    role:"메인 입력 재사용",     svc:"main",   out:"next_prompt", str:["변수 바인딩"],        prompt:"final_draft를 result sheet와 main input에 노출한다."}
+      },
+      edges:[["brief","plan"],["plan","critic"],["critic","writer"],["writer","deliver"]]
+    }
+  };
+
+  /* ═══════════════════════════════════════════════
+     STATE
+  ═══════════════════════════════════════════════ */
+  let currentPreset = "compare";
+  let workflow = JSON.parse(JSON.stringify(PRESETS.compare));
+  let selectedStageId = "claude";
+
+  /* ═══════════════════════════════════════════════
+     DOM REFS
+  ═══════════════════════════════════════════════ */
+  const $ = (s) => document.getElementById(s);
+  const $$ = (s) => [...document.querySelectorAll(s)];
+
+  const sceneCaption = $("scene-caption"), jTitle = $("j-title"), jCopy = $("j-copy");
+  const insTitle = $("ins-title"), insCopy = $("ins-copy"), insPurpose = $("ins-purpose"), insTech = $("ins-tech");
+  const rstrip = $("rstrip"), rTitle = $("r-title"), rCopy = $("r-copy"), rProg = $("r-prog");
+  const resultSheet = $("result-sheet"), attToast = $("att-toast");
+  const surfTitle = $("surf-title"), surfCopy = $("surf-copy");
+  const mainInput = $("main-input");
+  const flowCanvas = $("flow-canvas"), flowSvg = $("flow-svg");
+  const bldName = $("bld-wf-name"), bldDesc = $("bld-wf-desc"), bldSelPill = $("bld-sel-pill");
+  const presetListEl = $("preset-list"), stageInspEl = $("stage-inspector"), dryRunEl = $("dry-run");
+
+  /* ═══════════════════════════════════════════════
+     SCENE META
+  ═══════════════════════════════════════════════ */
+  const SM = {
+    entry:      {title:"사용자 첫 여정 · Entry",      copy:"기존 앱의 Cross Check 확장형 entry 안에서 automation을 발견하는 흐름을 보여줍니다.",caption:"Guide Mode를 켜면 왜 이 화면이 필요한지 함께 설명합니다.",insT:"Entry를 새 기능이 아닌 자연스러운 확장으로",insC:"새 버튼을 추가하기보다 기존 진입점 안에 automation을 심는 편이 현재 정보 구조와 충돌이 적습니다.",purpose:"사용자가 automation을 어디서 처음 마주하는지 설명합니다.",tech:"기존 <code>cross-check-modal</code>과 <code>controls-container</code> 확장 전략과 잘 맞습니다.",tab:"overview",run:false,result:false,attention:false,st:"Automation Hub Lite",sc:"Quick preset과 Builder 진입을 한 화면에 모아 초기 학습 비용을 낮춥니다."},
+    "quick-run":{title:"사용자 첫 여정 · Quick Run",  copy:"Builder보다 먼저 바로 실행 가능한 preset으로 제품 가치를 체감하게 합니다.",caption:"Quick Run은 AI별 역할 지정이 실제로 왜 유용한지 가장 짧은 경로로 보여줍니다.",insT:"빈 Builder보다 preset이 먼저",insC:"첫 화면에 복잡한 편집기를 노출하기보다, 이미 잘 정의된 workflow를 실행해 결과 재사용까지 이어지는 흐름이 더 설득력 있습니다.",purpose:"사용자가 먼저 눌러야 할 버튼과 기대 결과를 분명히 보여줍니다.",tech:"초기 구현은 기존 cross-check와 연계한 preset 실행으로 시작합니다.",tab:"overview",run:false,result:false,attention:false,st:"Quick Workflows",sc:"빠른 실행, 결과 재활용, Builder 진입이 한 곳에서 이어집니다."},
+    running:    {title:"사용자 첫 여정 · Running",     copy:"실행 상태는 보여주되 메인 채팅을 가리지 않는 Run Strip이 핵심입니다.",caption:"작은 strip만으로도 어떤 step이 도는지, 어떤 AI가 이미 끝났는지를 알려 신뢰를 높입니다.",insT:"상태 가시성은 작지만 선명하게",insC:"background workflow는 invisibility가 아니라 low-noise visibility가 중요합니다.",purpose:"사용자가 백그라운드에서 안전하게 실행 중임을 이해하게 합니다.",tech:"<code>workflow-run-strip</code>를 입력창 위 얇은 영역으로 배치하면 현재 레이아웃을 크게 깨지 않습니다.",tab:"overview",run:true,result:false,attention:false,prog:"64%",rt:"Compare + Summarize",rc:"Step 3/4 · Grok 반대 관점 수집 후 consensus merge 준비 중",st:"Run Monitoring",sc:"프리셋이 단순 버튼이 아니라 실제 실행 중 상태로 이어지는 것을 보여줍니다."},
+    result:     {title:"사용자 첫 여정 · Result Reuse",copy:"결과를 다음 프롬프트의 시작점으로 재활용하는 흐름이 핵심입니다.",caption:"Result Sheet는 단순 결과창이 아니라, 메인 입력 재주입과 프리셋 저장으로 이어지는 행동 표면입니다.",insT:"완료보다 재사용",insC:"automation의 가치는 run이 끝나는 순간보다, 그 결과가 다음 작업으로 연결되는 순간에 더 크게 드러납니다.",purpose:"사용자가 결과를 바로 후속 작업에 연결하도록 돕습니다.",tech:"runs history와 결과 시트를 연결하면 재실행, 복제, main input inject 흐름을 자연스럽게 만들 수 있습니다.",tab:"runs",run:true,result:true,attention:false,prog:"100%",rt:"Compare + Summarize",rc:"Completed · Final brief ready",st:"Recent Runs",sc:"완료된 run을 결과 재활용 관점에서 다시 보여줍니다."},
+    builder:    {title:"사용자 첫 여정 · Builder",     copy:"Builder는 자유 노드 편집기가 아니라, 각 AI의 강점과 단계 프롬프트를 조정하는 route composer입니다.",caption:"좌→우 흐름은 유지하되, stage 중심 UX로 바꿨습니다.",insT:"Builder의 가치 재정의",insC:"핵심은 노드 조작이 아니라 AI 역할 배정, strengths 선택, stage prompt 편집입니다.",purpose:"Advanced Builder가 왜 존재하는지, 그리고 왜 freeform editor가 아닌지를 설명합니다.",tech:"순수 CSS/JS로 flow canvas를 구현해 외부 의존성 없이 안정적으로 동작합니다.",tab:"builder",run:false,result:false,attention:false,st:"Advanced Builder",sc:"좌→우 route 안에서 AI 강점 지정과 단계 프롬프트 편집에 집중합니다."},
+    attention:  {title:"사용자 첫 여정 · Attention",   copy:"로그인 만료나 CAPTCHA는 실패가 아니라 복구가 필요한 attention 상태로 다뤄야 합니다.",caption:"백그라운드 자동화가 멈췄을 때 왜 멈췄는지, 무엇을 해야 하는지 바로 이해할 수 있어야 합니다.",insT:"실패가 아닌 복구 흐름",insC:"Foreground 전환과 resume action을 연결하면 사용자는 현재 채팅을 잃지 않고 문제를 해결할 수 있습니다.",purpose:"사람이 개입해야 하는 예외를 제품 흐름 안에 포함합니다.",tech:"toast, foreground focus, resume action 조합은 기존 popup layer 패턴과도 잘 맞습니다.",tab:"runs",run:true,result:false,attention:true,prog:"52%",rt:"Research → Verify → Summarize",rc:"Paused · Claude verification needs login refresh",st:"Attention Handling",sc:"예외 상황도 정상적인 제품 여정의 일부로 표현합니다."}
+  };
+
+  /* ═══════════════════════════════════════════════
+     TAB / SCENE SWITCHING
+  ═══════════════════════════════════════════════ */
+  function openTab(id){
+    $$("[data-tab]").forEach(b=>b.classList.toggle("on",b.dataset.tab===id));
+    $$("[data-panel]").forEach(p=>p.classList.toggle("hide",p.dataset.panel!==id));
+  }
+
+  function setScene(sc){
+    const m=SM[sc]; if(!m) return;
+    $$("[data-scene]").forEach(b=>b.classList.toggle("on",b.dataset.scene===sc));
+    const order=["entry","quick-run","running","result","builder","attention"];
+    const ci=order.indexOf(sc);
+    $$(".js").forEach(s=>{const i=order.indexOf(s.dataset.j);s.classList.toggle("on",s.dataset.j===sc);s.classList.toggle("done",i>-1&&i<ci)});
+    jTitle.textContent=m.title; jCopy.textContent=m.copy;
+    if(sceneCaption) sceneCaption.textContent=m.caption;
+    insTitle.textContent=m.insT; insCopy.innerHTML=m.insC;
+    insPurpose.textContent=m.purpose; insTech.innerHTML=m.tech;
+    surfTitle.textContent=m.st; surfCopy.textContent=m.sc;
+    openTab(m.tab);
+    rstrip.classList.toggle("on",!!m.run);
+    resultSheet.classList.toggle("on",!!m.result);
+    attToast.classList.toggle("on",!!m.attention);
+    if(m.rt) rTitle.textContent=m.rt;
+    if(m.rc) rCopy.textContent=m.rc;
+    rProg.style.width=m.prog||"38%";
+  }
+
+  /* ═══════════════════════════════════════════════
+     BUILDER: Render flow nodes (pure DOM)
+  ═══════════════════════════════════════════════ */
+  function renderBuilder(){
+    bldName.textContent=workflow.name;
+    bldDesc.textContent=workflow.desc;
+    renderPresetList();
+    renderFlowCanvas();
+    renderStageInspector();
+    renderDryRun();
+  }
+
+  function renderPresetList(){
+    presetListEl.innerHTML="";
+    Object.entries(PRESETS).forEach(([id,p])=>{
+      const btn=document.createElement("button");
+      btn.type="button";
+      btn.style.cssText=`text-align:left;padding:14px;border-radius:18px;border:1px solid ${id===currentPreset?"rgba(139,92,246,.6)":"rgba(148,163,184,.14)"};background:${id===currentPreset?"rgba(139,92,246,.14)":"rgba(15,23,42,.5)"};color:rgba(248,250,252,.96);cursor:pointer;width:100%`;
+      btn.innerHTML=`<strong style="display:block;font-size:.82rem;margin-bottom:6px">${p.name}</strong><span style="display:block;font-size:.75rem;line-height:1.5;color:rgba(203,213,225,.78)">${p.desc}</span>`;
+      btn.onclick=()=>{currentPreset=id;workflow=JSON.parse(JSON.stringify(PRESETS[id]));selectedStageId=workflow.order[1]||workflow.order[0];renderBuilder()};
+      presetListEl.appendChild(btn);
+    });
+  }
+
+  function renderFlowCanvas(){
+    flowCanvas.querySelectorAll(".fnode").forEach(n=>n.remove());
+    const xBase=20, yBase=10, xStep=280, yStep=130;
+    const positions={};
+
+    workflow.order.forEach(id=>{
+      const s=workflow.stages[id];
+      const svc=SVC[s.svc]||SVC.main;
+      const x=xBase+s.lane*xStep;
+      const y=yBase+s.row*yStep;
+      positions[id]={x:x+120,y:y+60};
+
+      const node=document.createElement("div");
+      node.className="fnode"+(id===selectedStageId?" sel":"");
+      node.style.left=x+"px";
+      node.style.top=y+"px";
+      node.style.borderColor=id===selectedStageId?svc.tone:"rgba(148,163,184,.18)";
+      node.onclick=()=>{selectedStageId=id;renderBuilder()};
+
+      const kindLabel=s.kind==="service"?"AI Role":s.kind;
+      node.innerHTML=`
+        <div class="nbadge" style="border:1px solid ${svc.tone}55;background:${svc.tone}1f">${kindLabel}</div>
+        <div class="ntitle">${s.title}</div>
+        <div class="nrow"><span>Service</span><strong>${svc.label}</strong></div>
+        <div class="nrow"><span>Role</span><span>${s.role}</span></div>
+        <div class="nrow"><span>Output</span><span>${s.out}</span></div>
+        <div class="nchips">${s.str.map(st=>`<span class="nchip">${st}</span>`).join("")}</div>
+        <div class="nprompt">${s.prompt}</div>`;
+      flowCanvas.appendChild(node);
+    });
+
+    const maxX=Math.max(...Object.values(positions).map(p=>p.x))+200;
+    const maxY=Math.max(...Object.values(positions).map(p=>p.y))+200;
+    flowCanvas.style.minHeight=maxY+"px";
+    flowCanvas.style.minWidth=maxX+"px";
+    flowSvg.setAttribute("viewBox",`0 0 ${maxX} ${maxY}`);
+    flowSvg.style.width=maxX+"px";
+    flowSvg.style.height=maxY+"px";
+    flowSvg.innerHTML="";
+
+    workflow.edges.forEach(([src,tgt])=>{
+      const s=positions[src], t=positions[tgt];
+      if(!s||!t) return;
+      const mx=(s.x+t.x)/2;
+      const d=`M${s.x},${s.y} C${mx},${s.y} ${mx},${t.y} ${t.x},${t.y}`;
+      const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+      path.setAttribute("d",d);
+      path.setAttribute("marker-end","url(#arrowhead)");
+      flowSvg.appendChild(path);
+    });
+
+    if(!flowSvg.querySelector("defs")){
+      const defs=document.createElementNS("http://www.w3.org/2000/svg","defs");
+      defs.innerHTML=`<marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="rgba(148,163,184,.5)"/></marker>`;
+      flowSvg.prepend(defs);
+    }
+  }
+
+  function renderStageInspector(){
+    const s=workflow.stages[selectedStageId];
+    if(!s){stageInspEl.innerHTML="";return}
+    const svc=SVC[s.svc]||SVC.main;
+    bldSelPill.textContent="Selected: "+svc.label;
+    stageInspEl.innerHTML=`
+      <div style="padding:16px;border-bottom:1px solid rgba(148,163,184,.12)">
+        <h3 style="font-size:.88rem">Stage Inspector</h3>
+        <p style="margin:6px 0 0;font-size:.78rem;line-height:1.55;color:rgba(148,163,184,.9)">각 단계의 AI, prompt, strengths, outputVar를 조정합니다.</p>
+      </div>
+      <div style="padding:14px;display:flex;flex-direction:column;gap:12px">
+        <div style="padding:14px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(15,23,42,.5)">
+          <strong style="display:block;font-size:.82rem;margin-bottom:10px">Selected Stage</strong>
+          <div style="font-size:.78rem;color:rgba(203,213,225,.82)">${s.title}</div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+            <span class="pill">Kind: ${s.kind}</span>
+            <span class="pill">Output: ${s.out}</span>
+          </div>
+        </div>
+        <label class="field"><span style="font-size:.78rem;font-weight:800">Stage Title</span>
+          <input value="${s.title}" data-field="title"/></label>
+        <label class="field"><span style="font-size:.78rem;font-weight:800">Role / Purpose</span>
+          <input value="${s.role}" data-field="role"/></label>
+        <label class="field"><span style="font-size:.78rem;font-weight:800">Assigned Service</span>
+          <select data-field="svc">${Object.values(SVC).map(sv=>`<option value="${sv.id}"${sv.id===s.svc?" selected":""}>${sv.label}</option>`).join("")}</select></label>
+        <label class="field"><span style="font-size:.78rem;font-weight:800">Output Variable</span>
+          <input value="${s.out}" data-field="out"/></label>
+        <div style="padding:14px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(15,23,42,.5)">
+          <strong style="display:block;font-size:.82rem;margin-bottom:10px">Strength Focus</strong>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">${svc.strengths.map(st=>{
+            const active=s.str.includes(st);
+            return `<button type="button" class="pill" data-strength="${st}" style="cursor:pointer;${active?`border-color:${svc.tone}80;background:${svc.tone}26;color:rgba(248,250,252,.96)`:""}">${st}</button>`;
+          }).join("")}</div>
+          <div class="gp" style="margin-top:10px;font-size:.75rem;line-height:1.55;color:rgba(148,163,184,.88)">이 단계에서 어떤 강점을 실제로 활용할지 선택하면, 사용자는 단순히 모델 이름이 아니라 선택 근거를 함께 보게 됩니다.</div>
+        </div>
+        <label class="field"><span style="font-size:.78rem;font-weight:800">Stage Prompt</span>
+          <textarea rows="6" data-field="prompt">${s.prompt}</textarea></label>
+      </div>`;
+
+    stageInspEl.querySelectorAll("[data-field]").forEach(el=>{
+      el.addEventListener("input",()=>{
+        workflow.stages[selectedStageId][el.dataset.field]=el.value;
+        if(el.dataset.field==="svc"){
+          const sv=SVC[el.value]||SVC.main;
+          workflow.stages[selectedStageId].str=sv.strengths.slice(0,2);
+        }
+        renderBuilder();
+      });
+    });
+    stageInspEl.querySelectorAll("[data-strength]").forEach(el=>{
+      el.addEventListener("click",()=>{
+        const st=el.dataset.strength;
+        const list=workflow.stages[selectedStageId].str;
+        workflow.stages[selectedStageId].str=list.includes(st)?list.filter(x=>x!==st):[...list,st];
+        renderBuilder();
+      });
+    });
+  }
+
+  function renderDryRun(){
+    dryRunEl.textContent=workflow.order.map((id,i)=>{
+      const s=workflow.stages[id];
+      const svc=SVC[s.svc]||SVC.main;
+      return `${i+1}. ${s.role} · ${svc.short} · ${s.out}`;
+    }).join("\n");
+  }
+
+  /* ═══════════════════════════════════════════════
+     EVENT BINDINGS
+  ═══════════════════════════════════════════════ */
+  $("gtoggle").onclick=()=>{
+    document.body.classList.toggle("guide-off");
+    $("gtoggle-label").textContent=document.body.classList.contains("guide-off")?"Guide Mode OFF":"Guide Mode ON";
+  };
+
+  $$("[data-scene]").forEach(b=>b.addEventListener("click",()=>setScene(b.dataset.scene)));
+  $$("[data-tab]").forEach(b=>b.addEventListener("click",()=>openTab(b.dataset.tab)));
+
+  $("inject-btn").onclick=()=>{
+    mainInput.value="아래 합의안을 바탕으로 실제 앱 구조에 맞는 구현 계획을 작성해줘. 특히 workflow-store, workflow-engine, renderer 이벤트를 단계별로 정리해줘.";
+    resultSheet.classList.remove("on");
+  };
+  $("close-sheet").onclick=()=>resultSheet.classList.remove("on");
+  $("resolve-btn").onclick=()=>{attToast.classList.remove("on");setScene("builder")};
+  $("dismiss-btn").onclick=()=>{attToast.classList.remove("on");rstrip.classList.remove("on")};
+
+  /* ═══════════════════════════════════════════════
+     INIT
+  ═══════════════════════════════════════════════ */
+  setScene("entry");
+  renderBuilder();
+})();
+</script>
+</body>
+</html>
