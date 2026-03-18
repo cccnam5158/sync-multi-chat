@@ -62,6 +62,7 @@
     "directories": {
       "output": "dist"
     },
+    "artifactName": "Sync-Multi-Chat-Setup-${version}.${ext}",
     "win": {
       "target": [
         {
