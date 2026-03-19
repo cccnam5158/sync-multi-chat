@@ -8,29 +8,35 @@ Sync Multi Chat 앱 릴리즈 배포 절차입니다.
 
 ## 릴리즈 흐름
 
-```
-[로컬]                                [GitHub]
-  │                                      │
-  ├─ 1. 코드 변경                         │
-  ├─ 2. npm version X.Y.Z               │
-  ├─ 3. 문서 업데이트                      │
-  │    (README 3종, RELEASE_NOTES.md,    │
-  │     docs/, blogs/, index.html 타이틀) │
-  ├─ 4. git add -A && git commit         │
-  ├─ 5. git push origin master ─────────►│ Pages 배포 (docs/ 변경 시)
-  │                                      │
-  ├─ 6. git tag vX.Y.Z                   │
-  ├─ 7. git push origin vX.Y.Z ────────►│ Actions 트리거
-  │                                      ├─ tag ↔ package.json 버전 검증
-  │                                      ├─ npm ci (clean install)
-  │                                      ├─ npm run publish
-  │                                      │   ├─ electron-builder 빌드
-  │                                      │   ├─ Release 자동 생성
-  │                                      │   └─ exe + blockmap + latest.yml 업로드
-  │                                      ├─ RELEASE_NOTES.md → Release body 반영
-  │                                      └─ 아티팩트 무결성 검증 (sha512)
-  │                                      │
-  └─ 8. 완료 확인                         └─ 완료
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Local as [로컬]
+    participant GitHub as [GitHub]
+
+    Note over Local: 1. 코드 변경
+    Note over Local: 2. npm version X.Y.Z
+    Note over Local: 3. 문서 업데이트<br/>(README, RELEASE_NOTES, docs/, blogs/ 등)
+    Note over Local: 4. git add -A && git commit
+
+    Local->>GitHub: 5. git push origin master
+    Note right of GitHub: Pages 배포 (docs/ 변경 시)
+
+    Local->>Local: 6. git tag vX.Y.Z
+    Local->>GitHub: 7. git push origin vX.Y.Z
+
+    rect rgb(240, 248, 255)
+        Note over GitHub: Actions 트리거
+        GitHub->>GitHub: tag ↔ package.json 버전 검증
+        GitHub->>GitHub: npm ci (clean install)
+        GitHub->>GitHub: npm run publish
+        Note right of GitHub: electron-builder 빌드<br/>Release 자동 생성<br/>exe + blockmap + latest.yml 업로드
+        GitHub->>GitHub: RELEASE_NOTES.md → Release body 반영
+        GitHub->>GitHub: 아티팩트 무결성 검증 (sha512)
+    end
+
+    GitHub-->>Local: 8. 완료 확인
+    Note over GitHub: 완료
 ```
 
 ---
