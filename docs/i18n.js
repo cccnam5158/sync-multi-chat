@@ -137,6 +137,9 @@ const translations = {
         // Release Notes
         "releaseNotes.title": "Release History",
         "releaseNotes.lastUpdated": "Last updated: Mar 18, 2026",
+        "releaseNotes.v082.imp1": "Gemini idle refresh preserves conversation: The Gemini webview now reloads the current conversation URL in-place instead of navigating to a new chat. Your multi-panel conversation context is no longer lost after each refresh cycle.",
+        "releaseNotes.v082.imp2": "Typing-aware refresh pause: While typing in the main prompt input, the Gemini refresh timer automatically pauses (blinking countdown) and resumes 3 seconds after you stop typing—no more focus stealing mid-composition.",
+        "releaseNotes.v082.imp3": "Scroll & caret restoration: After an idle refresh, the Gemini webview's scroll position on conversation URLs is saved and restored. The main prompt input's caret position and text selection are also preserved.",
         "releaseNotes.v081.imp1": "Perplexity login detection: Clearer logged-in vs logged-out state (KO/EN CTAs, auth paths, visibility-based login UI, short grace period). Expanded login selectors. The Login Required badge tracks session state more reliably.",
         "releaseNotes.v081.imp2": "External login via Microsoft Edge: If Chrome is not installed, external browser login uses Edge (Chromium) on Windows and macOS—Edge-only setups can complete Gemini and Google-based cookie sync.",
         "releaseNotes.v080.feature1": "Prompt Builder: Mermaid, Code, LaTeX Preview: In the Custom Prompt Builder and main prompt Live Preview, code blocks (with syntax highlighting), Mermaid diagrams, and LaTeX formulas are now rendered in dedicated preview sections. Mermaid supports zoom, fit, and fullscreen; LaTeX is rendered with KaTeX.",
@@ -342,6 +345,9 @@ const translations = {
         // Release Notes
         "releaseNotes.title": "릴리스 히스토리",
         "releaseNotes.lastUpdated": "최종 업데이트: 2026년 3월 18일",
+        "releaseNotes.v082.imp1": "Gemini 유휴 새로고침 시 대화 유지: Gemini 웹뷰가 유휴 새로고침될 때 새 챗으로 이동하지 않고 현재 대화 URL을 그대로 다시 로드합니다. 멀티 패널 대화 컨텍스트가 더 이상 새로고침마다 사라지지 않습니다.",
+        "releaseNotes.v082.imp2": "타이핑 감지 새로고침 일시정지: 메인 프롬프트 입력 중에는 Gemini 새로고침 타이머가 자동으로 일시정지(깜빡이는 카운트다운)되며, 입력을 멈춘 후 3초 뒤에 재개됩니다. 작성 중 포커스가 빼앗기지 않습니다.",
+        "releaseNotes.v082.imp3": "스크롤 및 커서 위치 복원: 유휴 새로고침 후 대화 URL의 스크롤 위치가 저장·복원됩니다. 메인 프롬프트 입력의 커서 위치와 텍스트 선택 범위도 유지됩니다.",
         "releaseNotes.v081.imp1": "Perplexity 로그인 탐지: 로그인/로그아웃 상태 판별 강화(한·영 CTA, 인증 경로, 가시성 기반 로그인 UI, 짧은 grace). login 셀렉터 확장. Login Required 배지가 실제 세션과 더 잘 맞습니다.",
         "releaseNotes.v081.imp2": "Microsoft Edge 외부 로그인: Chrome이 없으면 Windows·macOS에서 Edge(Chromium)로 외부 로그인·쿠키 동기화. Edge만 설치된 환경에서도 Gemini 등 Google 연동 완료 가능.",
         "releaseNotes.v080.feature1": "프롬프트 빌더: Mermaid, 코드, LaTeX 프리뷰: 커스텀 프롬프트 빌더 및 메인 프롬프트 라이브 프리뷰에서 코드 블록(문법 강조), Mermaid 다이어그램, LaTeX 수식이 전용 프리뷰 섹션으로 렌더링됩니다. Mermaid는 확대/맞춤/전체화면 지원, LaTeX는 KaTeX로 렌더링됩니다.",
@@ -547,6 +553,9 @@ const translations = {
         // Release Notes
         "releaseNotes.title": "リリース履歴",
         "releaseNotes.lastUpdated": "最終更新: 2026年3月18日",
+        "releaseNotes.v082.imp1": "Geminiアイドル時リフレッシュで会話を維持: Geminiウェブビューがアイドル更新される際、新規チャットに遷移せず現在の会話URLをそのままリロードします。マルチパネルの会話コンテキストがリフレッシュごとに失われなくなりました。",
+        "releaseNotes.v082.imp2": "タイピング検知リフレッシュ一時停止: メインプロンプト入力中はGeminiリフレッシュタイマーが自動的に一時停止（点滅カウントダウン）し、入力停止後3秒で再開。入力中のフォーカス奪取がなくなりました。",
+        "releaseNotes.v082.imp3": "スクロール・キャレット位置の復元: アイドルリフレッシュ後、会話URLのスクロール位置が保存・復元されます。メインプロンプト入力のキャレット位置とテキスト選択範囲も維持されます。",
         "releaseNotes.v081.imp1": "Perplexityログイン検出: ログイン状態の判定を強化（日英CTA、認証パス、表示ベースのログインUI、短いグレース）。loginセレクタ拡張。Login Requiredバッジが実セッションとより一致。",
         "releaseNotes.v081.imp2": "Microsoft Edgeでの外部ログイン: Chrome未インストール時はWindows・macOSでEdge（Chromium）を使用。Edgeのみの環境でもGemini等のGoogle連携が可能。",
         "releaseNotes.v080.feature1": "プロンプトビルダー: Mermaid・コード・LaTeXプレビュー: カスタムプロンプトビルダーおよびメインプロンプトのライブプレビューで、コードブロック（シンタックスハイライト）、Mermaid図、LaTeX数式が専用プレビューセクションでレンダリングされます。Mermaidはズーム・フィット・全画面対応、LaTeXはKaTeXでレンダリング。",

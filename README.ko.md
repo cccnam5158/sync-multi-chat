@@ -39,13 +39,13 @@
 
 ## 버전
 
--   **현재 버전**: v0.8.1
+-   **현재 버전**: v0.8.2
 
 ## 설치 방법
 
 이 애플리케이션은 **Windows 설치 프로그램**으로 배포되며, **자동 업데이트 기능**을 지원합니다.
 
-1.  최신 설치 파일을 다운로드합니다: [Sync-Multi-Chat-Setup-0.8.1.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.8.1/Sync-Multi-Chat-Setup-0.8.1.exe)
+1.  최신 설치 파일을 다운로드합니다: [Sync-Multi-Chat-Setup-0.8.2.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.8.2/Sync-Multi-Chat-Setup-0.8.2.exe)
 2.  설치 프로그램을 실행하고 설치 마법사를 따라 진행합니다.
 3.  앱은 시작 시 자동으로 업데이트를 확인합니다.
 
@@ -67,6 +67,7 @@
 -   **샌드박스 환경**: 각 서비스는 격리된 컨텍스트(context isolation)를 가진 `BrowserView`에서 실행됩니다.
 -   **자격 증명 미저장**: 비밀번호는 앱에 절대 저장되지 않습니다. 각 서비스의 공식 웹사이트를 통해 직접 로그인합니다.
 -   **외부 브라우저 로그인** *(v0.8.1)*: **Google Chrome**이 없을 때 **Microsoft Edge**(Chromium)로 외부 로그인·쿠키 동기화가 가능해, Edge만 설치된 PC에서도 Gemini 등 Google 계정 연동을 완료할 수 있습니다.
+-   **Gemini 세션 안정성** *(v0.8.2)*: 유휴 새로고침 시 현재 대화 URL을 그대로 다시 로드(새 챗으로 이동하지 않음)하고, 프롬프트 입력 중에는 자동 일시정지, 리로드 후 스크롤 위치도 복원합니다.
 -   **봇 탐지 우회**: 호환성을 보장하기 위해 User-Agent 스푸핑 및 사람과 유사한 입력 이벤트 트리거를 사용합니다.
 
 ---

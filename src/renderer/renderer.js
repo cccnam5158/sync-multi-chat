@@ -41,7 +41,7 @@ function isGeminiSlot(slotKey) {
 function ensureGeminiTimerState(slotKey) {
     if (!isGeminiSlot(slotKey)) return;
     if (!geminiIdleTimerState[slotKey]) {
-        geminiIdleTimerState[slotKey] = { remainingSeconds: GEMINI_IDLE_TIMER_SECONDS, isPaused: false };
+        geminiIdleTimerState[slotKey] = { remainingSeconds: GEMINI_IDLE_TIMER_SECONDS, isPaused: false, isTypingPaused: false };
     }
 }
 
@@ -57,13 +57,25 @@ function updateGeminiIdleTimerDisplay(slotKey) {
     const el = document.getElementById(`gemini-idle-timer-${slotKey}`);
     if (!state || !el) return;
     el.textContent = formatGeminiIdleTimerLabel(state.remainingSeconds, state.isPaused);
-    el.title = state.isPaused ? 'Response in progress — refresh timer paused' : 'Auto-refresh after this time when idle';
+    el.classList.toggle('typing-paused', !!state.isTypingPaused && !state.isPaused);
+    el.title = state.isPaused
+        ? 'Response in progress — refresh timer paused'
+        : state.isTypingPaused
+            ? 'Typing detected — refresh timer paused'
+            : 'Auto-refresh after this time when idle';
+}
+
+function setAllGeminiTimersTypingPause(paused) {
+    Object.keys(geminiIdleTimerState).forEach(slotKey => {
+        geminiIdleTimerState[slotKey].isTypingPaused = paused;
+        updateGeminiIdleTimerDisplay(slotKey);
+    });
 }
 
 function tickGeminiIdleTimers() {
     Object.keys(geminiIdleTimerState).forEach(slotKey => {
         const state = geminiIdleTimerState[slotKey];
-        if (!state.isPaused && state.remainingSeconds > 0) {
+        if (!state.isPaused && !state.isTypingPaused && state.remainingSeconds > 0) {
             state.remainingSeconds -= 1;
             updateGeminiIdleTimerDisplay(slotKey);
         }
@@ -1985,12 +1997,61 @@ if (window.electronAPI.onGeminiIdleTimer) {
     });
 }
 
-// Restore focus to main prompt input after Gemini idle refresh (webview reload steals focus otherwise)
+// Pause Gemini idle refresh while user is actively typing in master input (3s debounce)
+const TYPING_PAUSE_DEBOUNCE_MS = 3000;
+let _typingPauseDebounceId = null;
+let _typingPauseActive = false;
+
+if (masterInput && window.electronAPI.setGeminiTypingPause) {
+    masterInput.addEventListener('input', () => {
+        if (!_typingPauseActive) {
+            _typingPauseActive = true;
+            setAllGeminiTimersTypingPause(true);
+            window.electronAPI.setGeminiTypingPause(true);
+        }
+        if (_typingPauseDebounceId != null) clearTimeout(_typingPauseDebounceId);
+        _typingPauseDebounceId = setTimeout(() => {
+            _typingPauseActive = false;
+            _typingPauseDebounceId = null;
+            setAllGeminiTimersTypingPause(false);
+            window.electronAPI.setGeminiTypingPause(false);
+        }, TYPING_PAUSE_DEBOUNCE_MS);
+    });
+}
+
+// Preserve caret/selection state across Gemini idle refresh reload
+let _savedMasterInputState = null;
+
+if (window.electronAPI.onGeminiIdleRefreshStarting && masterInput) {
+    window.electronAPI.onGeminiIdleRefreshStarting(() => {
+        if (document.activeElement === masterInput) {
+            _savedMasterInputState = {
+                selectionStart: masterInput.selectionStart,
+                selectionEnd: masterInput.selectionEnd,
+                scrollTop: masterInput.scrollTop,
+            };
+        } else {
+            _savedMasterInputState = null;
+        }
+    });
+}
+
 if (window.electronAPI.onGeminiIdleRefreshDone && masterInput) {
     window.electronAPI.onGeminiIdleRefreshDone(() => {
         setTimeout(() => {
-            if (masterInput && !masterInput.disabled) masterInput.focus();
-        }, 0);
+            if (!masterInput || masterInput.disabled) return;
+            masterInput.focus();
+            if (_savedMasterInputState) {
+                try {
+                    masterInput.setSelectionRange(
+                        _savedMasterInputState.selectionStart,
+                        _savedMasterInputState.selectionEnd
+                    );
+                    masterInput.scrollTop = _savedMasterInputState.scrollTop;
+                } catch (_) { /* ignore */ }
+                _savedMasterInputState = null;
+            }
+        }, 50);
     });
 }
 

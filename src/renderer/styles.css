@@ -675,6 +675,13 @@ body.main-popup-layer-active .prompt-card {
 .view-header .gemini-idle-timer:hover {
     color: hsl(var(--foreground));
 }
+.view-header .gemini-idle-timer.typing-paused {
+    animation: gemini-timer-blink 1s ease-in-out infinite;
+}
+@keyframes gemini-timer-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
 
 .view-header .header-btn {
     font-size: 0.9rem;

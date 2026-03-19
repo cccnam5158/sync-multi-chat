@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.8.2 (2026-03-19)
+
+### ⬆️ Improvements
+*   **Gemini idle refresh preserves conversation**: When the Gemini webview is refreshed for session maintenance, it now reloads the current conversation URL in-place instead of navigating to a new chat (`/app`). Your multi-panel conversation context is no longer lost after each refresh cycle.
+*   **Typing-aware refresh pause**: While you are typing in the main prompt input, the Gemini refresh timer automatically pauses (indicated by a blinking countdown) and resumes 3 seconds after you stop typing. This prevents the webview from reloading mid-composition and stealing focus.
+*   **Scroll & caret restoration on reload**: After an idle refresh, the Gemini webview's scroll position on conversation URLs is saved and restored. The main prompt input's caret position and text selection are also preserved across reloads.
+
+---
+
 ## v0.8.1 (2026-03-18)
 
 ### ⬆️ Improvements

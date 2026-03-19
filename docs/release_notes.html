@@ -4,14 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Multi Chat 릴리스 노트 | v0.8.1 업데이트 내역</title>
-    <meta name="description" content="Sync Multi Chat 업데이트 내역. Perplexity 로그인 탐지, Edge 외부 로그인, Custom Prompt Builder. Release notes and changelog.">
-    <meta name="keywords" content="Sync Multi Chat, 릴리스 노트, release notes, v0.8.1, Perplexity, Microsoft Edge, external login">
+    <title>Sync Multi Chat 릴리스 노트 | v0.8.2 업데이트 내역</title>
+    <meta name="description" content="Sync Multi Chat 업데이트 내역. Gemini 세션 안정성 개선, 타이핑 중 새로고침 일시정지, 스크롤 복원. Release notes and changelog.">
+    <meta name="keywords" content="Sync Multi Chat, 릴리스 노트, release notes, v0.8.2, Gemini, session, idle refresh, typing pause">
     <link rel="canonical" href="https://cccnam5158.github.io/sync-multi-chat/release_notes.html">
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://cccnam5158.github.io/sync-multi-chat/release_notes.html">
-    <meta property="og:title" content="Sync Multi Chat 릴리스 노트 | v0.8.1 업데이트 내역">
+    <meta property="og:title" content="Sync Multi Chat 릴리스 노트 | v0.8.2 업데이트 내역">
     <meta property="og:description" content="Sync Multi Chat 업데이트 내역. Custom Prompt Builder, Single AI 모드, 크로스 체크 등. Release notes and changelog.">
     <meta property="og:image" content="https://raw.githubusercontent.com/cccnam5158/sync-multi-chat/master/assets/mutli-ai-chat.png">
     <meta property="og:site_name" content="Sync Multi Chat">
@@ -20,7 +20,7 @@
     <meta property="og:locale:alternate" content="ja_JP">
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Sync Multi Chat 릴리스 노트 | v0.8.1 업데이트 내역">
+    <meta name="twitter:title" content="Sync Multi Chat 릴리스 노트 | v0.8.2 업데이트 내역">
     <meta name="twitter:description" content="Sync Multi Chat 업데이트 내역. Custom Prompt Builder, Single AI 모드, 크로스 체크 등.">
     <meta name="twitter:image" content="https://raw.githubusercontent.com/cccnam5158/sync-multi-chat/master/assets/mutli-ai-chat.png">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -40,7 +40,7 @@
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     Sync Multi Chat                     <span class="version-badge"
-                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.8.1</span>
+                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.8.2</span>
                 </a>
                 <div class="nav-links">
                     <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
@@ -106,13 +106,31 @@
 
         <div class="timeline">
 
-            <!-- v0.8.1 (Active) -->
+            <!-- v0.8.2 (Active) -->
             <div class="timeline-item active">
                 <div class="timeline-dot"></div>
 
                 <div class="version-header">
-                    <span class="version-number">v0.8.1</span>
+                    <span class="version-number">v0.8.2</span>
                     <span class="badge-current" data-i18n="releaseNotes.current">Current</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>⬆️ <span data-i18n="releaseNotes.improvements">Improvements</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v082.imp1"><strong>Gemini idle refresh preserves conversation</strong>: The Gemini webview now reloads the current conversation URL in-place instead of navigating to a new chat. Your multi-panel conversation context is no longer lost after each refresh cycle.</li>
+                        <li data-i18n="releaseNotes.v082.imp2"><strong>Typing-aware refresh pause</strong>: While typing in the main prompt input, the Gemini refresh timer automatically pauses (blinking countdown) and resumes 3 seconds after you stop typing—no more focus stealing mid-composition.</li>
+                        <li data-i18n="releaseNotes.v082.imp3"><strong>Scroll &amp; caret restoration</strong>: After an idle refresh, the Gemini webview's scroll position on conversation URLs is saved and restored. The main prompt input's caret position and text selection are also preserved.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.8.1 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.8.1</span>
                 </div>
 
                 <div class="release-card-content">

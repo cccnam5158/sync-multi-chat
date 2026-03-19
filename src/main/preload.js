@@ -65,6 +65,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     newChatForInstance: (instanceKey) => ipcRenderer.send('new-chat-for-instance', instanceKey),
     updateSingleViewBounds: (bounds) => ipcRenderer.send('update-single-view-bounds', bounds),
     onGeminiIdleTimer: (callback) => ipcRenderer.on('gemini-idle-timer', (event, data) => callback(data)),
+    onGeminiIdleRefreshStarting: (callback) => ipcRenderer.on('gemini-idle-refresh-starting', () => callback()),
     onGeminiIdleRefreshDone: (callback) => ipcRenderer.on('gemini-idle-refresh-done', () => callback()),
+    setGeminiTypingPause: (active) => ipcRenderer.send('gemini-typing-pause', active),
     captureElementImage: (rect) => ipcRenderer.invoke('capture-element-image', rect)
 });

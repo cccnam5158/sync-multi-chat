@@ -702,35 +702,96 @@ function getSlotKeyForGeminiWebContents(wc) {
     return null;
 }
 
-/** REQ-SESSION-001: When idle, refresh Gemini webviews (full reload) to help maintain session. Skip when response in progress.
- *  Applies to both new-chat and conversation URLs so that 0:00 triggers visible reload and consistent behavior. */
-function geminiIdleRefreshTick() {
+/** When true, the user is actively typing in the main prompt input — skip idle refresh to avoid focus disruption. */
+let geminiTypingPauseActive = false;
+
+/** Script injected into Gemini webview to find the main scrollable container and read its scrollTop. */
+const GEMINI_SCROLL_READ_SCRIPT = `(function(){
+  var el = document.querySelector('.conversation-container')
+        || document.querySelector('[role="main"]')
+        || document.querySelector('main');
+  if (el && el.scrollHeight > el.clientHeight) return el.scrollTop;
+  if (document.documentElement.scrollHeight > document.documentElement.clientHeight) return document.documentElement.scrollTop;
+  return -1;
+})()`;
+
+/** Build script to restore scrollTop on Gemini webview after reload. */
+function geminiScrollRestoreScript(scrollTop) {
+    return `(function(){
+  var el = document.querySelector('.conversation-container')
+        || document.querySelector('[role="main"]')
+        || document.querySelector('main');
+  if (el && el.scrollHeight > el.clientHeight) { el.scrollTop = ${scrollTop}; return true; }
+  if (document.documentElement.scrollHeight > document.documentElement.clientHeight) { document.documentElement.scrollTop = ${scrollTop}; return true; }
+  return false;
+})()`;
+}
+
+/** REQ-SESSION-001: When idle, reload each Gemini webview in-place (same URL) to help maintain session.
+ *  Preserves multi-panel conversation context; does not navigate to /app (new chat). Skip when response in progress.
+ *  Saves scroll position on conversation URLs and restores after reload. Notifies renderer before/after for caret preservation. */
+async function geminiIdleRefreshTick() {
     try {
         const targets = getGeminiKeepAliveTargets();
         if (targets.length === 0) return;
         const now = Date.now();
         const idle = lastPromptSentAt == null || (now - lastPromptSentAt) >= GEMINI_IDLE_THRESHOLD_MS;
         if (!idle) return;
-        for (const wc of targets) {
-            if (wc.isDestroyed()) continue;
-            if (geminiResponseInProgressByWcId.get(wc.id)) continue; // response in progress, do not refresh
-            wc.loadURL(getServiceResetUrl('gemini'));
+
+        if (geminiTypingPauseActive) return; // user is typing in main prompt — defer refresh
+
+        const toReload = targets.filter(wc => !wc.isDestroyed() && !geminiResponseInProgressByWcId.get(wc.id));
+        if (toReload.length === 0) return;
+
+        // Notify renderer BEFORE reload so it can save caret/selection state
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+            mainWindow.webContents.send('gemini-idle-refresh-starting');
         }
-        const reloaded = targets.filter(wc => !wc.isDestroyed() && !geminiResponseInProgressByWcId.get(wc.id));
-        if (reloaded.length > 0) {
-            if (isGeminiSessionDebug()) {
-                reloaded.forEach(wc => { try { console.log('[gemini] Idle refresh reload URL:', wc.getURL()); } catch (e) {} });
-            }
-            console.log('[gemini] Idle refresh: reloaded', reloaded.length, 'Gemini webview(s) (idle >', GEMINI_IDLE_THRESHOLD_MS / 60000, 'min)');
-            // Reset the Refresh timer in the renderer so it shows 10:00 again instead of staying at 0:00
-            if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
-                for (const wc of reloaded) {
-                    const slotKey = getSlotKeyForGeminiWebContents(wc);
-                    if (slotKey) sendGeminiIdleTimerToRenderer(slotKey, 'reset');
+
+        // Save scroll positions for conversation URLs (/app/<id>)
+        const scrollByWcId = new Map();
+        for (const wc of toReload) {
+            try {
+                const url = wc.getURL() || '';
+                if (/gemini\.google\.com\/app\/[a-zA-Z0-9]/.test(url)) {
+                    const pos = await wc.executeJavaScript(GEMINI_SCROLL_READ_SCRIPT).catch(() => -1);
+                    if (pos > 0) scrollByWcId.set(wc.id, pos);
                 }
-                // Restore focus to main prompt input so user does not lose focus after Gemini webview reload
-                mainWindow.webContents.send('gemini-idle-refresh-done');
+            } catch (_) { /* ignore */ }
+        }
+
+        for (const wc of toReload) {
+            if (!wc.isDestroyed()) wc.reload();
+        }
+
+        if (isGeminiSessionDebug()) {
+            toReload.forEach(wc => { try { console.log('[gemini] Idle refresh reload URL:', wc.getURL()); } catch (e) {} });
+        }
+        console.log('[gemini] Idle refresh: reloaded', toReload.length, 'Gemini webview(s) (idle >', GEMINI_IDLE_THRESHOLD_MS / 60000, 'min)');
+
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+            for (const wc of toReload) {
+                const slotKey = getSlotKeyForGeminiWebContents(wc);
+                if (slotKey) sendGeminiIdleTimerToRenderer(slotKey, 'reset');
             }
+            mainWindow.webContents.send('gemini-idle-refresh-done');
+        }
+
+        // Restore scroll positions after each webview finishes loading
+        for (const wc of toReload) {
+            const savedScroll = scrollByWcId.get(wc.id);
+            if (savedScroll == null || savedScroll <= 0) continue;
+            const restoreOnLoad = () => {
+                let attempts = 0;
+                const tryRestore = () => {
+                    if (wc.isDestroyed()) return;
+                    wc.executeJavaScript(geminiScrollRestoreScript(savedScroll)).then(ok => {
+                        if (!ok && attempts < 10) { attempts++; setTimeout(tryRestore, 500); }
+                    }).catch(() => {});
+                };
+                setTimeout(tryRestore, 600);
+            };
+            if (!wc.isDestroyed()) wc.once('did-finish-load', restoreOnLoad);
         }
     } catch (e) {
         // ignore
@@ -4207,6 +4268,10 @@ function resetGeminiIdleTimerForAllSlots() {
         sendGeminiIdleTimerToRenderer('gemini', 'reset');
     }
 }
+
+ipcMain.on('gemini-typing-pause', (event, active) => {
+    geminiTypingPauseActive = !!active;
+});
 
 ipcMain.on('gemini-response-in-progress', (event, { inProgress }) => {
     const wc = event.sender;

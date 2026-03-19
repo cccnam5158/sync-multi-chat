@@ -41,13 +41,13 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 ## Version
 
--   **Current Version**: v0.8.1
+-   **Current Version**: v0.8.2
 
 ## Installation
 
 This application is distributed as a **Windows Installer** with **automatic update support**.
 
-1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.8.1.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.8.1/Sync-Multi-Chat-Setup-0.8.1.exe)
+1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.8.2.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.8.2/Sync-Multi-Chat-Setup-0.8.2.exe)
 2.  Run the installer and follow the installation wizard.
 3.  The app will automatically check for updates on startup.
 
@@ -69,6 +69,7 @@ This application is distributed as a **Windows Installer** with **automatic upda
 -   **Sandboxed Environment**: Each service runs in an isolated `BrowserView` with context isolation.
 -   **No Credential Storage**: Your passwords are never stored by the app; you log in directly via the official service websites.
 -   **External browser login** *(v0.8.1)*: Optional flow opens **Google Chrome** or, if Chrome is unavailable, **Microsoft Edge** so cookie sync works on Edge-only setups.
+-   **Gemini session stability** *(v0.8.2)*: Idle refresh reloads the current conversation in-place (no redirect to new chat), pauses automatically while you type, and restores scroll position after reload.
 -   **Bot Detection Evasion**: Uses User-Agent spoofing and human-like input event triggering to ensure compatibility.
 
 ---
