@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -12,6 +15,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Validate tag matches package.json version
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "Tag version:     $TAG_VERSION"
+          echo "Package version: $PKG_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match package.json version ($PKG_VERSION)"
+            exit 1
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -27,6 +42,28 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run publish
 
+      - name: Extract release notes from RELEASE_NOTES.md
+        id: release_notes
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          # Extract the section for this version (between ## vX.Y.Z and the next ## or EOF)
+          NOTES=$(awk "/^## v${TAG_VERSION//./\\.} /{found=1; next} /^## v[0-9]/{if(found) exit} /^---$/{if(found) exit} found" RELEASE_NOTES.md)
+          # Write to file for gh release
+          echo "$NOTES" > /tmp/release_body.md
+          echo "Release notes extracted for v${TAG_VERSION}:"
+          cat /tmp/release_body.md
+
+      - name: Update release notes on GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release edit "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME - $(head -1 /tmp/release_body.md | sed 's/^### //' | sed 's/^[^ ]* //')" \
+            --notes-file /tmp/release_body.md \
+            || echo "::warning::Could not update release notes (release may not exist yet)"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -36,4 +73,14 @@ jobs:
             dist/*.yml
           if-no-files-found: error
 
-
+      - name: Verify artifact integrity
+        shell: bash
+        run: |
+          echo "=== Built artifacts ==="
+          ls -la dist/*.exe dist/*.yml dist/*.blockmap 2>/dev/null
+          echo ""
+          echo "=== latest.yml content ==="
+          cat dist/latest.yml
+          echo ""
+          echo "=== SHA512 of installer ==="
+          sha512sum dist/*.exe | head -1
