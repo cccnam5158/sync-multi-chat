@@ -67,6 +67,124 @@
 
     /** Mirrors Prompt Hub left sidebar filters + tree (Custom Prompt Builder). */
     let _cpbPhState = { titleQ: '', tagQ: '', catId: '', favoritesOnly: false, catExpanded: {}, allUnderAllExpanded: true };
+    let _cpbListSelected = new Set();
+
+    function getCpbFilteredSnapshot() {
+        var cats = window.SMCPromptLibrary ? window.SMCPromptLibrary.loadCategories() : [];
+        var items = sortPrompts([].concat(cpbPrompts));
+        var filtered = items.filter(function (p) {
+            if (!window.SMCPromptLibrary || !window.SMCPromptLibrary.filterPromptBySidebarState) return true;
+            return window.SMCPromptLibrary.filterPromptBySidebarState(p, cats, _cpbPhState);
+        });
+        return { filtered: filtered, cats: cats };
+    }
+
+    function syncCpbBulkBar() {
+        var panel = document.getElementById('cpb-bulk-bar-panel');
+        var countEl = document.getElementById('cpb-bulk-count');
+        if (!panel || !countEl) return;
+        var n = _cpbListSelected.size;
+        countEl.textContent = n + ' selected';
+        panel.classList.toggle('ph-bulk-bar--visible', n > 0);
+        panel.setAttribute('aria-hidden', n === 0 ? 'true' : 'false');
+    }
+
+    function syncCpbListSelectionDom() {
+        if (!el.list) return;
+        el.list.querySelectorAll('.ph-row-chk').forEach(function (c) {
+            var id = c.getAttribute('data-pid');
+            if (id) c.checked = _cpbListSelected.has(id);
+        });
+    }
+
+    function cpbOnListFilterChanged() {
+        _cpbListSelected.clear();
+        syncCpbBulkBar();
+    }
+
+    function ensureCpbBulkDelegation() {
+        var modal = document.getElementById('cpb-modal');
+        if (!modal || modal.dataset.cpbSelBulkDeleg === '1') return;
+        modal.dataset.cpbSelBulkDeleg = '1';
+        modal.addEventListener('change', function (e) {
+            var chk = e.target && e.target.closest && e.target.closest('.ph-row-chk');
+            if (!chk || !el.list || !el.list.contains(chk)) return;
+            var id = chk.getAttribute('data-pid');
+            if (!id) return;
+            if (chk.checked) _cpbListSelected.add(id);
+            else _cpbListSelected.delete(id);
+            syncCpbBulkBar();
+        });
+        modal.addEventListener('click', function (e) {
+            var selAll = e.target.closest('#cpb-bulk-select-all');
+            var desel = e.target.closest('#cpb-bulk-deselect');
+            var del = e.target.closest('#cpb-bulk-delete');
+            if (selAll && modal.contains(selAll)) {
+                e.preventDefault();
+                var snap = getCpbFilteredSnapshot();
+                snap.filtered.forEach(function (p) { _cpbListSelected.add(p.id); });
+                syncCpbBulkBar();
+                syncCpbListSelectionDom();
+                return;
+            }
+            if (desel && modal.contains(desel)) {
+                e.preventDefault();
+                _cpbListSelected.clear();
+                syncCpbBulkBar();
+                syncCpbListSelectionDom();
+                return;
+            }
+            if (del && modal.contains(del)) {
+                e.preventDefault();
+                if (_cpbListSelected.size === 0) return;
+                var n = _cpbListSelected.size;
+                if (typeof window.showSmcConfirmModal === 'function') {
+                    window.showSmcConfirmModal({
+                        title: 'Delete prompts',
+                        message: 'Delete ' + n + ' selected prompt(s)?\nThis cannot be undone.',
+                        confirmText: 'Delete',
+                        cancelText: 'Cancel',
+                        danger: true,
+                    }, function (ok) {
+                        if (!ok) return;
+                        var sel = _cpbListSelected;
+                        cpbPrompts = cpbPrompts.filter(function (x) { return !sel.has(x.id); });
+                        savePrompts();
+                        if (cpbCurrentId && sel.has(cpbCurrentId)) {
+                            cpbCurrentId = null;
+                            if (el.promptTitle) el.promptTitle.value = '';
+                            setEditorValue('');
+                            if (el.preview) el.preview.textContent = '';
+                            setMainMode('list');
+                        }
+                        _cpbListSelected.clear();
+                        syncCpbBulkBar();
+                        renderList();
+                        renderCpbPhSide();
+                        markDirty(false);
+                        cpbToast('Prompts deleted');
+                    });
+                } else if (confirm('Delete ' + n + ' prompt(s)?')) {
+                    var sel2 = _cpbListSelected;
+                    cpbPrompts = cpbPrompts.filter(function (x) { return !sel2.has(x.id); });
+                    savePrompts();
+                    if (cpbCurrentId && sel2.has(cpbCurrentId)) {
+                        cpbCurrentId = null;
+                        if (el.promptTitle) el.promptTitle.value = '';
+                        setEditorValue('');
+                        if (el.preview) el.preview.textContent = '';
+                        setMainMode('list');
+                    }
+                    _cpbListSelected.clear();
+                    syncCpbBulkBar();
+                    renderList();
+                    renderCpbPhSide();
+                    markDirty(false);
+                    cpbToast('Prompts deleted');
+                }
+            }
+        });
+    }
 
     function renderCpbPhSide() {
         const lib = window.SMCPromptLibrary;
@@ -78,7 +196,7 @@
 
     function assignCategoryFromTreeClick(dataCat) {
         setMainMode('list');
-        // CPB tree click is filter-only; assignment is drag-and-drop only.
+        cpbOnListFilterChanged();
         void dataCat;
     }
 
@@ -94,6 +212,9 @@
 
     function setMainMode(mode) {
         cpbMainMode = mode === 'editor' ? 'editor' : 'list';
+        if (el.btnNew) {
+            el.btnNew.hidden = cpbMainMode === 'editor';
+        }
         if (!el.main) return;
         el.main.classList.toggle('cpb-mode-list', cpbMainMode === 'list');
         el.main.classList.toggle('cpb-mode-editor', cpbMainMode === 'editor');
@@ -123,7 +244,6 @@
             // Sidebar
             sidebar: document.getElementById('cpb-sidebar'),
             list: document.getElementById('cpb-list'),
-            sortBtn: document.getElementById('cpb-sort-btn'),
             btnNew: document.getElementById('cpb-btn-new'),
             btnCollapseSidebar: document.getElementById('cpb-btn-collapse-sidebar'),
             btnImport: document.getElementById('cpb-btn-import'),
@@ -347,7 +467,6 @@
         if (typeof ui.varsWidth === 'number') el.varsPanel.style.width = ui.varsWidth + 'px';
         if (ui.sortMode) {
             cpbSortMode = ui.sortMode;
-            el.sortBtn.textContent = cpbSortMode === 'recent' ? 'Sort: Recent' : 'Sort: Title';
         }
         if (typeof ui.livePreview === 'boolean') cpbLivePreview = ui.livePreview;
         if (ui.previewTheme === 'dark' || ui.previewTheme === 'light') cpbPreviewTheme = ui.previewTheme;
@@ -398,6 +517,8 @@
         cpbDirty = false;
         cpbMainMode = 'list';
         _cpbPhState = { titleQ: '', tagQ: '', catId: '', favoritesOnly: false, catExpanded: {}, allUnderAllExpanded: true };
+        _cpbListSelected.clear();
+        syncCpbBulkBar();
         if (window.SMCPromptLibrary) {
             window.SMCPromptLibrary._getCpbPhState = () => _cpbPhState;
             window.SMCPromptLibrary._cpbPhRefresh = () => { renderCpbPhSide(); renderList(); };
@@ -421,6 +542,7 @@
                     else if (t.id === 'cpb-ph-filter-tag') _cpbPhState.tagQ = t.value;
                     else return;
                     setMainMode('list');
+                    cpbOnListFilterChanged();
                     const m = document.getElementById('cpb-modal');
                     if (m && m.classList.contains('visible')) renderList();
                 });
@@ -433,6 +555,7 @@
                     if (t.id !== 'cpb-ph-filter-favorites') return;
                     _cpbPhState.favoritesOnly = !!t.checked;
                     setMainMode('list');
+                    cpbOnListFilterChanged();
                     if (modal.classList.contains('visible')) renderList();
                 });
             }
@@ -504,11 +627,7 @@
             updateCpbSidebarCollapseToggle();
             persistUI();
         };
-        el.sortBtn.onclick = () => {
-            cpbSortMode = cpbSortMode === 'recent' ? 'title' : 'recent';
-            el.sortBtn.textContent = cpbSortMode === 'recent' ? 'Sort: Recent' : 'Sort: Title';
-            renderList();
-        };
+        ensureCpbBulkDelegation();
         el.btnImport.onclick = handleImport;
         el.btnExport.onclick = handleExport;
 
@@ -886,7 +1005,7 @@
 
     /** Persist Grid.js column widths after user drag-resizes a column. */
     function wireCpbGridjsResizePersist(host) {
-        var COL_MAP = ['fav', 'title', 'summary', 'category', 'actions'];
+        var COL_MAP = ['chk', 'fav', 'title', 'summary', 'category', 'actions'];
         var RESIZABLE = { title: true, summary: true, category: true };
         var MIN_W = 96;
         var MAX_W = 1200;
@@ -1009,13 +1128,56 @@
         }
     }
 
-    function renderList() {
-        var cats = window.SMCPromptLibrary ? window.SMCPromptLibrary.loadCategories() : [];
-        var items = sortPrompts([...cpbPrompts]);
-        var filtered = items.filter(function (p) {
-            if (!window.SMCPromptLibrary?.filterPromptBySidebarState) return true;
-            return window.SMCPromptLibrary.filterPromptBySidebarState(p, cats, _cpbPhState);
+    function buildCpbGridModel(filtered, cats) {
+        var tipCell = function (cell, row, getFull) {
+            var pid = String(row.cells[0] && row.cells[0].data != null ? row.cells[0].data : '');
+            var pr = filtered.find(function (x) { return x.id === pid; });
+            var full = pr ? getFull(pr) : String(cell == null ? '' : cell);
+            var disp = safeHtml(String(cell == null ? '' : cell));
+            return gridjs.html('<span class="smc-grid-cell-tooltip" title="' + safeHtml(full) + '">' + disp + '</span>');
+        };
+        var data = filtered.map(function (p) {
+            return [p.id, p.id, p.title || '(Untitled)', previewOf(p.summary || p.content, 80), cpbCatLabel(p.categoryId, cats), p.id];
         });
+        var favActive = _cpbPhState.favoritesOnly ? ' smc-grid-fav-active' : '';
+        var columns = [
+            { id: 'chk', name: '', width: '40px', sort: false, resizable: false,
+              formatter: function (pid) {
+                  var chk = _cpbListSelected.has(pid) ? 'checked' : '';
+                  return gridjs.html('<input type="checkbox" class="ph-row-chk" data-pid="' + safeHtml(pid) + '" ' + chk + ' />');
+              }
+            },
+            { id: 'fav', name: gridjs.html('<span class="smc-grid-fav-hdr' + favActive + '">★</span>'), width: '40px', sort: false, resizable: false,
+              formatter: function (pid) {
+                  var p = cpbPrompts.find(function (x) { return x.id === pid; });
+                  var cls = p && p.favorite ? 'ph-star-btn is-fav' : 'ph-star-btn';
+                  return gridjs.html('<button type="button" class="' + cls + '" data-cpb-fav="' + safeHtml(pid) + '" title="Favorite">★</button>');
+              }
+            },
+            { id: 'title', name: 'Title', width: _cpbColWidths.title + 'px', sort: true, resizable: true,
+              formatter: function (cell, row) { return tipCell(cell, row, function (p) { return p.title || '(Untitled)'; }); }
+            },
+            { id: 'summary', name: 'Summary / preview', width: _cpbColWidths.summary + 'px', sort: false, resizable: true,
+              formatter: function (cell, row) { return tipCell(cell, row, function (p) { return String(p.summary || p.content || ''); }); }
+            },
+            { id: 'category', name: 'Category', width: _cpbColWidths.category + 'px', sort: true, resizable: true,
+              formatter: function (cell, row) {
+                  return tipCell(cell, row, function (p) { return cpbCatLabel(p.categoryId, cats); });
+              }
+            },
+            { id: 'actions', name: 'Actions', width: '140px', sort: false, resizable: false,
+              formatter: function (pid) {
+                  return gridjs.html('<span class="smc-grid-actions">' + cpbRowActions(pid) + '</span>');
+              }
+            }
+        ];
+        return { data: data, columns: columns };
+    }
+
+    function renderList() {
+        var snap = getCpbFilteredSnapshot();
+        var filtered = snap.filtered;
+        var cats = snap.cats;
         if (filtered.length === 0) {
             destroyCpbGrid();
             el.list.innerHTML = [
@@ -1029,48 +1191,29 @@
             ].join('');
             return;
         }
-        var tipCell = function (cell, row, getFull) {
-            var pid = String(row.cells[0] && row.cells[0].data != null ? row.cells[0].data : '');
-            var pr = filtered.find(function (x) { return x.id === pid; });
-            var full = pr ? getFull(pr) : String(cell == null ? '' : cell);
-            var disp = safeHtml(String(cell == null ? '' : cell));
-            return gridjs.html('<span class="smc-grid-cell-tooltip" title="' + safeHtml(full) + '">' + disp + '</span>');
-        };
-        var data = filtered.map(function (p) {
-            return [p.id, p.title || '(Untitled)', previewOf(p.summary || p.content, 80), cpbCatLabel(p.categoryId, cats), p.id];
-        });
-        var favActive = _cpbPhState.favoritesOnly ? ' smc-grid-fav-active' : '';
-
+        var model = buildCpbGridModel(filtered, cats);
+        var data = model.data;
+        var columns = model.columns;
+        var canSoft = _cpbGridInstance && el.list && el.list.querySelector('.gridjs-container');
+        if (canSoft) {
+            try {
+                _cpbGridInstance.updateConfig({ data: data, columns: columns });
+                _cpbGridInstance.forceRender();
+                requestAnimationFrame(function () {
+                    applyCpbGridColumnClasses(el.list);
+                    wireCpbGridjsResizePersist(el.list);
+                });
+                return;
+            } catch (errSoft) {
+                /* full rebuild */
+            }
+        }
         if (_cpbGridInstance) {
             destroyCpbGrid();
         }
         el.list.innerHTML = '';
         _cpbGridInstance = new gridjs.Grid({
-            columns: [
-                { id: 'fav', name: gridjs.html('<span class="smc-grid-fav-hdr' + favActive + '">★</span>'), width: '40px', sort: false, resizable: false,
-                  formatter: function (pid) {
-                      var p = cpbPrompts.find(function (x) { return x.id === pid; });
-                      var cls = p && p.favorite ? 'ph-star-btn is-fav' : 'ph-star-btn';
-                      return gridjs.html('<button type="button" class="' + cls + '" data-cpb-fav="' + safeHtml(pid) + '" title="Favorite">★</button>');
-                  }
-                },
-                { id: 'title', name: 'Title', width: _cpbColWidths.title + 'px', sort: true, resizable: true,
-                  formatter: function (cell, row) { return tipCell(cell, row, function (p) { return p.title || '(Untitled)'; }); }
-                },
-                { id: 'summary', name: 'Summary', width: _cpbColWidths.summary + 'px', sort: false, resizable: true,
-                  formatter: function (cell, row) { return tipCell(cell, row, function (p) { return String(p.summary || p.content || ''); }); }
-                },
-                { id: 'category', name: 'Category', width: _cpbColWidths.category + 'px', sort: true, resizable: true,
-                  formatter: function (cell, row) {
-                      return tipCell(cell, row, function (p) { return cpbCatLabel(p.categoryId, cats); });
-                  }
-                },
-                { id: 'actions', name: 'Actions', width: '140px', sort: false, resizable: false,
-                  formatter: function (pid) {
-                      return gridjs.html('<span class="smc-grid-actions">' + cpbRowActions(pid) + '</span>');
-                  }
-                }
-            ],
+            columns: columns,
             data: data,
             sort: true,
             resizable: true,
@@ -1088,6 +1231,7 @@
 
     function applyCpbGridColumnClasses(host) {
         var map = {
+            chk: 'smc-grid-col-chk',
             fav: 'smc-grid-col-fav',
             title: 'smc-grid-col-title',
             summary: 'smc-grid-col-summary',
@@ -2096,6 +2240,8 @@
         if (!p) return;
         showDeleteConfirm(p.title || '(Untitled)', () => {
             cpbPrompts = cpbPrompts.filter(x => x.id !== id);
+            _cpbListSelected.delete(id);
+            syncCpbBulkBar();
             savePrompts();
             if (cpbCurrentId === id) {
                 cpbCurrentId = null;

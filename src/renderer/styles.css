@@ -1,3 +1,64 @@
+/*
+ * Bundled Noto Sans / Noto Sans Mono (Latin woff2, OFL-1.1).
+ * Source: @fontsource/noto-sans, @fontsource/noto-sans-mono — see fonts/NOTO-fonts-LICENSE.txt
+ */
+@font-face {
+    font-family: "Noto Sans";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("fonts/noto-sans-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("fonts/noto-sans-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("fonts/noto-sans-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("fonts/noto-sans-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans Mono";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("fonts/noto-sans-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans Mono";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("fonts/noto-sans-mono-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans Mono";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("fonts/noto-sans-mono-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans Mono";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("fonts/noto-sans-mono-latin-700-normal.woff2") format("woff2");
+}
+
 /* shadcn/ui inspired variables (Tailwind v3 based) */
 :root {
     /* Using the .dark theme values provided by the user as the default since the app is dark mode */
@@ -22,7 +83,9 @@
     --ring: 263.4 70% 50.4%;
     --radius: 0.5rem;
 
-    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-sans: "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "Noto Sans Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
     /* Prompt Hub filters, panel search: placeholder one step smaller than body */
     --smc-fs-placeholder: max(10.5pt, 0.78rem);
@@ -1923,7 +1986,8 @@ button.gridjs-sort:focus { outline: none; }
     box-sizing: border-box;
 }
 
-#ph-bulk-slot {
+#ph-bulk-slot,
+#cpb-bulk-slot {
     flex-shrink: 0;
 }
 .ph-bulk-slot-inner {
@@ -3640,7 +3704,7 @@ input:checked~.switch-label {
     display: inline;
     padding: 1px 5px;
     border-radius: 4px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 12.5px;
     position: relative;
     cursor: default;
@@ -3718,7 +3782,7 @@ input:checked~.switch-label {
 .master-preview.cpb-preview-md li > ul,
 .master-preview.cpb-preview-md li > ol { margin-top: 0.25em; margin-bottom: 0.25em; }
 .master-preview.cpb-preview-md code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 0.88em;
     padding: 2px 6px;
     border-radius: 5px;
@@ -3758,7 +3822,7 @@ input:checked~.switch-label {
 
 /* --- Main Preview: Plain --- */
 .master-preview.cpb-preview-plain {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     line-height: 1.56;
 }
 
@@ -4204,7 +4268,7 @@ input:checked~.switch-label {
     background: none;
     white-space: pre-wrap;
     word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
 }
 .prompt-block-content .mermaid {
     min-height: 80px;
@@ -4943,7 +5007,7 @@ input:checked~.switch-label {
     background: hsl(var(--background) / .72);
 }
 .master-var-mini-form .mvmf-label {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     color: hsl(var(--foreground));
     display: inline-flex;
@@ -5135,7 +5199,7 @@ input:checked~.switch-label {
     outline: none;
     padding: 12px;
     box-sizing: border-box;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     line-height: 1.6;
 }
@@ -5158,7 +5222,7 @@ input:checked~.switch-label {
     background: #ffffff;
 }
 .session-prompt-preview.session-preview-plain {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     line-height: 1.55;
 }
 .session-prompt-preview::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -5211,7 +5275,7 @@ input:checked~.switch-label {
 .session-prompt-preview.cpb-preview-md ol { list-style: decimal; }
 .session-prompt-preview.cpb-preview-md li { margin-bottom: .35em; line-height: 1.6; }
 .session-prompt-preview.cpb-preview-md code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: .88em; padding: 2px 6px; border-radius: 5px;
     background: hsl(224 30% 14%); border: 1px solid hsl(var(--border)); color: #e2e8f0;
 }
@@ -5267,7 +5331,7 @@ input:checked~.switch-label {
     background: hsl(224 30% 8%);
     color: hsl(var(--foreground));
     border: none;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     line-height: 1.6;
     scrollbar-width: thin;
@@ -5494,7 +5558,7 @@ input:checked~.switch-label {
     background: hsl(var(--primary) / .08);
 }
 .session-readonly-key {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 11.5px;
     color: hsl(var(--foreground));
 }
@@ -5568,7 +5632,7 @@ input:checked~.switch-label {
     gap: 8px;
 }
 .session-var-label {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     color: hsl(var(--foreground));
 }
@@ -6829,6 +6893,10 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
 .cpb-header-actions .smc-panel-close {
     flex-shrink: 0;
 }
+/* CPB: JS toggles [hidden] on #cpb-btn-new in editor mode; .smc-header-primary-btn sets display:inline-flex and would override the UA [hidden] rule. */
+#cpb-btn-new[hidden] {
+    display: none !important;
+}
 .cpb-header-title {
     margin: 0;
     font-size: 1.1rem;
@@ -7598,7 +7666,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
     inset: 0;
     pointer-events: none;
     overflow: hidden;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     line-height: 1.6;
     padding: 14px;
@@ -7631,7 +7699,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
     outline: none;
     background: transparent;
     color: hsl(var(--foreground));
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     transition: border-color .2s;
     font-size: 13px;
     line-height: 1.6;
@@ -8064,7 +8132,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
     color: #b45309;
 }
 .cpb-preview.cpb-preview-plain {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     line-height: 1.55;
     white-space: pre-wrap;
 }
@@ -8119,7 +8187,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
     grid-column: 1;
 }
 .cpb-var-hl {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     padding: 1px 4px;
     border-radius: 4px;
     border: 1px solid hsl(var(--primary) / .45);
@@ -8201,7 +8269,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
 
 /* Inline code */
 .cpb-preview-md code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 0.88em;
     padding: 2px 6px;
     border-radius: 5px;
@@ -8332,7 +8400,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
     background: hsl(224 30% 8%);
     color: hsl(var(--foreground));
     border: none;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     line-height: 1.6;
     scrollbar-width: thin;
@@ -8490,7 +8558,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
 .cpb-badge-sys { background: rgba(59,130,246,.18); color: #93c5fd; border: 1px solid rgba(59,130,246,.3); }
 .cpb-badge-glo { background: hsl(var(--primary) / .15); color: hsl(var(--primary)); border: 1px solid hsl(var(--primary) / .28); }
 .cpb-badge-loc { background: rgba(34,197,94,.12); color: #86efac; border: 1px solid rgba(34,197,94,.22); }
-.cpb-ac-name { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; font-weight: 800; color: hsl(var(--foreground)); }
+.cpb-ac-name { font-family: var(--font-mono); font-size: 12px; font-weight: 800; color: hsl(var(--foreground)); }
 .cpb-ac-desc { font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: 1px; }
 
 /* ---- Variables Panel ---- */
@@ -8578,7 +8646,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
 }
 
 .cpb-var-suggest-count {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     color: hsl(var(--primary));
 }
 
@@ -8600,7 +8668,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
 }
 
 .cpb-var-suggest-name {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     color: hsl(var(--foreground));
     white-space: nowrap;
@@ -8649,7 +8717,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
 .cpb-var-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: flex-start; }
 .cpb-var-name {
     width: 120px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     background: hsl(224 30% 8%);
     border: 1px solid hsl(var(--border));
     border-radius: 8px;
@@ -8779,7 +8847,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
     transition: .15s;
     user-select: none;
     white-space: nowrap;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
 }
 .cpb-chip:hover { color: hsl(var(--foreground)); border-color: hsl(var(--primary) / .5); }
 
@@ -8847,7 +8915,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
 .cpb-unresolved-fields { display: flex; flex-direction: column; gap: 10px; }
 .cpb-unresolved-row { display: flex; align-items: center; gap: 10px; }
 .cpb-unresolved-label {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     font-weight: 700;
     color: hsl(var(--primary));
@@ -8941,7 +9009,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
 }
 
 .cpb-dialog-body code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     padding: 2px 6px;
     border-radius: 6px;
@@ -8963,7 +9031,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
     margin: 0;
     white-space: pre-wrap;
     word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 11.5px;
     line-height: 1.55;
     border: 1px solid hsl(var(--border));
@@ -9332,7 +9400,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
     border-color: hsl(0 80% 65% / .5);
 }
 .var-input-row-label {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     color: hsl(var(--foreground));
     display: inline-flex;
@@ -9573,7 +9641,7 @@ body.main-modal-layer-active #confirmation-modal.upload-confirm-modal.visible {
 /* --- Preview Placeholder --- */
 .preview-placeholder {
     padding: 14px 20px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-sans);
     font-size: 13px;
     line-height: 1.7;
     user-select: none;

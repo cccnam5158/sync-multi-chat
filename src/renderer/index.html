@@ -814,16 +814,22 @@
                     </div>
 
                     <div class="cpb-main-list-shell">
+                        <div id="cpb-bulk-slot">
+                            <div class="ph-bulk-slot-inner">
+                                <div id="cpb-bulk-bar-panel" class="ph-bulk-bar ph-bulk-bar--collapsible" aria-hidden="true">
+                                    <span class="ph-bulk-count" id="cpb-bulk-count">0 selected</span>
+                                    <button type="button" class="btn-secondary ph-bulk-btn" id="cpb-bulk-select-all">Select All</button>
+                                    <button type="button" class="btn-secondary ph-bulk-btn" id="cpb-bulk-deselect">Deselect</button>
+                                    <button type="button" class="btn-danger ph-bulk-btn ph-bulk-delete" id="cpb-bulk-delete">Delete Selected</button>
+                                </div>
+                            </div>
+                        </div>
                         <div class="cpb-main-list-header">
-                            <span class="cpb-main-list-title">Prompts</span>
                             <label class="switch-container ph-fav-only-toggle cpb-fav-toggle-inline" for="cpb-ph-filter-favorites">
                                 <input type="checkbox" id="cpb-ph-filter-favorites" />
                                 <span class="switch-slider" aria-hidden="true"></span>
                                 <span class="switch-label">Favorites</span>
                             </label>
-                            <span class="cpb-main-list-header-actions">
-                                <button type="button" class="cpb-chip cpb-sort-chip" id="cpb-sort-btn" title="Toggle sort">Sort: Recent</button>
-                            </span>
                         </div>
                         <div class="cpb-list cpb-main-list" id="cpb-list"></div>
                     </div>

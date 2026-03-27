@@ -649,20 +649,7 @@
         return c.name;
     }
 
-    function renderPhGridTable(host, filtered, cats) {
-        if (!Array.isArray(filtered) || filtered.length === 0) {
-            destroyPhGrid();
-            host.innerHTML = [
-                '<div class="smc-empty-state-wrap">',
-                '  <div class="smc-empty-state" role="status" aria-live="polite">',
-                '    <div class="smc-empty-state-icon" aria-hidden="true">🔎</div>',
-                '    <div class="smc-empty-state-title">No prompts found</div>',
-                '    <div class="smc-empty-state-desc">No prompts match the current filters. Try clearing filters, changing categories, or creating a new prompt.</div>',
-                '  </div>',
-                '</div>'
-            ].join('');
-            return;
-        }
+    function buildPhGridTableModel(filtered, cats) {
         const tipCell = (cell, row, getFull) => {
             const pid = String(row.cells[0]?.data ?? '');
             const pr = filtered.find((x) => x.id === pid);
@@ -680,36 +667,71 @@
         ]);
         const favActive = _phState.favoritesOnly ? ' smc-grid-fav-active' : '';
         const wMap = loadTableColWidths();
+        const columns = [
+            { id: 'chk', name: '', width: '40px', sort: false, resizable: false,
+              formatter: (pid) => gridjs.html(`<input type="checkbox" class="ph-row-chk" data-pid="${escapeHtml(pid)}" ${_phState.selected.has(pid) ? 'checked' : ''} />`)
+            },
+            { id: 'fav', name: gridjs.html(`<span class="smc-grid-fav-hdr${favActive}">★</span>`), width: '40px', sort: false, resizable: false,
+              formatter: (pid) => {
+                  const pr = filtered.find(x => x.id === pid);
+                  const cls = pr && pr.favorite ? 'ph-star-btn is-fav' : 'ph-star-btn';
+                  return gridjs.html(`<button type="button" class="${cls}" data-ph-fav="${escapeHtml(pid)}" title="Favorite">★</button>`);
+              }
+            },
+            { id: 'title', name: 'Title', width: `${wMap.title}px`, sort: true, resizable: true,
+              formatter: (cell, row) => tipCell(cell, row, (p) => p.title || '(Untitled)'),
+            },
+            { id: 'summary', name: 'Summary / preview', width: `${wMap.summary}px`, sort: false, resizable: true,
+              formatter: (cell, row) => tipCell(cell, row, (p) => String(p.summary || p.content || '')),
+            },
+            { id: 'category', name: 'Category', width: `${wMap.category}px`, sort: true, resizable: true,
+              formatter: (cell, row) => tipCell(cell, row, (p) => phCatLabel(p, cats)),
+            },
+            { id: 'actions', name: 'Actions', width: '188px', sort: false, resizable: false,
+              formatter: (pid) => gridjs.html(`<span class="smc-grid-actions">${phRowActions(pid)}</span>`)
+            }
+        ];
+        return { data, columns, wMap };
+    }
 
+    function renderPhGridTable(host, filtered, cats) {
+        if (!Array.isArray(filtered) || filtered.length === 0) {
+            destroyPhGrid();
+            host.innerHTML = [
+                '<div class="smc-empty-state-wrap">',
+                '  <div class="smc-empty-state" role="status" aria-live="polite">',
+                '    <div class="smc-empty-state-icon" aria-hidden="true">🔎</div>',
+                '    <div class="smc-empty-state-title">No prompts found</div>',
+                '    <div class="smc-empty-state-desc">No prompts match the current filters. Try clearing filters, changing categories, or creating a new prompt.</div>',
+                '  </div>',
+                '</div>'
+            ].join('');
+            return;
+        }
+        const { data, columns, wMap } = buildPhGridTableModel(filtered, cats);
+        const canSoft =
+            _phGridInstance &&
+            host &&
+            host.querySelector('.gridjs-container');
+        if (canSoft) {
+            try {
+                _phGridInstance.updateConfig({ data, columns });
+                _phGridInstance.forceRender();
+                requestAnimationFrame(() => {
+                    applyPhGridColumnClasses(host);
+                    wireGridjsResizePersist(host, wMap, saveTableColWidths);
+                });
+                return;
+            } catch (err) {
+                /* fall through to full rebuild */
+            }
+        }
         if (_phGridInstance) {
             destroyPhGrid();
         }
         host.innerHTML = '';
         _phGridInstance = new gridjs.Grid({
-            columns: [
-                { id: 'chk', name: '', width: '40px', sort: false, resizable: false,
-                  formatter: (pid) => gridjs.html(`<input type="checkbox" class="ph-row-chk" data-pid="${escapeHtml(pid)}" ${_phState.selected.has(pid) ? 'checked' : ''} />`)
-                },
-                { id: 'fav', name: gridjs.html(`<span class="smc-grid-fav-hdr${favActive}">★</span>`), width: '40px', sort: false, resizable: false,
-                  formatter: (pid) => {
-                      const p = filtered.find(x => x.id === pid);
-                      const cls = p && p.favorite ? 'ph-star-btn is-fav' : 'ph-star-btn';
-                      return gridjs.html(`<button type="button" class="${cls}" data-ph-fav="${escapeHtml(pid)}" title="Favorite">★</button>`);
-                  }
-                },
-                { id: 'title', name: 'Title', width: `${wMap.title}px`, sort: true, resizable: true,
-                  formatter: (cell, row) => tipCell(cell, row, (p) => p.title || '(Untitled)'),
-                },
-                { id: 'summary', name: 'Summary / preview', width: `${wMap.summary}px`, sort: false, resizable: true,
-                  formatter: (cell, row) => tipCell(cell, row, (p) => String(p.summary || p.content || '')),
-                },
-                { id: 'category', name: 'Category', width: `${wMap.category}px`, sort: true, resizable: true,
-                  formatter: (cell, row) => tipCell(cell, row, (p) => phCatLabel(p, cats)),
-                },
-                { id: 'actions', name: 'Actions', width: '188px', sort: false, resizable: false,
-                  formatter: (pid) => gridjs.html(`<span class="smc-grid-actions">${phRowActions(pid)}</span>`)
-                }
-            ],
+            columns,
             data,
             sort: true,
             resizable: true,
