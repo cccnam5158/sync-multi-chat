@@ -64,24 +64,33 @@ class HistoryManager {
         });
     }
 
-    getSessions(limit = 20, offset = 0) {
+    getSessions(limit = 20, offset = 0, options = {}) {
+        const sortBy = options.sortBy || 'updatedDesc';
         return this.ensureInit().then(() => {
             return new Promise((resolve, reject) => {
                 const transaction = this.db.transaction([this.storeName], 'readonly');
                 const store = transaction.objectStore(this.storeName);
-                // Fetch all sessions and sort by createdAt in memory
-                // (IndexedDB only has updatedAt index, sorting by createdAt requires JS sort)
                 const request = store.getAll();
 
                 request.onsuccess = () => {
                     let sessions = request.result || [];
-                    // Sort by createdAt descending (newest first)
-                    sessions.sort((a, b) => {
-                        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-                        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-                        return dateB - dateA;
-                    });
-                    // Apply offset and limit
+                    const t = (s) => {
+                        const u = s.updatedAt ? new Date(s.updatedAt).getTime() : 0;
+                        const c = s.createdAt ? new Date(s.createdAt).getTime() : 0;
+                        return { u, c };
+                    };
+                    if (sortBy === 'titleAsc') {
+                        sessions.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' }));
+                    } else if (sortBy === 'createdDesc') {
+                        sessions.sort((a, b) => t(b).c - t(a).c);
+                    } else {
+                        // updatedDesc (default)
+                        sessions.sort((a, b) => {
+                            const tb = t(b);
+                            const ta = t(a);
+                            return (tb.u || tb.c) - (ta.u || ta.c);
+                        });
+                    }
                     sessions = sessions.slice(offset, offset + limit);
                     resolve(sessions);
                 };
@@ -89,6 +98,34 @@ class HistoryManager {
                 request.onerror = (event) => {
                     reject(event.target.error);
                 };
+            });
+        });
+    }
+
+    getAllSessions(options = {}) {
+        const sortBy = options.sortBy || 'updatedDesc';
+        return this.ensureInit().then(() => {
+            return new Promise((resolve, reject) => {
+                const transaction = this.db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.getAll();
+                request.onsuccess = () => {
+                    let sessions = request.result || [];
+                    const t = (s) => {
+                        const u = s.updatedAt ? new Date(s.updatedAt).getTime() : 0;
+                        const c = s.createdAt ? new Date(s.createdAt).getTime() : 0;
+                        return { u, c };
+                    };
+                    if (sortBy === 'titleAsc') {
+                        sessions.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' }));
+                    } else if (sortBy === 'createdDesc') {
+                        sessions.sort((a, b) => t(b).c - t(a).c);
+                    } else {
+                        sessions.sort((a, b) => (t(b).u || t(b).c) - (t(a).u || t(a).c));
+                    }
+                    resolve(sessions);
+                };
+                request.onerror = (event) => reject(event.target.error);
             });
         });
     }

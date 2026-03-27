@@ -1,7 +1,7 @@
 # Multi-AI Chat Service - Unified Software Requirements Specification (SRS)
 
 ## 1. Introduction
-This document defines the unified software requirements for the Multi-AI Chat application. It consolidates requirements from initial concepts through recent feature additions including Conversation History, Session Persistence, Advanced Cross Check, File Uploads, Chat Mode (Single AI / Multi AI), Custom Prompt Builder, **left-sidebar Dashboard and Prompt Hub**, **prompt categories/tags/favorites**, and comprehensive UI enhancements.
+This document defines the unified software requirements for the Multi-AI Chat application. It consolidates requirements from initial concepts through recent feature additions including Conversation History, Session Persistence, Advanced Cross Check, File Uploads, Chat Mode (Single AI / Multi AI), Custom Prompt Builder, and comprehensive UI enhancements.
 The requirements are written using **EARS** (Easy Approach to Requirements Syntax) to ensure clarity and testability.
 
 ## 2. Terminology
@@ -20,50 +20,8 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **System Variable**: A runtime-injected variable (e.g., `{{chat_thread}}`, `{{last_response}}`) whose value is automatically populated by the application at send time.
 - **Global Variable**: A user-defined variable (e.g., `{{output_format}}`, `{{role}}`) shared across all custom prompts.
 - **Local Variable**: A user-defined variable specific to a single custom prompt (e.g., `{{analysis_depth}}`, `{{topic}}`).
-- **Prompt Category**: A user-defined folder for custom prompts, organized in a tree with **maximum depth of 2** (root category and optional child category).
-- **Uncategorized**: The system-reserved grouping for prompts with no assigned category; all legacy prompts without category metadata shall be treated as Uncategorized after migration.
-- **Prompt Hub**: The sidebar view for browsing, filtering, bulk-assigning categories, and acting on saved custom prompts (table or preview layout).
-- **Dashboard**: The sidebar view summarizing Chat Mode, prompt library statistics, and conversation history counts/charts.
 
 ## 3. Functional Requirements
-
-### 3.0 Left Sidebar Navigation, Dashboard & Prompt Hub
-
-#### 3.0.1 Navigation Structure
-- **REQ-NAV-001 (Sidebar Sections)**: The system shall provide a left sidebar with a primary navigation list containing, in order: **+ New Chat**, **Dashboard**, **Prompt Hub**, and **Chat History**.
-- **REQ-NAV-002 (New Chat Parity)**: When **+ New Chat** is activated from the sidebar, the system shall perform the same session creation, history persistence, and webview reset behavior as the main toolbar **New Chat** control (REQ-HIST-011, REQ-MODE-039 where applicable).
-- **REQ-NAV-003 (Panel Switching)**: When the user selects a navigation item, the system shall show the corresponding panel content and hide other primary panels while keeping the sidebar shell visible.
-- **REQ-NAV-004 (Prompt Hub Width)**: While **Prompt Hub** is the active panel, the system shall widen the sidebar beyond the default history width to accommodate filters and the prompt list (implementation-defined minimum width, user-resize optional).
-- **REQ-NAV-005 (Collapsed Sidebar)**: While the sidebar is collapsed to the narrow dock width, the system shall still expose controls to open **Dashboard**, **Prompt Hub**, and **Chat History** (icon-only affordances), and expanding the sidebar shall reveal the full navigation labels.
-
-#### 3.0.2 Dashboard
-- **REQ-DASH-001 (Mode Summary)**: The Dashboard shall display the current **Chat Mode** (Multi AI or Single AI) and a summary of the active AI service selection (active multi-service set or single-service plus active instance count).
-- **REQ-DASH-002 (Prompt Statistics)**: The Dashboard shall display the count of **user-defined prompt categories** (excluding system virtual groupings used only for filtering) and the **total count** of saved custom prompts.
-- **REQ-DASH-003 (History Totals)**: The Dashboard shall display the **total number** of conversation sessions stored in the local history database.
-- **REQ-DASH-004 (History Chart)**: The Dashboard shall display a **date-based chart** of session counts with a user-selectable aggregation granularity of **day, week, month, or year**, using a consistent timestamp field (e.g. `updatedAt` or `createdAt`) for bucketing across the chart. The chart shall **scale to the available sidebar width**, render crisply on **high-DPI** displays, and show **axis guides** and **readable bucket labels** (truncated or angled as needed when space is limited).
-
-#### 3.0.3 Prompt Hub
-- **REQ-PHUB-001 (Header)**: The Prompt Hub panel shall display a header showing **Prompt Hub** and the **total number** of saved custom prompts, and shall provide a **+ New Prompt** control that opens the Custom Prompt Builder for a new empty prompt.
-- **REQ-PHUB-002 (Layout)**: The Prompt Hub shall use a **two-column** layout: a **filter** column and a **content** column listing matching prompts.
-- **REQ-PHUB-003 (Title Filter)**: The system shall provide a text field that filters prompts by **title** in real time; when the filter is non-empty, the category tree shall **narrow** to categories that contain at least one matching prompt (plus Uncategorized if any match is uncategorized).
-- **REQ-PHUB-004 (Category Filter)**: The system shall provide a **category tree** control supporting **up to 2 depth levels**, including the **Uncategorized** system grouping.
-- **REQ-PHUB-005 (Tag Filter)**: The system shall provide **tag** filtering for prompts that have user-defined tags (multiple tags may be combined; OR-semantics are acceptable if documented in UX).
-- **REQ-PHUB-006 (View Modes)**: The system shall support **Table** and **Preview (card)** view modes for the prompt list.
-- **REQ-PHUB-007 (Row Actions)**: For each prompt, the system shall provide **Edit** (open CPB), **Copy** (copy prompt content to clipboard), **Duplicate**, **Delete**, and **Run** (insert resolved or raw content into the main Prompt Input per existing CPB copy/send rules).
-- **REQ-PHUB-008 (Bulk Category Assign)**: The system shall allow **multi-select** prompts and **assign a category** in one action.
-- **REQ-PHUB-009 (Category Manager)**: The system shall provide a **modal** to add and remove categories up to **2-depth**, without allowing the user to rename or delete the system **Favorites** virtual grouping structure (user may only assign membership via favorites controls on prompts or favorite-category pinning).
-- **REQ-PHUB-010 (Uncategorized Rule)**: Any prompt without an assigned category shall appear under **Uncategorized**; migration shall place all legacy prompts without category metadata into **Uncategorized**.
-
-#### 3.0.4 Favorites & Slash Ordering
-- **REQ-FAV-001 (Prompt Favorite)**: The system shall allow marking a custom prompt as **favorite** for prioritization in the Slash Command list and filtering in Prompt Hub.
-- **REQ-FAV-002 (Favorite Categories)**: The system shall allow the user to pin **entire categories** into a **favorite categories** list; prompts belonging to a pinned category shall be treated as **favorites** for Slash ordering when not individually excluded (implementation may treat this as membership expansion at render time).
-- **REQ-FAV-003 (Slash Favorite Ordering)**: While the Slash Command menu is open, the system shall list **favorite** prompts (per REQ-FAV-001/002) **above** non-favorite prompts.
-
-#### 3.0.5 Slash Command UX
-- **REQ-INPUT-025 (Slash Search Field)**: When the Slash Command menu opens after typing `/` in the **main Prompt Input** or in the **Session Prompt Builder** editor, the system shall present a **dedicated search input** at the **top** of the menu and shall move **keyboard focus** to that input so filtering does not rely on typing in the main editor textarea after `/`.
-- **REQ-INPUT-026 (Slash Title Highlight)**: While the Slash menu search input has a value, the system shall **highlight** matching substrings in prompt **titles** in real time (main and Session Prompt Builder Slash menus).
-- **REQ-INPUT-027 (Slash Filter Sync)**: The system shall keep the visible prompt list consistent with the menu search field (filtering by title and/or content per existing REQ-INPUT-012 semantics unless superseded by the menu field for the active filter source), for **both** main Prompt Input Slash and Session Prompt Builder Slash.
-- **REQ-INPUT-028 (Session Slash Parity)**: The Session Prompt Builder Slash Command experience shall provide **functional parity** with REQ-INPUT-025~027, REQ-FAV-003 (favorite ordering), and REQ-INPUT-012/013 (filtering and keyboard navigation) within the constraints of the session modal editor.
 
 ### 3.1 Core Multi-Service Management
 - **REQ-CORE-001**: The system shall support the following AI services: ChatGPT, Claude, Gemini, Grok, Perplexity, and Genspark.
@@ -97,7 +55,7 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **REQ-INPUT-009**: While in the **Pending Confirmation State**, the system shall display a toast notification (e.g., "Files uploaded. Press Ctrl+Enter to send.") and update the input placeholder.
 - **REQ-INPUT-010**: When the user presses Ctrl+Enter while in the Pending Confirmation State, the system shall trigger the final submission (clicking the Service's internal Send button).
 - **REQ-INPUT-011 (Slash Command Entry)**: When the user types `/` in the Prompt Input, the system shall open a Slash Command list for loading saved custom prompts.
-- **REQ-INPUT-012 (Slash Filtering)**: While the Slash Command list is open, the system shall filter prompt results in real time by title and content; when **REQ-INPUT-025** applies, the **menu search field** shall be the primary source of filter text while that field holds focus.
+- **REQ-INPUT-012 (Slash Filtering)**: While the Slash Command list is open, when the user types additional text after `/`, the system shall filter prompt results in real time by title and content.
 - **REQ-INPUT-013 (Slash Selection)**: While the Slash Command list is open, the system shall support keyboard navigation (↑/↓/Enter/Tab/Esc) and mouse selection to insert the selected custom prompt into the Prompt Input.
 - **REQ-INPUT-014 (Mini Variable Form)**: When the Prompt Input contains `{{variable}}` tokens after a custom prompt insertion or user edit, the system shall auto-generate an inline mini variable form for detected non-system variables.
 - **REQ-INPUT-015 (Unresolved Variable Decision)**: When the user attempts to send a Prompt Input that includes unresolved variables, the system shall show an English confirmation dialog offering: review variables before send, send anyway, or cancel.
@@ -200,8 +158,8 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 
 ##### 3.4.1.7 Import / Export
 
-- **REQ-CPB-060 (Export)**: When the "Export" button is clicked, the system shall export all saved prompts and global variables as a JSON file. The exported data shall preserve variable placeholders (`{{variable_name}}`) as-is without substituting them with actual values. The filename shall follow the format `smc-prompts-{prompt_title}-{YYYYMMDD_HHmmss}.json`, where `{prompt_title}` is the currently selected prompt's title (sanitized for filesystem safety) and `{YYYYMMDD_HHmmss}` is the export timestamp. When a **Prompt Library** exists, the export shall include an **`exportVersion`** (e.g. `3`) and optional **`categories`** and **`favoriteCategoryIds`** so that category trees and favorite-category pins round-trip; older export files without these keys remain valid for import.
-- **REQ-CPB-061 (Import)**: When the "Import" button is clicked and a valid JSON file is selected, the system shall validate the file format (requiring `prompts` and `globalVars` keys) and apply changes after user confirmation. The system shall support **safe merge** and **full overwrite** modes; when the file includes **`categories`** and/or **`favoriteCategoryIds`**, the chosen mode shall apply to those structures consistently with prompts (merge vs replace per user choice), and the confirmation text shall reflect whether library metadata is present.
+- **REQ-CPB-060 (Export)**: When the "Export" button is clicked, the system shall export all saved prompts and global variables as a JSON file. The exported data shall preserve variable placeholders (`{{variable_name}}`) as-is without substituting them with actual values. The filename shall follow the format `smc-prompts-{prompt_title}-{YYYYMMDD_HHmmss}.json`, where `{prompt_title}` is the currently selected prompt's title (sanitized for filesystem safety) and `{YYYYMMDD_HHmmss}` is the export timestamp.
+- **REQ-CPB-061 (Import)**: When the "Import" button is clicked and a valid JSON file is selected, the system shall validate the file format (requiring `prompts` and `globalVars` keys) and overwrite the current data after user confirmation.
 - **REQ-CPB-062 (Import Validation)**: When an imported file does not contain the required keys (`prompts`, `globalVars`) or fails JSON parsing, the system shall display an error message and abort the import.
 
 ##### 3.4.1.8 Backward Compatibility
@@ -218,10 +176,6 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **REQ-CPB-083 (Debounced Saving)**: When prompt or variable data changes, the system shall debounce save operations (approximately 250ms) to prevent excessive storage writes during rapid input.
 - **REQ-CPB-084 (Auto-Save on Close)**: When the Custom Prompt Builder modal is closed and unsaved changes exist, the system shall automatically save the current prompt.
 - **REQ-CPB-085 (Seed Data)**: When the prompt list is empty (first use), the system shall create sample prompts (e.g., "Fact Check 프롬프트", "천재적 사고 모드") to demonstrate the variable system.
-- **REQ-CPB-086 (Category Assignment)**: The Custom Prompt Builder shall allow the user to assign each prompt to **one** category from the user-managed **2-depth** category tree, or leave it **Uncategorized**.
-- **REQ-CPB-087 (Tags)**: The Custom Prompt Builder shall allow the user to attach **tags** to a prompt (string list) for Prompt Hub and Slash metadata.
-- **REQ-CPB-088 (Short Description)**: The Custom Prompt Builder shall provide a **short description** field for Prompt Hub list display, distinct from full prompt content.
-- **REQ-CPB-089 (Favorite Flag)**: The Custom Prompt Builder shall provide a **favorite** toggle stored with the prompt and used for Slash ordering (REQ-FAV-003).
 
 ### 3.5 Conversation History & Sidebar
 - **REQ-HIST-001 (Persistence)**: The system shall automatically save the current session details (Active Services, Layout, URLs, Prompt Input State) to the local database upon significant interactions (e.g., sending a prompt) or application exit.
@@ -242,9 +196,6 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **REQ-HIST-016 (Bulk Delete Confirmation)**: When the user triggers "Delete Selected", the system shall require confirmation before permanently deleting the selected sessions.
 - **REQ-HIST-017 (Cancel / Escape)**: While Selection Mode is enabled, when the user cancels or presses Escape, the system shall exit Selection Mode and clear the current selection.
 - **REQ-HIST-018 (Bulk Delete Persistence)**: When sessions are deleted via Bulk Delete, the system shall remove them from persistent storage and update the History Sidebar list.
-- **REQ-HIST-019 (Title Search)**: While **Chat History** is the active sidebar panel, the system shall provide a **title search** field that filters visible history items by session title (case-insensitive substring match).
-- **REQ-HIST-020 (Sort Order)**: While **Chat History** is the active sidebar panel, the system shall provide a **sort** control for the history list with at least: **last updated** (newest first), **created** (newest first), and **title** (locale-aware alphabetical).
-- **REQ-HIST-021 (Date Grouping)**: While **Chat History** is the active sidebar panel, the system shall group items under headings **Today**, **Yesterday**, **Last Week**, **Last Month**, and **Older**, based on a consistent date field (same field used for sorting “last updated” when that sort is active).
 
 ### 3.6 External Interaction
 - **REQ-EXT-001 (URL Bar)**: The system shall display the current URL of each Webview in a dedicated bar.
@@ -329,15 +280,13 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
     - `promptState` (text, files, options)
 - **Custom Prompt Builder Storage**:
   - **electron-store keys**:
-    - `customPrompts`: Array of prompt objects `{ id, title, content, localVars: [{name, value}], createdAt, updatedAt, lastUsedAt, categoryId?, tags?, summary?, favorite? }`
+    - `customPrompts`: Array of prompt objects `{ id, title, content, localVars: [{name, value}], createdAt, updatedAt, lastUsedAt }`
     - `customPromptGlobalVars`: Array of global variable objects `{ name, value }`
     - `customPromptUIState`: Object `{ sidebarCollapsed, varsCollapsed, sidebarWidth, varsWidth, sortMode, zen }`
   - **localStorage keys** (dual persistence for renderer-side access):
     - `smc_prompts_v1`: Same schema as electron-store `customPrompts`
     - `smc_global_vars_v1`: Same schema as electron-store `customPromptGlobalVars`
     - `smc_ui_v1`: Same schema as electron-store `customPromptUIState`
-    - `smc_categories_v1`: Array of `{ id, name, parentId }` with `parentId` null for roots and non-null only for depth-2 nodes.
-    - `smc_favorite_category_ids_v1`: Array of category `id` strings pinned as favorite categories (REQ-FAV-002).
 
 ### 4.2 Inter-Process Communication (IPC)
 - **Renderer-to-Main**:
@@ -387,5 +336,3 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 | 3.1 | 2026-03-11 | Added Webview Session Maintenance (Gemini): REQ-SESSION-001 (Gemini idle refresh), REQ-SESSION-002 (idle definition). See ideation_20260311_120000_gemini_idle_webview_refresh.md. |
 | 3.2 | 2026-03-12 | Added Mermaid diagram preview: REQ-INPUT-020 (main prompt preview), REQ-CPB-026 (Custom Prompt Builder and Session Prompt Builder preview). See ideation_20260312_120000_mermaid_preview.md. |
 | 3.3 | 2026-03-12 | Added preview code block section UI: REQ-INPUT-021 (distinct section blocks), REQ-INPUT-022 (Mermaid block Text/Preview/Copy and zoom at block top-right), REQ-INPUT-023 (code block syntax highlight and Copy), REQ-INPUT-024 (LaTeX block render, export/copy). Main prompt eye icon and pane-level zoom retained. See ideation_20260312_160000_code_block_section_ui.md. |
-| 3.4 | 2026-03-23 | Left sidebar: REQ-NAV-001~005 (New Chat, Dashboard, Prompt Hub, Chat History panels; Prompt Hub width). Dashboard: REQ-DASH-001~004. Prompt Hub: REQ-PHUB-001~010. Favorites: REQ-FAV-001~003. Slash UX: REQ-INPUT-025~027 (menu search field, title highlight, favorite ordering). History: REQ-HIST-019~021 (title search, sort, date groups). CPB: REQ-CPB-086~089 (category, tags, summary, favorite). Persistence: `smc_categories_v1`, `smc_favorite_category_ids_v1`. See ideation_20260323_120000_left_menu_dashboard_prompt_hub.md. |
-| 3.5 | 2026-03-23 | Dashboard chart: REQ-DASH-004 clarified (Hi-DPI, width, labels). Session Slash parity: REQ-INPUT-025~027 scoped to main + Session builder; REQ-INPUT-028. Export/import v3: REQ-CPB-060/061 extended (`exportVersion`, `categories`, `favoriteCategoryIds`, merge vs full overwrite). Implementation: `drawDashboardChart` DPR + axes + `ResizeObserver` on dashboard root; session `.msm-filter-input` / `.msm-mark` styles. |

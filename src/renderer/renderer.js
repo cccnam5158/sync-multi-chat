@@ -183,17 +183,12 @@ async function resetCurrentSessionViews({ onlySlotKey = null } = {}) {
     resetAllGeminiIdleTimers();
 }
 
-// Handle New Chat Button Click
-newChatBtn.addEventListener('click', async () => {
+async function triggerNewChatWorkflow() {
     // Save current session first (if there is one)
     if (currentSessionId) {
         await saveCurrentSession();
     }
 
-    // IMPORTANT:
-    // New Chat should start from base/reset URLs.
-    // Do NOT copy the current conversation URLs into the new session, or the new session will restore
-    // back into the previous conversation (causing "history overwrite" symptoms).
     let activeServices = [];
     const resetUrls = {};
     if (chatMode === 'single') {
@@ -209,7 +204,6 @@ newChatBtn.addEventListener('click', async () => {
         });
     }
 
-    // Generate new session ID and create new history entry
     currentSessionId = generateId();
     const newSessionData = {
         id: currentSessionId,
@@ -229,23 +223,18 @@ newChatBtn.addEventListener('click', async () => {
         prompt: '',
         isAnonymousMode: isAnonymousMode,
         isScrollSyncEnabled: isScrollSyncEnabled,
-        urls: resetUrls, // Save base chat URLs for the new chat session
+        urls: resetUrls,
         createdAt: new Date().toISOString(),
     };
 
-    // Save new session to history
     await historyManager.saveSession(newSessionData);
-
-    // Persist new session ID to localStorage
     localStorage.setItem(currentSessionIdKey, currentSessionId);
-
-    // Refresh history list to show new active chat
     loadHistoryList();
-
-    // Notify main process to reset webviews (navigates to base URLs)
     window.electronAPI.newChat();
     resetAllGeminiIdleTimers();
-});
+}
+
+newChatBtn.addEventListener('click', () => triggerNewChatWorkflow());
 
 if (promptToggleBtn) {
     promptToggleBtn.title = isPromptCollapsed ? 'Expand controls' : 'Collapse controls';
@@ -384,34 +373,87 @@ function isBlockedBottomControlTarget(target) {
     return !!target.closest(blockedSelectors.join(', '));
 }
 
-function showSmcConfirm(message) {
+/**
+ * After a confirm/modal that toggled BrowserViews, restore visibility only when the main chat workspace should show them.
+ * Custom Prompt Builder (`#cpb-modal.visible`) and Session Custom Prompt Builder (`.session-prompt-modal.visible`)
+ * keep views detached so they do not stack above those overlays (e.g. after exiting Mermaid fullscreen).
+ */
+function applySmcPreferredServiceVisibility() {
+    try {
+        const cpb = document.getElementById('cpb-modal');
+        if (cpb && cpb.classList.contains('visible')) {
+            window.electronAPI?.setServiceVisibility?.(false);
+            return;
+        }
+        const sessionSpb = document.querySelector('.session-prompt-modal.visible');
+        if (sessionSpb) {
+            window.electronAPI?.setServiceVisibility?.(false);
+            return;
+        }
+        const crossCheck = document.getElementById('cross-check-modal');
+        if (crossCheck && crossCheck.classList.contains('visible')) {
+            window.electronAPI?.setServiceVisibility?.(false);
+            return;
+        }
+        const controls = document.getElementById('controls-container');
+        if (controls && controls.classList.contains('prompt-expanded')) {
+            window.electronAPI?.setServiceVisibility?.(false);
+            return;
+        }
+        window.electronAPI?.setServiceVisibility?.(true);
+    } catch (_) {}
+}
+window.applySmcPreferredServiceVisibility = applySmcPreferredServiceVisibility;
+
+/**
+ * Themed confirm dialog (replaces window.confirm). Pass a string or { title, message, confirmText, cancelText, danger }.
+ * @param {string|{title?:string,message:string,confirmText?:string,cancelText?:string,danger?:boolean}} input
+ * @returns {Promise<boolean>}
+ */
+function showSmcConfirm(input) {
+    const opts = typeof input === 'string' ? { message: input } : (input && typeof input === 'object' ? input : { message: '' });
     return new Promise((resolve) => {
         const modal = document.getElementById('smc-confirm-modal');
-        const msgEl = document.getElementById('smc-confirm-msg');
+        const titleEl = document.getElementById('smc-confirm-title');
+        const msgEl = document.getElementById('smc-confirm-message') || document.getElementById('smc-confirm-msg');
         const okBtn = document.getElementById('smc-confirm-ok');
         const cancelBtn = document.getElementById('smc-confirm-cancel');
+        const closeBtn = document.getElementById('smc-confirm-close');
         if (!modal || !msgEl || !okBtn || !cancelBtn) { resolve(false); return; }
 
-        msgEl.textContent = message;
+        if (titleEl) titleEl.textContent = opts.title || 'Confirm';
+        msgEl.textContent = opts.message || '';
+        okBtn.textContent = opts.confirmText || 'OK';
+        cancelBtn.textContent = opts.cancelText || 'Cancel';
+        okBtn.className = 'btn-primary';
+        if (opts.danger) okBtn.classList.add('smc-confirm-danger');
+
         try { window.electronAPI.setServiceVisibility(false); } catch (_) {}
         modal.classList.add('visible');
 
         const cleanup = (result) => {
             modal.classList.remove('visible');
-            try { window.electronAPI.setServiceVisibility(true); } catch (_) {}
+            applySmcPreferredServiceVisibility();
             okBtn.removeEventListener('click', onOk);
             cancelBtn.removeEventListener('click', onCancel);
+            if (closeBtn) closeBtn.removeEventListener('click', onCancel);
+            modal.removeEventListener('click', onBackdrop);
             document.removeEventListener('keydown', onKey);
             resolve(result);
         };
         const onOk = () => cleanup(true);
         const onCancel = () => cleanup(false);
+        const onBackdrop = (e) => {
+            if (e.target === modal) onCancel();
+        };
         const onKey = (e) => {
-            if (e.key === 'Escape') cleanup(false);
-            if (e.key === 'Enter') cleanup(true);
+            if (e.key === 'Escape') onCancel();
+            if (e.key === 'Enter') onOk();
         };
         okBtn.addEventListener('click', onOk);
         cancelBtn.addEventListener('click', onCancel);
+        if (closeBtn) closeBtn.addEventListener('click', onCancel);
+        modal.addEventListener('click', onBackdrop);
         document.addEventListener('keydown', onKey);
         okBtn.focus();
     });
@@ -1671,6 +1713,31 @@ function createSlot(container, slotKey) {
         startGeminiIdleTimerTick();
     }
 
+    // Clear cookies & site data for this service partition (clean slate before Sign in with Chrome/Edge)
+    const clearSiteBtn = document.createElement('button');
+    clearSiteBtn.className = 'header-btn header-btn-clear-site';
+    clearSiteBtn.innerHTML = '<svg class="header-trash-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+    clearSiteBtn.title = 'Clear cookies & site data for this service (then sign in again via Chrome or Edge)';
+    clearSiteBtn.addEventListener('click', async () => {
+        const confirmed = await showSmcConfirm({
+            title: 'Clear site data',
+            message: `Clear all cookies and site data for ${serviceName}?\nYou will need to sign in again (e.g. Sign in with Chrome or Edge).`,
+            confirmText: 'Clear',
+            cancelText: 'Cancel',
+            danger: true
+        });
+        if (!confirmed) return;
+        try {
+            const r = await window.electronAPI.clearServicePartitionStorage(serviceKey);
+            if (!r || !r.ok) {
+                console.warn('[clear-service-partition-storage]', r);
+            }
+        } catch (e) {
+            console.warn('clearServicePartitionStorage failed', e);
+        }
+        if (isGeminiSlot(slotKey)) resetGeminiIdleTimerForSlot(slotKey);
+    });
+
     // Reload button - moved from URL bar to header (left of maximize button)
     const reloadBtn = document.createElement('button');
     reloadBtn.className = 'header-btn';
@@ -1704,6 +1771,7 @@ function createSlot(container, slotKey) {
         toggleMaximize(slotKey, maxBtn, maxIcon, restoreIcon);
     });
 
+    headerBtns.appendChild(clearSiteBtn);
     headerBtns.appendChild(reloadBtn);
     headerBtns.appendChild(maxBtn);
     header.appendChild(headerBtns);
@@ -1903,7 +1971,87 @@ function initResize(e, prevElement, splitter, direction) {
     document.addEventListener('mouseup', onMouseUp);
 }
 
+/** When set, full-screen sidebar panels are open; BrowserViews must stay at zero bounds (they sit above HTML in Electron). */
+let smcOpenFullPanel = null;
+
+function setMainWorkspaceWebviewsObscured(obscured) {
+    if (!window.electronAPI?.updateViewBounds) return;
+    if (obscured) {
+        const bounds = {};
+        activeServiceKeys.forEach((key) => {
+            bounds[key] = { x: 0, y: 0, width: 0, height: 0 };
+        });
+        window.electronAPI.updateViewBounds(bounds);
+    } else {
+        requestAnimationFrame(() => updateBounds());
+    }
+}
+
+function syncSmcOverlayStackState() {
+    const stack = document.getElementById('smc-panel-overlay-stack');
+    if (!stack) return;
+    const open = !!smcOpenFullPanel;
+    stack.classList.toggle('has-open-panel', open);
+    stack.setAttribute('aria-hidden', open ? 'false' : 'true');
+    document.body.classList.toggle('smc-full-panel-open', open);
+}
+
+function openSmcFullPanel(panel) {
+    const map = {
+        dashboard: 'smc-overlay-dashboard',
+        'prompt-hub': 'smc-overlay-prompt-hub',
+        history: 'smc-overlay-history',
+    };
+    const id = map[panel];
+    if (!id) return;
+    document.querySelectorAll('.smc-full-panel').forEach((el) => {
+        const on = el.id === id;
+        el.classList.toggle('is-open', on);
+        el.setAttribute('aria-hidden', on ? 'false' : 'true');
+    });
+    smcOpenFullPanel = panel;
+    syncSmcOverlayStackState();
+    setMainWorkspaceWebviewsObscured(true);
+    const sb = document.getElementById('history-sidebar');
+    if (sb) sb.setAttribute('data-active-panel', panel);
+    document.querySelectorAll('.sidebar-rail-btn').forEach((b) => {
+        b.classList.toggle('active', b.getAttribute('data-sidebar-panel') === panel);
+    });
+    if (panel === 'prompt-hub' && typeof window.renderPromptHub === 'function') window.renderPromptHub();
+    if (panel === 'dashboard') refreshDashboard();
+}
+
+function closeSmcFullPanels() {
+    if (!smcOpenFullPanel) return;
+    smcOpenFullPanel = null;
+    document.querySelectorAll('.smc-full-panel').forEach((el) => {
+        el.classList.remove('is-open');
+        el.setAttribute('aria-hidden', 'true');
+    });
+    syncSmcOverlayStackState();
+    setMainWorkspaceWebviewsObscured(false);
+    /* Modals may have called setServiceVisibility(false); restore only if CPB is not covering the workspace */
+    applySmcPreferredServiceVisibility();
+    const confirmM = document.getElementById('smc-confirm-modal');
+    if (confirmM) confirmM.classList.remove('visible');
+    const catM = document.getElementById('smc-category-modal');
+    if (catM) catM.classList.remove('visible');
+    const sb = document.getElementById('history-sidebar');
+    if (sb) sb.setAttribute('data-active-panel', 'none');
+    document.querySelectorAll('.sidebar-rail-btn').forEach((b) => b.classList.remove('active'));
+}
+
+window.closeSmcFullPanels = closeSmcFullPanels;
+
 function updateBounds() {
+    if (smcOpenFullPanel && window.electronAPI?.updateViewBounds) {
+        const z = {};
+        activeServiceKeys.forEach((key) => {
+            z[key] = { x: 0, y: 0, width: 0, height: 0 };
+        });
+        window.electronAPI.updateViewBounds(z);
+        return;
+    }
     const HEADER_HEIGHT = 32; // Height for header bar with buttons
     const URL_BAR_HEIGHT = 32; // Height for URL bar (URLBAR-001) - same as header
     const TOTAL_TOP_HEIGHT = HEADER_HEIGHT + URL_BAR_HEIGHT;
@@ -2090,7 +2238,10 @@ if (window.electronAPI.onWebviewUrlChanged) {
 //===========================================
 
 const crossCheckModal = document.getElementById('cross-check-modal');
+const crossCheckModalTitle = document.getElementById('cross-check-modal-title');
 const closeCrossCheckBtn = document.getElementById('close-cross-check-btn');
+const CROSS_CHECK_TITLE_OPTIONS = 'Cross Check Options';
+const CROSS_CHECK_TITLE_EDIT_PREDEFINED = 'Edit Predefined Prompt';
 const crossCheckOptions = document.getElementById('cross-check-options');
 const customPromptView = document.getElementById('custom-prompt-view');
 const btnCompareResponses = document.getElementById('btn-compare-responses');
@@ -2107,29 +2258,22 @@ if (btnSendCustom) btnSendCustom.disabled = true;
 const savedPromptsBody = document.getElementById('saved-prompts-body');
 const savedPromptsEmpty = document.getElementById('saved-prompts-empty');
 const savedPromptsTable = document.getElementById('saved-prompts-table');
-const promptDeleteModal = document.getElementById('prompt-delete-modal');
-const promptDeleteName = document.getElementById('prompt-delete-name');
-const btnConfirmDeletePrompt = document.getElementById('btn-confirm-delete-prompt');
-const btnCancelDeletePrompt = document.getElementById('btn-cancel-delete-prompt');
-const btnClosePromptDelete = document.getElementById('close-prompt-delete-btn');
-
 // Predefined Prompt Edit Elements
 const predefinedPromptEditView = document.getElementById('predefined-prompt-edit-view');
 const btnEditPredefined = document.getElementById('edit-predefined-btn');
 const predefinedPromptInput = document.getElementById('predefined-prompt-input');
 const btnCancelPredefined = document.getElementById('btn-cancel-predefined');
 const btnSavePredefined = document.getElementById('btn-save-predefined');
-const predefinedPromptPreviewText = document.getElementById('predefined-prompt-preview-text');
-const btnBackToOptionsPredefined = document.getElementById('back-to-options-predefined-btn');
-const btnClosePredefinedEdit = document.getElementById('close-predefined-edit-btn');
-
+const crossCheckPredefinedPreviewLayer = document.getElementById('cross-check-predefined-preview-layer');
+const crossCheckPredefinedPreviewText = document.getElementById('cross-check-predefined-preview-text');
+const btnPredefinedPromptPreview = document.getElementById('predefined-prompt-preview-btn');
+const crossCheckPredefinedPreviewClose = document.getElementById('cross-check-predefined-preview-close');
+const crossCheckPredefinedPreviewBackdrop = document.getElementById('cross-check-predefined-preview-backdrop');
 let customPrompts = [];
 let currentSort = {
     column: 'lastUsedAt',
     direction: 'desc' // 'asc' or 'desc'
 };
-let pendingDeletePromptIndex = null;
-
 // Default Predefined Prompt
 const DEFAULT_PREDEFINED_PROMPT = "Below are responses from different AI models. Please compare and analyze them for accuracy, completeness, and logic. Identify any discrepancies and suggest the best answer.";
 let currentPredefinedPrompt = DEFAULT_PREDEFINED_PROMPT;
@@ -2219,10 +2363,75 @@ function savePredefinedPrompt(content) {
     updatePredefinedPromptPreview();
 }
 
-function updatePredefinedPromptPreview() {
-    if (predefinedPromptPreviewText) {
-        predefinedPromptPreviewText.textContent = `"${currentPredefinedPrompt}"`;
+function formatCrossCheckPredefinedPromptForDisplay(text) {
+    return String(text || '')
+        .replace(/\.\s+/g, '.\n')
+        .replace(/\?\s+/g, '?\n')
+        .replace(/!\s+/g, '!\n');
+}
+
+function openCrossCheckPredefinedPreviewModal() {
+    if (!crossCheckPredefinedPreviewLayer || !crossCheckPredefinedPreviewText) return;
+    crossCheckPredefinedPreviewText.textContent = formatCrossCheckPredefinedPromptForDisplay(currentPredefinedPrompt);
+    crossCheckPredefinedPreviewLayer.classList.add('is-open');
+    crossCheckPredefinedPreviewLayer.setAttribute('aria-hidden', 'false');
+    document.addEventListener('keydown', onCrossCheckPredefinedPreviewKeydown, true);
+}
+
+function closeCrossCheckPredefinedPreviewModal() {
+    if (!crossCheckPredefinedPreviewLayer) return;
+    crossCheckPredefinedPreviewLayer.classList.remove('is-open');
+    crossCheckPredefinedPreviewLayer.setAttribute('aria-hidden', 'true');
+    document.removeEventListener('keydown', onCrossCheckPredefinedPreviewKeydown, true);
+    /* Clear focus on Compare card eye icon so :focus-visible ring does not persist after Esc/close */
+    if (btnPredefinedPromptPreview) {
+        try {
+            btnPredefinedPromptPreview.blur();
+        } catch (_) { /* ignore */ }
     }
+}
+
+function onCrossCheckPredefinedPreviewKeydown(e) {
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeCrossCheckPredefinedPreviewModal();
+    }
+}
+
+function updatePredefinedPromptPreview() {
+    /* Hover tooltip removed; modal fills from currentPredefinedPrompt on open. */
+}
+
+function setCrossCheckModalMainTitle(text) {
+    if (crossCheckModalTitle) crossCheckModalTitle.textContent = text;
+}
+
+function resetCrossCheckModalMainTitle() {
+    setCrossCheckModalMainTitle(CROSS_CHECK_TITLE_OPTIONS);
+}
+
+function onCrossCheckPredefinedEditEscapeKeydown(e) {
+    if (e.key !== 'Escape') return;
+    if (!crossCheckModal?.classList.contains('visible')) return;
+    if (!predefinedPromptEditView || predefinedPromptEditView.classList.contains('hidden')) return;
+    if (crossCheckPredefinedPreviewLayer?.classList.contains('is-open')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    showOptionsView();
+}
+
+let crossCheckPredefinedEditEscapeBound = false;
+function bindCrossCheckPredefinedEditEscape() {
+    if (crossCheckPredefinedEditEscapeBound) return;
+    document.addEventListener('keydown', onCrossCheckPredefinedEditEscapeKeydown, true);
+    crossCheckPredefinedEditEscapeBound = true;
+}
+
+function unbindCrossCheckPredefinedEditEscape() {
+    if (!crossCheckPredefinedEditEscapeBound) return;
+    document.removeEventListener('keydown', onCrossCheckPredefinedEditEscapeKeydown, true);
+    crossCheckPredefinedEditEscapeBound = false;
 }
 
 function saveCustomPromptsToStorage() {
@@ -2245,12 +2454,16 @@ function openCrossCheckModal() {
 }
 
 function closeCrossCheckModal() {
+    unbindCrossCheckPredefinedEditEscape();
+    resetCrossCheckModalMainTitle();
     crossCheckModal.classList.remove('visible');
-    // Show services again
-    window.electronAPI.setServiceVisibility(true);
+    closeCrossCheckPredefinedPreviewModal();
+    applySmcPreferredServiceVisibility();
 }
 
 function showOptionsView() {
+    unbindCrossCheckPredefinedEditEscape();
+    resetCrossCheckModalMainTitle();
     crossCheckOptions.classList.remove('hidden');
     customPromptView.classList.add('hidden');
     if (predefinedPromptEditView) predefinedPromptEditView.classList.add('hidden');
@@ -2260,6 +2473,8 @@ function showOptionsView() {
 }
 
 function showCustomPromptView() {
+    unbindCrossCheckPredefinedEditEscape();
+    resetCrossCheckModalMainTitle();
     crossCheckOptions.classList.add('hidden');
     customPromptView.classList.remove('hidden');
     renderSavedPrompts();
@@ -2269,6 +2484,8 @@ function showCustomPromptView() {
 
 function showPredefinedEditView() {
     crossCheckOptions.classList.add('hidden');
+    setCrossCheckModalMainTitle(CROSS_CHECK_TITLE_EDIT_PREDEFINED);
+    bindCrossCheckPredefinedEditEscape();
     if (predefinedPromptEditView) {
         predefinedPromptEditView.classList.remove('hidden');
         predefinedPromptInput.value = currentPredefinedPrompt;
@@ -2322,26 +2539,17 @@ const customPromptFieldObserver = new MutationObserver(() => {
 window.addEventListener('focus', forceEnableCustomPromptInputs);
 
 function openPromptDeleteModal(index) {
-    if (!promptDeleteModal) {
-        performPromptDeletion(index);
-        return;
-    }
-
-    pendingDeletePromptIndex = index;
     const prompt = customPrompts[index];
-    if (promptDeleteName) {
-        promptDeleteName.textContent = prompt?.title || 'this prompt';
-    }
-    promptDeleteModal.classList.add('visible');
-    forceEnableCustomPromptInputs();
-}
-
-function closePromptDeleteModal() {
-    pendingDeletePromptIndex = null;
-    if (promptDeleteModal) {
-        promptDeleteModal.classList.remove('visible');
-    }
-    forceEnableCustomPromptInputs();
+    if (!prompt) return;
+    showSmcConfirm({
+        title: 'Delete Saved Prompt',
+        message: `Are you sure you want to delete "${prompt.title || 'this prompt'}"?`,
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        danger: true,
+    }).then((ok) => {
+        if (ok) performPromptDeletion(index);
+    });
 }
 
 function applyCustomPromptValues(title = '', content = '') {
@@ -2378,36 +2586,66 @@ if (predefinedPromptInput) {
 }
 
 // Event Listeners
-closeCrossCheckBtn.addEventListener('click', closeCrossCheckModal);
+closeCrossCheckBtn.addEventListener('click', () => {
+    if (predefinedPromptEditView && !predefinedPromptEditView.classList.contains('hidden')) {
+        showOptionsView();
+        return;
+    }
+    closeCrossCheckModal();
+});
 crossCheckModal.addEventListener('click', (e) => {
     if (e.target === crossCheckModal) closeCrossCheckModal();
 });
 
 btnCompareResponses.addEventListener('click', (e) => {
-    // If clicked on edit button, don't trigger compare
-    if (e.target.closest('.edit-icon-container')) return;
+    if (e.target.closest('.cc-compare-card-actions')) return;
 
     window.electronAPI.crossCheck(isAnonymousMode, currentPredefinedPrompt);
     closeCrossCheckModal();
 });
+
+function wireCcCompareIconActivation(el, handler) {
+    if (!el) return;
+    el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handler(e);
+    });
+    el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            handler(e);
+        }
+    });
+}
+
+wireCcCompareIconActivation(btnPredefinedPromptPreview, () => {
+    openCrossCheckPredefinedPreviewModal();
+});
+
+if (crossCheckPredefinedPreviewClose) {
+    crossCheckPredefinedPreviewClose.addEventListener('click', () => closeCrossCheckPredefinedPreviewModal());
+}
+if (crossCheckPredefinedPreviewBackdrop) {
+    crossCheckPredefinedPreviewBackdrop.addEventListener('click', () => closeCrossCheckPredefinedPreviewModal());
+}
 
 if (btnEditPredefined) {
     btnEditPredefined.addEventListener('click', (e) => {
         e.stopPropagation();
         showPredefinedEditView();
     });
+    btnEditPredefined.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            showPredefinedEditView();
+        }
+    });
 }
 
 if (btnCancelPredefined) {
     btnCancelPredefined.addEventListener('click', showOptionsView);
-}
-
-if (btnBackToOptionsPredefined) {
-    btnBackToOptionsPredefined.addEventListener('click', showOptionsView);
-}
-
-if (btnClosePredefinedEdit) {
-    btnClosePredefinedEdit.addEventListener('click', showOptionsView);
 }
 
 if (btnSavePredefined) {
@@ -2423,11 +2661,12 @@ if (btnSavePredefined) {
 btnCustomPrompt.addEventListener('click', () => {
     // Store anonymous mode for CPB to use when sending
     window._cpb_isAnonymousMode = isAnonymousMode;
-    // Close parent cross-check modal views (keep modal open behind CPB)
-    if (typeof window.openCustomPromptBuilder === 'function') {
+    // Open CPB in new-prompt editor (not list-first)
+    if (typeof window.openCustomPromptBuilderNew === 'function') {
+        window.openCustomPromptBuilderNew();
+    } else if (typeof window.openCustomPromptBuilder === 'function') {
         window.openCustomPromptBuilder();
     } else {
-        // Fallback to old view
         showCustomPromptView();
     }
 });
@@ -2751,37 +2990,6 @@ savedPromptsTable.querySelectorAll('th[data-sort]').forEach(th => {
     });
 });
 
-if (btnCancelDeletePrompt) {
-    btnCancelDeletePrompt.addEventListener('click', () => {
-        closePromptDeleteModal();
-        updateSendButtonState();
-    });
-}
-
-if (btnClosePromptDelete) {
-    btnClosePromptDelete.addEventListener('click', () => {
-        closePromptDeleteModal();
-        updateSendButtonState();
-    });
-}
-
-if (btnConfirmDeletePrompt) {
-    btnConfirmDeletePrompt.addEventListener('click', () => {
-        if (pendingDeletePromptIndex === null) return;
-        performPromptDeletion(pendingDeletePromptIndex);
-        closePromptDeleteModal();
-    });
-}
-
-if (promptDeleteModal) {
-    promptDeleteModal.addEventListener('click', (e) => {
-        if (e.target === promptDeleteModal) {
-            closePromptDeleteModal();
-            updateSendButtonState();
-        }
-    });
-}
-
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -2861,10 +3069,7 @@ function toggleMaximize(service, btn, maxIcon, restoreIcon) {
 // History & Sidebar Logic
 // ==========================================
 const historySidebar = document.getElementById('history-sidebar');
-const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
 const historyList = document.getElementById('history-list');
-const clearHistoryBtn = document.getElementById('clear-history-btn');
-const historySelectModeBtn = document.getElementById('history-select-mode-btn');
 const historyBulkActions = document.getElementById('history-bulk-actions');
 const historySelectedCountEl = document.getElementById('history-selected-count');
 const historySelectAllBtn = document.getElementById('history-select-all-btn');
@@ -2882,9 +3087,12 @@ let savedHistoryScrollState = null;
 let historyPendingReload = null;
 let historySuppressScrollEvents = false;
 
-let isHistorySelectionMode = false;
+const historyTitleSearchInput = document.getElementById('history-title-search');
+const historySortSelect = document.getElementById('history-sort-select');
+let historySortBy = 'updatedDesc';
+let historySearchTitle = '';
+
 const selectedHistorySessionIds = new Set();
-let pendingBulkDeleteIds = [];
 
 function saveHistoryScrollState() {
     if (!historyList) return;
@@ -2930,6 +3138,509 @@ function ensureActiveHistoryItemVisible() {
     }
 }
 
+function startOfLocalDay(d) {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x.getTime();
+}
+
+/** Timestamp used for Today / Last week / Last month buckets — must match active sort (created vs updated). */
+function historyBucketTimestamp(session) {
+    if (historySortBy === 'createdDesc') {
+        return new Date(session.createdAt || session.updatedAt || 0).getTime();
+    }
+    return new Date(session.updatedAt || session.createdAt || 0).getTime();
+}
+
+function historyTimeBucket(session) {
+    const ts = historyBucketTimestamp(session);
+    const today0 = startOfLocalDay(new Date());
+    const day0 = startOfLocalDay(ts);
+    const diffDays = Math.round((today0 - day0) / 86400000);
+    if (diffDays === 0) return 'today';
+    if (diffDays === 1) return 'yesterday';
+    if (diffDays <= 7) return 'week';
+    if (diffDays <= 30) return 'month';
+    return 'older';
+}
+
+function historyListDateLine(session) {
+    if (historySortBy === 'createdDesc') {
+        const createdAtStr = session.createdAt ? new Date(session.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'Unknown';
+        return `Created ${createdAtStr}`;
+    }
+    const updatedAtStr = session.updatedAt ? new Date(session.updatedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+    return updatedAtStr;
+}
+
+function historyBucketLabel(bucket) {
+    const m = { today: 'Today', yesterday: 'Yesterday', week: 'Last week', month: 'Last month', older: 'Older' };
+    return m[bucket] || bucket;
+}
+
+/** Dashboard chart: click-hit zones in canvas logical CSS pixels (same space as drawing). */
+let dashChartClickZones = [];
+let dashChartSessionsCache = [];
+let dashChartGranularityCache = 'day';
+let dashChartSelectedBucketKey = null;
+
+function dateToChartBucketKey(d, granularity) {
+    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
+    if (granularity === 'day') {
+        return d.toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' });
+    }
+    if (granularity === 'week') {
+        const w = new Date(d);
+        const dow = w.getDay();
+        w.setDate(w.getDate() - dow);
+        return w.toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' });
+    }
+    if (granularity === 'month') {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+    return String(d.getFullYear());
+}
+
+function sessionToChartBucketKey(session, granularity) {
+    const t = new Date(session.updatedAt || session.createdAt || 0);
+    return dateToChartBucketKey(t, granularity);
+}
+
+function aggregateSessionsForChart(sessions, granularity) {
+    const map = {};
+    sessions.forEach((s) => {
+        const key = sessionToChartBucketKey(s, granularity);
+        if (!key) return;
+        map[key] = (map[key] || 0) + 1;
+    });
+    return map;
+}
+
+function hideDashBucketDetail() {
+    const detail = document.getElementById('dash-bucket-detail');
+    const tbody = document.getElementById('dash-bucket-tbody');
+    if (detail) detail.classList.add('hidden');
+    if (tbody) tbody.replaceChildren();
+    dashChartSelectedBucketKey = null;
+}
+
+/** Parse dashboard chart bucket key back to a Date (local) for Period label formatting. */
+function parseChartBucketKeyToDate(bucketKey, gran) {
+    if (!bucketKey) return null;
+    if (gran === 'month') {
+        const m = String(bucketKey).match(/^(\d{4})-(\d{2})$/);
+        if (m) return new Date(Number(m[1]), Number(m[2]) - 1, 1);
+        return null;
+    }
+    if (gran === 'year') {
+        const y = parseInt(String(bucketKey), 10);
+        return Number.isFinite(y) ? new Date(y, 0, 1) : null;
+    }
+    const parts = String(bucketKey).match(/\d+/g);
+    if (parts && parts.length >= 3) {
+        let y; let mo; let d;
+        if (parts[0].length === 4) {
+            y = Number(parts[0]);
+            mo = Number(parts[1]);
+            d = Number(parts[2]);
+        } else {
+            mo = Number(parts[0]);
+            d = Number(parts[1]);
+            y = Number(parts[2]);
+        }
+        if (y < 100) y += 2000;
+        const dt = new Date(y, mo - 1, d);
+        return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+    const t = Date.parse(String(bucketKey));
+    if (!Number.isNaN(t)) return new Date(t);
+    return null;
+}
+
+/** English period line matching Day / Week / Month / Year granularity. */
+function formatDashBucketPeriodLabel(bucketKey, gran) {
+    const d = parseChartBucketKeyToDate(bucketKey, gran);
+    if (gran === 'month' && d) {
+        return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    if (gran === 'year') {
+        return `Year ${bucketKey}`;
+    }
+    if (gran === 'day' && d) {
+        return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    }
+    if (gran === 'week' && d) {
+        const start = new Date(d);
+        const end = new Date(d);
+        end.setDate(end.getDate() + 6);
+        const a = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const b = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return `Week of ${a} – ${b}`;
+    }
+    return bucketKey;
+}
+
+function formatDashSessionDate(iso) {
+    if (!iso) return '—';
+    try {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return String(iso);
+        return d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    } catch (e) {
+        return String(iso);
+    }
+}
+
+async function onDashSessionRowActivate(tr) {
+    const id = tr.dataset.sessionId;
+    if (!id) return;
+    const session = await historyManager.getSession(id);
+    if (session) loadSession(session);
+}
+
+function renderDashBucketDetail(bucketKey) {
+    const detail = document.getElementById('dash-bucket-detail');
+    const tbody = document.getElementById('dash-bucket-tbody');
+    const titleEl = document.getElementById('dash-bucket-title');
+    const countEl = document.getElementById('dash-bucket-count');
+    if (!detail || !tbody || !titleEl || !countEl) return;
+    const gran = dashChartGranularityCache;
+    const filtered = dashChartSessionsCache.filter((s) => sessionToChartBucketKey(s, gran) === bucketKey);
+    filtered.sort((a, b) => {
+        const tb = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        const ta = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        return tb - ta;
+    });
+    titleEl.textContent = `Period: ${formatDashBucketPeriodLabel(bucketKey, gran)}`;
+    countEl.textContent = `${filtered.length} session(s)`;
+    tbody.replaceChildren();
+    filtered.forEach((s) => {
+        const tr = document.createElement('tr');
+        tr.className = 'dash-session-row';
+        tr.dataset.sessionId = s.id;
+        tr.setAttribute('tabindex', '0');
+        tr.setAttribute('role', 'button');
+        const tdTitle = document.createElement('td');
+        tdTitle.textContent = s.title || 'Untitled';
+        const tdWhen = document.createElement('td');
+        tdWhen.textContent = formatDashSessionDate(s.updatedAt || s.createdAt);
+        tr.appendChild(tdTitle);
+        tr.appendChild(tdWhen);
+        tr.addEventListener('click', () => onDashSessionRowActivate(tr));
+        tr.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                onDashSessionRowActivate(tr);
+            }
+        });
+        tbody.appendChild(tr);
+    });
+    detail.classList.remove('hidden');
+}
+
+function onDashboardChartClick(e) {
+    const canvas = e.currentTarget;
+    if (!dashChartClickZones.length) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const logicalW = canvas.width / dpr;
+    const logicalH = canvas.height / dpr;
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const x = ((e.clientX - rect.left) / rect.width) * logicalW;
+    const y = ((e.clientY - rect.top) / rect.height) * logicalH;
+    for (let i = 0; i < dashChartClickZones.length; i++) {
+        const z = dashChartClickZones[i];
+        if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) {
+            dashChartSelectedBucketKey = z.key;
+            renderDashBucketDetail(z.key);
+            drawDashboardChart(dashChartSessionsCache, dashChartGranularityCache, dashChartSelectedBucketKey);
+            return;
+        }
+    }
+}
+
+function setupDashboardChartInteraction() {
+    const canvas = document.getElementById('dash-chart');
+    if (!canvas || canvas.dataset.smcDashBound) return;
+    canvas.dataset.smcDashBound = '1';
+    canvas.addEventListener('click', onDashboardChartClick);
+}
+
+function drawDashboardChart(sessions, granularity, selectedBucketKey) {
+    const canvas = document.getElementById('dash-chart');
+    if (!canvas || !canvas.getContext) return;
+    const wrap = canvas.closest('.dashboard-chart-canvas-wrap');
+    const dpr = window.devicePixelRatio || 1;
+    const wrapRect = wrap ? wrap.getBoundingClientRect() : canvas.getBoundingClientRect();
+    const cssW = Math.max(280, Math.floor(wrapRect.width) || 420);
+    const cssH = 214;
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+    canvas.style.height = `${cssH}px`;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    const w = cssW;
+    const h = cssH;
+    ctx.clearRect(0, 0, w, h);
+    dashChartClickZones = [];
+    const counts = aggregateSessionsForChart(sessions, granularity);
+    const todayK = dateToChartBucketKey(new Date(), granularity);
+    if (todayK) counts[todayK] = counts[todayK] ?? 0;
+    const keys = Object.keys(counts).sort();
+    const xLabelHost = document.getElementById('dash-chart-x-labels');
+    if (xLabelHost) {
+        xLabelHost.replaceChildren();
+    }
+    if (keys.length === 0) {
+        canvas.style.cursor = 'default';
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '12px system-ui, sans-serif';
+        ctx.fillText('No data', 12, 28);
+        return;
+    }
+    canvas.style.cursor = 'pointer';
+    const max = Math.max(1, ...keys.map((k) => counts[k]));
+    const padL = 36;
+    const padR = 8;
+    const padB = 14;
+    const padT = 8;
+    const chartW = w - padL - padR;
+    const chartH = h - padT - padB;
+    let showKeys;
+    if (keys.length <= 18) {
+        showKeys = keys;
+    } else if (todayK != null && keys.includes(todayK)) {
+        const ti = keys.indexOf(todayK);
+        const start = Math.max(0, Math.min(ti, keys.length - 18));
+        showKeys = keys.slice(start, start + 18);
+    } else {
+        showKeys = keys.slice(-18);
+    }
+    const n = showKeys.length;
+    const barGap = 3;
+    const barW = n > 0 ? Math.max(3, (chartW - barGap * (n - 1)) / n) : 3;
+    const baselineY = padT + chartH;
+
+    ctx.strokeStyle = 'hsl(215 16% 38%)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT);
+    ctx.lineTo(padL, baselineY);
+    ctx.lineTo(padL + chartW, baselineY);
+    ctx.stroke();
+
+    ctx.fillStyle = 'hsl(217 10% 64%)';
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(max), padL - 6, padT + 10);
+    ctx.fillText('0', padL - 6, baselineY + 3);
+
+    showKeys.forEach((k, i) => {
+        const v = counts[k];
+        const bh = (v / max) * chartH;
+        const x = padL + i * (barW + barGap);
+        const y = baselineY - bh;
+        const selected = selectedBucketKey === k;
+        const grad = ctx.createLinearGradient(0, y, 0, baselineY);
+        if (selected) {
+            grad.addColorStop(0, 'hsl(280 75% 62%)');
+            grad.addColorStop(1, 'hsl(280 70% 48%)');
+        } else {
+            grad.addColorStop(0, 'hsl(263 70% 58%)');
+            grad.addColorStop(1, 'hsl(263 70% 42%)');
+        }
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, y, barW, bh);
+        if (selected) {
+            ctx.strokeStyle = 'hsl(48 96% 58%)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 0.5, y - 0.5, barW + 1, bh + 1);
+        }
+        if (v > 0) {
+            const label = String(v);
+            ctx.font = 'bold 10px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            const cx = x + barW / 2;
+            if (bh >= 22) {
+                ctx.fillStyle = 'rgba(255,255,255,0.92)';
+                ctx.fillText(label, cx, y + 13);
+            } else {
+                ctx.fillStyle = 'hsl(217 10% 64%)';
+                ctx.fillText(label, cx, y - 3);
+            }
+        }
+        const minHit = 10;
+        const hitH = Math.max(bh, minHit);
+        const hitY = baselineY - hitH;
+        dashChartClickZones.push({ key: k, x, y: hitY, w: barW, h: hitH });
+    });
+
+    if (xLabelHost) {
+        xLabelHost.style.display = 'flex';
+        xLabelHost.style.flexDirection = 'row';
+        xLabelHost.style.alignItems = 'flex-start';
+        xLabelHost.style.justifyContent = 'flex-start';
+        xLabelHost.style.gap = `${barGap}px`;
+        xLabelHost.style.paddingLeft = `${padL}px`;
+        xLabelHost.style.paddingRight = `${padR}px`;
+        xLabelHost.style.boxSizing = 'border-box';
+        xLabelHost.style.width = '100%';
+        showKeys.forEach((k) => {
+            const span = document.createElement('span');
+            span.className = 'dashboard-chart-xlab';
+            let short = k;
+            if (granularity === 'month' && k.match(/^\d{4}-\d{2}$/)) {
+                const dt = parseChartBucketKeyToDate(k, 'month');
+                short = dt ? dt.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) : k;
+            } else if (granularity === 'year') {
+                short = String(k);
+            } else {
+                const dt = parseChartBucketKeyToDate(k, granularity);
+                short = dt
+                    ? dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : (k.length > 12 ? `${k.slice(0, 11)}…` : k);
+            }
+            span.textContent = short;
+            span.title = formatDashBucketPeriodLabel(k, granularity);
+            span.style.flex = '1 1 0';
+            span.style.minWidth = '0';
+            xLabelHost.appendChild(span);
+        });
+    }
+}
+
+async function refreshDashboard() {
+    const modeEl = document.getElementById('dash-chat-mode');
+    const svcEl = document.getElementById('dash-services');
+    const catEl = document.getElementById('dash-prompt-cats');
+    const prEl = document.getElementById('dash-prompt-total');
+    const hiEl = document.getElementById('dash-history-total');
+    try {
+        if (modeEl) modeEl.textContent = chatMode === 'single' ? 'Single AI' : 'Multi AI';
+        if (svcEl) {
+            if (chatMode === 'single') {
+                const n = singleAiActiveInstances ? singleAiActiveInstances.filter(Boolean).length : 0;
+                svcEl.textContent = `${singleAiService || '—'} · ${n} active instance(s)`;
+            } else {
+                const names = Object.entries(toggles || {}).filter(([, t]) => t && t.checked).map(([k]) => k);
+                svcEl.textContent = names.length ? names.join(', ') : '—';
+            }
+        }
+        let catCount = 0;
+        let promptTotal = 0;
+        if (window.SMCPromptLibrary) {
+            catCount = window.SMCPromptLibrary.loadCategories().filter((c) => !c.parentId).length;
+            promptTotal = window.SMCPromptLibrary.loadPromptsRaw().length;
+        }
+        if (catEl) catEl.textContent = String(catCount);
+        if (prEl) prEl.textContent = String(promptTotal);
+        const allSess = await historyManager.getAllSessions({ sortBy: 'updatedDesc' });
+        if (hiEl) hiEl.textContent = String(allSess.length);
+        const granSel = document.getElementById('dash-chart-granularity');
+        const g = granSel && granSel.value ? granSel.value : 'day';
+        dashChartSessionsCache = allSess;
+        dashChartGranularityCache = g;
+        hideDashBucketDetail();
+        drawDashboardChart(allSess, g, null);
+        const todayKey = dateToChartBucketKey(new Date(), g);
+        let pickKey = null;
+        if (todayKey && dashChartClickZones.some((z) => z.key === todayKey)) {
+            pickKey = todayKey;
+        } else if (dashChartClickZones.length) {
+            pickKey = dashChartClickZones[dashChartClickZones.length - 1].key;
+        }
+        if (pickKey) {
+            dashChartSelectedBucketKey = pickKey;
+            renderDashBucketDetail(pickKey);
+            drawDashboardChart(allSess, g, pickKey);
+        }
+    } catch (e) {
+        console.warn('[Dashboard]', e);
+    }
+}
+
+function initSidebarNavigation() {
+    const sb = document.getElementById('history-sidebar');
+    const hamburger = document.getElementById('sidebar-toggle-btn');
+    if (!sb) return;
+
+    if (hamburger) {
+        const syncHamburgerAria = () => {
+            const exp = sb.classList.contains('rail-expanded');
+            hamburger.setAttribute('aria-expanded', exp ? 'true' : 'false');
+            hamburger.title = exp ? 'Collapse menu' : 'Expand menu';
+        };
+        syncHamburgerAria();
+        hamburger.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            sb.classList.toggle('rail-expanded');
+            if (sb.classList.contains('rail-expanded')) {
+                restoreHistoryScrollAfterExpand();
+            } else {
+                saveHistoryScrollState();
+            }
+            syncHamburgerAria();
+        });
+    }
+
+    document.querySelectorAll('.sidebar-rail-btn[data-sidebar-panel]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            const p = btn.getAttribute('data-sidebar-panel');
+            if (p === 'new-chat') {
+                e.preventDefault();
+                closeSmcFullPanels();
+                triggerNewChatWorkflow();
+                return;
+            }
+            e.preventDefault();
+            openSmcFullPanel(p);
+        });
+    });
+
+    const stack = document.getElementById('smc-panel-overlay-stack');
+    if (stack) {
+        stack.addEventListener('click', (e) => {
+            if (e.target.closest('[data-smc-close-panel]')) {
+                closeSmcFullPanels();
+                return;
+            }
+            if (e.target.closest('#smc-ph-new-prompt-btn')) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof window.openCustomPromptBuilderNew === 'function') window.openCustomPromptBuilderNew();
+                else if (typeof window.openCustomPromptBuilder === 'function') window.openCustomPromptBuilder();
+            }
+        });
+    }
+
+    const granSel = document.getElementById('dash-chart-granularity');
+    if (granSel) {
+        granSel.addEventListener('change', () => refreshDashboard());
+    }
+
+    setupDashboardChartInteraction();
+
+    const dashRoot = document.getElementById('dashboard-root');
+    if (dashRoot && typeof ResizeObserver !== 'undefined') {
+        let dashResizeT;
+        const ro = new ResizeObserver(() => {
+            const dashOv = document.getElementById('smc-overlay-dashboard');
+            if (!dashOv || !dashOv.classList.contains('is-open')) return;
+            clearTimeout(dashResizeT);
+            dashResizeT = setTimeout(() => {
+                refreshDashboard();
+            }, 150);
+        });
+        ro.observe(dashRoot);
+    }
+
+    if (typeof window.initPromptHubShell === 'function') {
+        window.initPromptHubShell({ historyManager });
+    }
+}
+
 function restoreHistoryScrollAfterExpand() {
     if (!historyList) return;
     const state = loadSavedHistoryScrollState();
@@ -2948,24 +3659,11 @@ function restoreHistoryScrollAfterExpand() {
     });
 }
 
-function setHistorySelectionMode(enabled) {
-    isHistorySelectionMode = !!enabled;
-    if (!isHistorySelectionMode) {
-        selectedHistorySessionIds.clear();
-    }
-    updateHistorySelectionUI();
-    // Re-render items to switch interaction mode & show/hide checkboxes
-    loadHistoryList({ preserveScroll: true });
-}
-
 function updateHistorySelectionUI() {
     const selectedCount = selectedHistorySessionIds.size;
 
     if (historyBulkActions) {
-        historyBulkActions.classList.toggle('hidden', !isHistorySelectionMode);
-    }
-    if (clearHistoryBtn) {
-        clearHistoryBtn.classList.toggle('hidden', isHistorySelectionMode);
+        historyBulkActions.classList.toggle('hidden', selectedCount === 0);
     }
     if (historySelectedCountEl) {
         historySelectedCountEl.textContent = String(selectedCount);
@@ -2973,26 +3671,11 @@ function updateHistorySelectionUI() {
     if (historyBulkDeleteBtn) {
         historyBulkDeleteBtn.disabled = selectedCount === 0;
     }
-    if (historySelectModeBtn) {
-        historySelectModeBtn.title = isHistorySelectionMode ? 'Cancel selection' : 'Select multiple';
-        historySelectModeBtn.classList.toggle('active', isHistorySelectionMode);
-    }
-}
-
-function toggleHistorySelection(sessionId) {
-    if (!sessionId) return;
-    if (selectedHistorySessionIds.has(sessionId)) {
-        selectedHistorySessionIds.delete(sessionId);
-    } else {
-        selectedHistorySessionIds.add(sessionId);
-    }
-    updateHistorySelectionUI();
 }
 
 function clearHistorySelection() {
     selectedHistorySessionIds.clear();
     updateHistorySelectionUI();
-    // Keep selection mode, but update styles
     syncHistorySelectionStyles();
 }
 
@@ -3018,22 +3701,17 @@ function syncHistorySelectionStyles() {
 }
 
 function showHistoryBulkDeleteModal(ids) {
-    const modal = document.getElementById('history-bulk-delete-modal');
-    const countEl = document.getElementById('history-bulk-delete-count');
-    if (!modal || !countEl) return;
-
-    pendingBulkDeleteIds = Array.from(new Set(ids)).filter(Boolean);
-    countEl.textContent = String(pendingBulkDeleteIds.length);
-
-    window.electronAPI.setServiceVisibility(false);
-    modal.classList.add('visible');
-}
-
-function closeHistoryBulkDeleteModal() {
-    const modal = document.getElementById('history-bulk-delete-modal');
-    if (modal) modal.classList.remove('visible');
-    pendingBulkDeleteIds = [];
-    window.electronAPI.setServiceVisibility(true);
+    const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+    if (uniqueIds.length === 0) return;
+    showSmcConfirm({
+        title: 'Delete Selected Sessions',
+        message: `Are you sure you want to delete ${uniqueIds.length} sessions?\nThis cannot be undone.`,
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        danger: true,
+    }).then(async (ok) => {
+        if (ok) await performHistoryBulkDelete(uniqueIds);
+    });
 }
 
 async function resetToNewSessionAfterDelete() {
@@ -3080,8 +3758,8 @@ async function performHistoryBulkDelete(ids) {
             await resetToNewSessionAfterDelete();
         }
 
-        // Exit selection mode after bulk delete
-        setHistorySelectionMode(false);
+        selectedHistorySessionIds.clear();
+        updateHistorySelectionUI();
         loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
     } catch (e) {
         console.error('Failed to bulk delete sessions:', e);
@@ -3092,25 +3770,7 @@ async function setupHistory() {
     try {
         await historyManager.init();
 
-        if (!historySidebar || !sidebarToggleBtn) return;
-
-        // Toggle Sidebar - NOW toggles the 'collapsed' class instead of hiding/showing separate buttons
-        sidebarToggleBtn.addEventListener('click', () => {
-            historySidebar.classList.toggle('collapsed');
-            // Adjust icon based on state if desired, but hamburger is fine for both
-            if (historySidebar.classList.contains('collapsed')) {
-                saveHistoryScrollState();
-            } else {
-                restoreHistoryScrollAfterExpand();
-            }
-        });
-
-        if (historySelectModeBtn) {
-            historySelectModeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                setHistorySelectionMode(!isHistorySelectionMode);
-            });
-        }
+        if (!historySidebar) return;
 
         if (historySelectAllBtn) {
             historySelectAllBtn.addEventListener('click', () => {
@@ -3124,7 +3784,7 @@ async function setupHistory() {
         }
         if (historyExitSelectionBtn) {
             historyExitSelectionBtn.addEventListener('click', () => {
-                setHistorySelectionMode(false);
+                clearHistorySelection();
             });
         }
         if (historyBulkDeleteBtn) {
@@ -3134,16 +3794,18 @@ async function setupHistory() {
         }
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && isHistorySelectionMode) {
-                setHistorySelectionMode(false);
+            if (e.key !== 'Escape') return;
+            const sb = document.getElementById('history-sidebar');
+            const historyPanelOpen = sb && sb.getAttribute('data-active-panel') === 'history';
+            if (historyPanelOpen && selectedHistorySessionIds.size > 0) {
+                clearHistorySelection();
+                return;
+            }
+            if (smcOpenFullPanel) {
+                e.preventDefault();
+                closeSmcFullPanels();
             }
         });
-
-        if (clearHistoryBtn) {
-            clearHistoryBtn.addEventListener('click', () => {
-                showClearAllModal();
-            });
-        }
 
         // Attach infinite scroll once
         if (historyList && !historyScrollAttached) {
@@ -3213,6 +3875,27 @@ async function setupHistory() {
             console.log('[History] Main state already applied, skipping session ID assignment');
         }
 
+        initSidebarNavigation();
+
+        if (historyTitleSearchInput) {
+            let searchDebounce;
+            historyTitleSearchInput.addEventListener('input', () => {
+                clearTimeout(searchDebounce);
+                searchDebounce = setTimeout(() => {
+                    historySearchTitle = historyTitleSearchInput.value || '';
+                    historyOffset = 0;
+                    loadHistoryList();
+                }, 200);
+            });
+        }
+        if (historySortSelect) {
+            historySortSelect.addEventListener('change', () => {
+                historySortBy = historySortSelect.value || 'updatedDesc';
+                historyOffset = 0;
+                loadHistoryList();
+            });
+        }
+
         loadHistoryList({ preserveScroll: true, restoreSavedScroll: savedHistoryScrollState, ensureActiveVisible: true });
 
     } catch (e) {
@@ -3278,10 +3961,25 @@ async function loadHistoryList(options = {}) {
     }
 
     try {
-        const queryOffset = append ? historyOffset : 0;
+        const searchQ = (historySearchTitle || '').trim().toLowerCase();
+        const useSearch = searchQ.length > 0;
+
+        let sessions;
+        let queryOffset = append ? historyOffset : 0;
         const baseLimit = Math.max(HISTORY_PAGE_SIZE, restoreSavedScroll?.offset || historyOffset || 0);
         const queryLimit = append ? HISTORY_PAGE_SIZE : baseLimit;
-        const sessions = await historyManager.getSessions(queryLimit, queryOffset);
+
+        if (useSearch) {
+            const all = await historyManager.getAllSessions({ sortBy: historySortBy });
+            const filtered = all.filter((s) => String(s.title || '').toLowerCase().includes(searchQ));
+            sessions = filtered.slice(queryOffset, queryOffset + queryLimit);
+            historyOffset = queryOffset + sessions.length;
+            historyHasMore = historyOffset < filtered.length;
+        } else {
+            sessions = await historyManager.getSessions(queryLimit, queryOffset, { sortBy: historySortBy });
+            historyOffset = queryOffset + sessions.length;
+            historyHasMore = sessions.length >= queryLimit;
+        }
 
         // Empty state
         if (!append && sessions.length === 0) {
@@ -3291,84 +3989,96 @@ async function loadHistoryList(options = {}) {
             return;
         }
 
+        let lastBucket = null;
+        if (append) {
+            const items = [...listContainer.querySelectorAll('.history-item[data-session-id]')];
+            const last = items[items.length - 1];
+            if (last && last.dataset.historyBucket) lastBucket = last.dataset.historyBucket;
+        }
+
         sessions.forEach(session => {
+            const bucket = historyTimeBucket(session);
+            if (bucket !== lastBucket) {
+                lastBucket = bucket;
+                const gh = document.createElement('div');
+                gh.className = 'history-group-header';
+                gh.textContent = historyBucketLabel(bucket);
+                listContainer.appendChild(gh);
+            }
+
             const item = document.createElement('div');
-            item.className = 'history-item';
+            item.className = 'history-item history-item-with-actions';
             item.dataset.sessionId = session.id;
+            item.dataset.historyBucket = bucket;
 
             if (session.id === currentSessionId) {
                 item.classList.add('active');
-            }
-            if (isHistorySelectionMode) {
-                item.classList.add('selection-mode');
             }
             if (selectedHistorySessionIds.has(session.id)) {
                 item.classList.add('selected');
             }
 
             const title = session.title || 'Untitled Session';
-            const createdAtStr = session.createdAt ? new Date(session.createdAt).toLocaleString() : 'Unknown';
-            const updatedAtStr = session.updatedAt ? new Date(session.updatedAt).toLocaleString() : 'Unknown';
+            const createdAtStr = session.createdAt ? new Date(session.createdAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'Unknown';
+            const updatedAtStr = session.updatedAt ? new Date(session.updatedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+            const dateLine = historyListDateLine(session);
+            const chk = selectedHistorySessionIds.has(session.id) ? 'checked' : '';
 
             // Tooltip with full info
             const tooltip = `title: ${title}\ncreatedAt: ${createdAtStr}\nupdatedAt: ${updatedAtStr}`;
 
-            if (isHistorySelectionMode) {
-                item.innerHTML = `
-                    <div class="history-select">
-                        <input class="history-item-checkbox" type="checkbox" ${selectedHistorySessionIds.has(session.id) ? 'checked' : ''} />
-                        <div class="history-item-content" title="${tooltip.replace(/"/g, '&quot;')}">
-                            <div class="history-title">${title}</div>
-                            <div class="history-date">${createdAtStr}</div>
-                        </div>
-                    </div>
-                `;
+            item.innerHTML = `
+                <label class="history-item-check-label" title="Select session">
+                    <input class="history-item-checkbox" type="checkbox" data-session-id="${escapeHtml(session.id)}" ${chk} aria-label="Select session" />
+                </label>
+                <div class="history-item-content" title="${tooltip.replace(/"/g, '&quot;')}">
+                    <div class="history-title">${escapeHtml(title)}</div>
+                    <div class="history-date">${escapeHtml(dateLine)}</div>
+                </div>
+                <div class="history-item-actions" role="group" aria-label="Session actions">
+                    <button type="button" class="history-icon-btn history-open-session-btn" title="Open session" aria-label="Open session">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
+                    </button>
+                    <button type="button" class="history-icon-btn history-rename-btn" title="Rename" aria-label="Rename">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </button>
+                    <button type="button" class="history-icon-btn history-delete-btn-danger" title="Delete" aria-label="Delete">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6"/></svg>
+                    </button>
+                </div>
+            `;
 
-                const checkbox = item.querySelector('.history-item-checkbox');
-                checkbox.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    toggleHistorySelection(session.id);
-                    syncHistorySelectionStyles();
-                });
+            const checkbox = item.querySelector('.history-item-checkbox');
+            checkbox.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const want = !!checkbox.checked;
+                const has = selectedHistorySessionIds.has(session.id);
+                if (want && !has) selectedHistorySessionIds.add(session.id);
+                if (!want && has) selectedHistorySessionIds.delete(session.id);
+                item.classList.toggle('selected', want);
+                updateHistorySelectionUI();
+            });
+            checkbox.addEventListener('click', (e) => e.stopPropagation());
 
-                item.onclick = () => {
-                    toggleHistorySelection(session.id);
-                    syncHistorySelectionStyles();
-                };
-            } else {
-                item.innerHTML = `
-                    <div class="history-item-content" title="${tooltip.replace(/"/g, '&quot;')}">
-                        <div class="history-title">${title}</div>
-                        <div class="history-date">${createdAtStr}</div>
-                    </div>
-                    <div class="history-actions">
-                         <button class="history-btn-mini context-menu-btn" title="Options">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                         </button>
-                    </div>
-                `;
-
-                // Click to load
-                item.onclick = (e) => {
-                    if (e.target.closest('.history-actions')) return;
-                    loadSession(session);
-                };
-
-                // Context Menu Logic
-                const menuBtn = item.querySelector('.context-menu-btn');
-                menuBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    showCustomContextMenu(e, session);
-                };
-            }
+            item.querySelector('.history-open-session-btn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                loadSession(session);
+            });
+            item.querySelector('.history-rename-btn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.electronAPI?.setServiceVisibility?.(false);
+                showRenameModal(session);
+            });
+            item.querySelector('.history-delete-btn-danger')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.electronAPI?.setServiceVisibility?.(false);
+                showHistoryDeleteModal(session);
+            });
 
             listContainer.appendChild(item);
         });
 
         updateHistorySelectionUI();
-
-        historyOffset = queryOffset + sessions.length;
-        historyHasMore = sessions.length >= queryLimit;
 
         // restore scroll if requested
         const targetScrollTop =
@@ -3529,52 +4239,17 @@ function showCustomContextMenu(event, session) {
     }, 0);
 }
 
-// History Delete Modal Handler
-let pendingDeleteSession = null;
-
-function showHistoryDeleteModal(session) {
-    const modal = document.getElementById('history-delete-modal');
-    const nameEl = document.getElementById('history-delete-name');
-
-    if (!modal) {
-        // Fallback if modal doesn't exist
-        if (confirm(`Delete session "${session.title}"?`)) {
-            performHistoryDelete(session);
-        }
-        return;
-    }
-
-    pendingDeleteSession = session;
-    if (nameEl) {
-        nameEl.textContent = session.title || 'Untitled Session';
-    }
-
-    // Hide webviews so modal is visible
-    window.electronAPI.setServiceVisibility(false);
-    modal.classList.add('visible');
-
-    // Add ESC key handler
-    document.addEventListener('keydown', handleHistoryModalEsc);
-}
-
-function handleHistoryModalEsc(e) {
-    if (e.key === 'Escape') {
-        closeHistoryDeleteModal();
-    }
-}
-
-function closeHistoryDeleteModal() {
-    const modal = document.getElementById('history-delete-modal');
-    if (modal) {
-        modal.classList.remove('visible');
-    }
-    pendingDeleteSession = null;
-
-    // Show webviews again
-    window.electronAPI.setServiceVisibility(true);
-
-    // Remove ESC handler
-    document.removeEventListener('keydown', handleHistoryModalEsc);
+async function showHistoryDeleteModal(session) {
+    if (!session) return;
+    const title = session.title || 'Untitled Session';
+    const ok = await showSmcConfirm({
+        title: 'Delete Session',
+        message: `Are you sure you want to delete\n${JSON.stringify(title)}?`,
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        danger: true,
+    });
+    if (ok) await performHistoryDelete(session);
 }
 
 async function performHistoryDelete(session) {
@@ -3617,95 +4292,22 @@ async function performHistoryDelete(session) {
             resetAllGeminiIdleTimers();
         }
 
-    loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
+        loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
     } catch (err) {
         console.error('Failed to delete session:', err);
     }
 }
 
-// Setup History Delete Modal Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
-    const closeBtn = document.getElementById('close-history-delete-btn');
-    const cancelBtn = document.getElementById('btn-cancel-history-delete');
-    const confirmBtn = document.getElementById('btn-confirm-history-delete');
-
-    if (closeBtn) closeBtn.onclick = closeHistoryDeleteModal;
-    if (cancelBtn) cancelBtn.onclick = closeHistoryDeleteModal;
-    if (confirmBtn) {
-        confirmBtn.onclick = async () => {
-            if (pendingDeleteSession) {
-                await performHistoryDelete(pendingDeleteSession);
-                closeHistoryDeleteModal();
-            }
-        };
-    }
-
-    // Bulk Delete Modal Event Listeners
-    const closeBulkBtn = document.getElementById('close-history-bulk-delete-btn');
-    const cancelBulkBtn = document.getElementById('btn-cancel-history-bulk-delete');
-    const confirmBulkBtn = document.getElementById('btn-confirm-history-bulk-delete');
-
-    if (closeBulkBtn) closeBulkBtn.onclick = closeHistoryBulkDeleteModal;
-    if (cancelBulkBtn) cancelBulkBtn.onclick = closeHistoryBulkDeleteModal;
-    if (confirmBulkBtn) {
-        confirmBulkBtn.onclick = async () => {
-            const ids = pendingBulkDeleteIds;
-            closeHistoryBulkDeleteModal();
-            await performHistoryBulkDelete(ids);
-        };
-    }
-
-    // Clear All Modal Event Listeners
-    const closeClearAllBtn = document.getElementById('close-clear-all-btn');
-    const cancelClearAllBtn = document.getElementById('btn-cancel-clear-all');
-    const confirmClearAllBtn = document.getElementById('btn-confirm-clear-all');
-
-    if (closeClearAllBtn) closeClearAllBtn.onclick = closeClearAllModal;
-    if (cancelClearAllBtn) cancelClearAllBtn.onclick = closeClearAllModal;
-    if (confirmClearAllBtn) {
-        confirmClearAllBtn.onclick = async () => {
-            await performClearAll();
-            closeClearAllModal();
-        };
-    }
-});
-
-// Clear All Modal Handler
 function showClearAllModal() {
-    const modal = document.getElementById('history-clear-all-modal');
-    if (!modal) {
-        // Fallback if modal doesn't exist
-        if (confirm('Are you sure you want to delete all chat history? This cannot be undone.')) {
-            performClearAll();
-        }
-        return;
-    }
-
-    // Hide webviews so modal is visible
-    window.electronAPI.setServiceVisibility(false);
-    modal.classList.add('visible');
-
-    // Add ESC key handler
-    document.addEventListener('keydown', handleClearAllModalEsc);
-}
-
-function handleClearAllModalEsc(e) {
-    if (e.key === 'Escape') {
-        closeClearAllModal();
-    }
-}
-
-function closeClearAllModal() {
-    const modal = document.getElementById('history-clear-all-modal');
-    if (modal) {
-        modal.classList.remove('visible');
-    }
-
-    // Show webviews again
-    window.electronAPI.setServiceVisibility(true);
-
-    // Remove ESC handler
-    document.removeEventListener('keydown', handleClearAllModalEsc);
+    showSmcConfirm({
+        title: 'Clear All History',
+        message: 'Are you sure you want to delete all chat history?\nThis cannot be undone.',
+        confirmText: 'Clear All',
+        cancelText: 'Cancel',
+        danger: true,
+    }).then(async (ok) => {
+        if (ok) await performClearAll();
+    });
 }
 
 async function performClearAll() {
@@ -3941,7 +4543,7 @@ async function saveCurrentSession() {
         await historyManager.saveSession(sessionData);
         // Refresh list if open
         const sidebar = document.getElementById('history-sidebar');
-        if (sidebar && !sidebar.classList.contains('collapsed')) {
+        if (sidebar && sidebar.getAttribute('data-active-panel') === 'history') {
             // For background refreshes (e.g., toggles/auto-save), preserve scroll exactly.
             // Do not force scrollIntoView here, as it can nudge the history scroll position.
             loadHistoryList({ preserveScroll: true });
@@ -3953,6 +4555,8 @@ async function saveCurrentSession() {
 
 async function loadSession(session) {
     if (!session) return;
+
+    closeSmcFullPanels();
 
     console.log('[History] Switching to session:', session.id, 'chatMode:', session.chatMode || 'multi');
 
@@ -4311,7 +4915,7 @@ function closeRenameModal() {
         modal.classList.remove('visible');
     }
     pendingRenameSession = null;
-    window.electronAPI.setServiceVisibility(true);
+    applySmcPreferredServiceVisibility();
 }
 
 async function performRename() {

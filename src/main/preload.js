@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     newChat: () => ipcRenderer.send('new-chat'),
     newChatForService: (service) => ipcRenderer.send('new-chat-for-service', service),
     reloadService: (service) => ipcRenderer.send('reload-service', service),
+    /** Clear persisted cookies + storage for one AI service partition, then reload its webview(s). */
+    clearServicePartitionStorage: (service) => ipcRenderer.invoke('clear-service-partition-storage', service),
     navigateToUrl: (service, url) => ipcRenderer.send('navigate-to-url', service, url),
     copyChatThread: (options) => ipcRenderer.send('copy-chat-thread', options),
     onChatThreadCopied: (callback) => ipcRenderer.on('chat-thread-copied', (event, data) => callback(data)),

@@ -72,12 +72,31 @@ const serviceUrls = {
 // URLs within these domains will stay in the webview, others open in external browser
 const serviceDomains = {
     chatgpt: ['chatgpt.com', 'chat.openai.com', 'openai.com', 'auth0.com', 'auth.openai.com'],
-    claude: ['claude.ai', 'anthropic.com'],
+    // cloudflare.com: challenges / Turnstile iframes (e.g. challenges.cloudflare.com) must stay in-webview (EXTLINK)
+    claude: ['claude.ai', 'anthropic.com', 'cloudflare.com'],
     gemini: ['gemini.google.com', 'google.com', 'accounts.google.com', 'gstatic.com'],
     grok: ['grok.com', 'x.com', 'twitter.com', 'google.com', 'accounts.google.com', 'gstatic.com'],
     perplexity: ['perplexity.ai'],
     genspark: ['genspark.ai', 'google.com', 'accounts.google.com', 'gstatic.com']
 };
+
+/**
+ * Preserve original CSP and X-Frame-Options for these responses so Cloudflare / bot checks
+ * (Turnstile, challenge pages) can run correctly in the embedded WebContentsView.
+ * Stripping CSP globally broke verification loops for Claude (see CF-RAY / human check retries).
+ */
+function shouldPreserveResponseSecurityHeadersForUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    try {
+        const hostname = new URL(url).hostname.toLowerCase();
+        const roots = ['claude.ai', 'anthropic.com', 'cloudflare.com'];
+        return roots.some(
+            (root) => hostname === root || hostname.endsWith('.' + root)
+        );
+    } catch {
+        return false;
+    }
+}
 
 let currentLayout = '1x4'; // Default layout
 
@@ -156,11 +175,75 @@ function getUserAgentForService(service) {
     return GOOGLE_LOGIN_SERVICES.includes(service) ? getFirefoxUserAgentForGoogle() : getSpoofedUserAgent();
 }
 
+/** One outgoing-header hook per session (partition); avoids duplicate listeners when multiple instances share a partition. */
+const sessionsWithOutgoingHeaderHook = new WeakSet();
+
+/** Sec-CH-UA matching desktop Google Chrome branding (major = bundled Chromium). */
+function getChromeStyleSecChUa() {
+    const full = process.versions.chrome || '131.0.0.0';
+    const major = String(full.split('.')[0] || '131');
+    return `"Google Chrome";v="${major}", "Chromium";v="${major}", "Not_A Brand";v="24"`;
+}
+
+function getChromeStyleSecChUaPlatform() {
+    if (process.platform === 'darwin') return '"macOS"';
+    if (process.platform === 'linux') return '"Linux"';
+    return '"Windows"';
+}
+
 /**
- * Google auth: we do NOT use onBeforeSendHeaders here.
- * Modifying requestHeaders in the callback causes Chromium to drop the Cookie header
- * (Cookie is not in details.requestHeaders for security), so Google shows "쿠키 설정 문제".
- * So we only set session UA at view creation (Chrome or Firefox per service); no header interception.
+ * Strip Electron-identifying request header names; align Client Hints with Chrome for services that use Chrome UA.
+ * Mutates details.requestHeaders in place (avoid spreading into a new object) so internal Cookie handling is preserved.
+ * Google-login partitions use Firefox UA — only strip electron keys there; do not inject Chrome Sec-CH-UA (would mismatch UA).
+ */
+function attachOutgoingHeaderNormalization(webSession, service) {
+    if (!webSession || sessionsWithOutgoingHeaderHook.has(webSession)) return;
+    sessionsWithOutgoingHeaderHook.add(webSession);
+
+    const useChromeClientHintBrands = !GOOGLE_LOGIN_SERVICES.includes(service);
+
+    webSession.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (details, callback) => {
+        const rh = details.requestHeaders;
+        if (!rh) {
+            callback({});
+            return;
+        }
+        for (const key of Object.keys(rh)) {
+            if (/electron/i.test(key)) {
+                delete rh[key];
+            }
+        }
+        if (useChromeClientHintBrands) {
+            try {
+                const u = new URL(details.url);
+                if (u.protocol === 'https:' || u.protocol === 'http:') {
+                    for (const key of Object.keys(rh)) {
+                        if (/^sec-ch-ua-/i.test(key)) {
+                            delete rh[key];
+                        }
+                    }
+                    rh['Sec-CH-UA'] = getChromeStyleSecChUa();
+                    rh['Sec-CH-UA-Mobile'] = '?0';
+                    rh['Sec-CH-UA-Platform'] = getChromeStyleSecChUaPlatform();
+                }
+            } catch {
+                // ignore
+            }
+        } else {
+            // Firefox UA for Google flows: drop Chromium-style client hints Electron would still attach.
+            for (const key of Object.keys(rh)) {
+                if (/^sec-ch-ua-/i.test(key)) {
+                    delete rh[key];
+                }
+            }
+        }
+        callback({ requestHeaders: rh });
+    });
+}
+
+/**
+ * Google auth: Cookie header is not exposed on requestHeaders; avoid replacing the entire header map in listeners
+ * that would drop cookies. Outgoing normalization uses in-place mutation only (see attachOutgoingHeaderNormalization).
  */
 function applyChromeClientHintsToSession(_ses) {
     // No-op: header interception removed to preserve cookies. UA is set at session level when creating the view.
@@ -428,11 +511,12 @@ function createServiceView(service) {
 
     mainWindow.contentView.addChildView(view);
 
-    // User Agent Spoofing (SEC-002) — Firefox for Google-login services (gemini/grok/genspark), Chrome for others. No onBeforeSendHeaders so Cookie is preserved.
+    // User Agent Spoofing (SEC-002) — Firefox for Google-login services (gemini/grok/genspark), Chrome for others.
     const userAgent = getUserAgentForService(service);
     view.webContents.session.setUserAgent(userAgent);
     view.webContents.setUserAgent(userAgent);
     applyChromeClientHintsToSession(view.webContents.session);
+    attachOutgoingHeaderNormalization(view.webContents.session, service);
 
     // Use saved session URL if available, otherwise use default (SESS-003)
     const urlToLoad = savedSessionUrls[service] || serviceUrls[service];
@@ -466,6 +550,10 @@ function createServiceView(service) {
         if (url.includes('accounts.google.com') ||
             url.includes('myaccount.google.com') ||
             url.includes('accounts.youtube.com')) {
+            callback({ cancel: false, responseHeaders: details.responseHeaders });
+            return;
+        }
+        if (shouldPreserveResponseSecurityHeadersForUrl(url)) {
             callback({ cancel: false, responseHeaders: details.responseHeaders });
             return;
         }
@@ -877,6 +965,7 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
     view.webContents.session.setUserAgent(userAgentSingle);
     view.webContents.setUserAgent(userAgentSingle);
     applyChromeClientHintsToSession(view.webContents.session);
+    attachOutgoingHeaderNormalization(view.webContents.session, service);
 
     // Use saved URL if available, otherwise fall back to default service URL
     const urlToLoad = savedUrl || serviceUrls[service];
@@ -897,6 +986,10 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
         if (url.includes('accounts.google.com') ||
             url.includes('myaccount.google.com') ||
             url.includes('accounts.youtube.com')) {
+            callback({ cancel: false, responseHeaders: details.responseHeaders });
+            return;
+        }
+        if (shouldPreserveResponseSecurityHeadersForUrl(url)) {
             callback({ cancel: false, responseHeaders: details.responseHeaders });
             return;
         }
@@ -1266,9 +1359,6 @@ ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) =>
 
                     if (views[service].view && !views[service].view.webContents.isDestroyed()) {
                         const wc = views[service].view.webContents;
-                        if (service === 'gemini') {
-                            await forceGeminiResetNavigation(wc, 'send-prompt');
-                        }
 
                         // 1. Handle File Uploads if present
                         if (filePaths && filePaths.length > 0 && selectors.fileInputSelector) {
@@ -1840,6 +1930,20 @@ function getServiceResetUrl(service) {
     // For ChatGPT, https://chatgpt.com/ is correct.
     // For Gemini, https://gemini.google.com/app is correct.
     return url;
+}
+
+/** True when URL path looks like a login / sign-in page (cookie sync should not treat as "landed on app" yet). */
+function urlLooksLikeLoginPage(urlStr) {
+    if (!urlStr || typeof urlStr !== 'string') return false;
+    try {
+        const p = new URL(urlStr).pathname.toLowerCase();
+        if (p === '/login' || p.endsWith('/login')) return true;
+        if (p.includes('/signin') || p.includes('/sign-in')) return true;
+        if (p.includes('/auth/login')) return true;
+        return false;
+    } catch {
+        return false;
+    }
 }
 
 /** Force canonical URL navigation and wait until webContents stops loading. */
@@ -3272,6 +3376,56 @@ ipcMain.handle('get-external-login-browser', async () => {
     return info ? { browser: info.browser } : null;
 });
 
+/**
+ * Clear persisted partition storage (cookies, localStorage, SW cache, etc.) for one AI service, then reload its webview(s).
+ * Use before "Sign in with Chrome/Edge" for a clean cookie sync (Cloudflare cf_clearance + app session).
+ */
+ipcMain.handle('clear-service-partition-storage', async (_event, service) => {
+    if (!services.includes(service)) {
+        return { ok: false, error: 'invalid service' };
+    }
+    const partition = `persist:service-${service}`;
+    const ses = session.fromPartition(partition);
+    try {
+        await ses.clearStorageData({
+            storages: [
+                'cookies',
+                'filesystem',
+                'indexdb',
+                'localstorage',
+                'shadercache',
+                'websql',
+                'serviceworkers',
+                'cachestorage'
+            ]
+        });
+    } catch (e) {
+        console.warn(`[${service}] clearStorageData:`, e?.message || e);
+    }
+    try {
+        await ses.clearCache();
+        await ses.cookies.flushStore();
+    } catch (e) {
+        console.warn(`[${service}] clearCache/flush:`, e?.message || e);
+    }
+    const targetUrl = serviceUrls[service];
+    try {
+        if (views[service]?.view?.webContents && !views[service].view.webContents.isDestroyed()) {
+            views[service].view.webContents.loadURL(targetUrl);
+        }
+    } catch (_) { /* ignore */ }
+    try {
+        Object.keys(singleModeViews).forEach((instanceKey) => {
+            const entry = singleModeViews[instanceKey];
+            if (entry?.service === service && entry?.view?.webContents && !entry.view.webContents.isDestroyed()) {
+                entry.view.webContents.loadURL(targetUrl);
+            }
+        });
+    } catch (_) { /* ignore */ }
+    console.log(`[${service}] Partition storage cleared: ${partition}`);
+    return { ok: true };
+});
+
 // External Login Handler
 ipcMain.on('external-login', async (event, service) => {
     const axios = require('axios');
@@ -3332,6 +3486,22 @@ ipcMain.on('external-login', async (event, service) => {
                     cookies = [...cookies, ...gsCookies];
                 } catch (e) {
                     // ignore
+                }
+            }
+
+            // Claude: app + CDN subdomains + anthropic (cf_clearance, sessionKey, a.claude.ai storage cookies)
+            if (service === 'claude') {
+                try {
+                    const claudeExtra = await page.cookies(
+                        'https://claude.ai',
+                        'https://www.claude.ai',
+                        'https://a.claude.ai',
+                        'https://anthropic.com',
+                        'https://www.anthropic.com'
+                    );
+                    cookies = [...cookies, ...claudeExtra];
+                } catch (e) {
+                    console.warn('Failed to fetch extra cookies for Claude:', e);
                 }
             }
 
@@ -3546,8 +3716,9 @@ ipcMain.on('external-login', async (event, service) => {
             '--no-default-browser-check',
         ];
 
-        // [Logic Merge] Apply automation flag to all platforms to avoid detection
-        launchArgs.push('--disable-blink-features=AutomationControlled');
+        // Do NOT pass --disable-blink-features=AutomationControlled: Chrome shows an "unsupported flag" warning and
+        // Cloudflare/bot systems treat it as an automation signal. puppeteer-extra stealth + ignoreDefaultArgs
+        // (--enable-automation) are sufficient for manual login.
 
         const browser = await puppeteer.launch({
             executablePath,
@@ -3619,8 +3790,7 @@ ipcMain.on('external-login', async (event, service) => {
                 const url = page.url();
                 lastObservedUrl = url;
                 const isNotLoginPage = isOnServiceDomain(url) &&
-                    !url.includes('/auth/login') &&
-                    !url.includes('/signin') &&
+                    !urlLooksLikeLoginPage(url) &&
                     !url.includes('accounts.google.com') &&
                     !url.includes('sso');
                 lastObservedIsNotLoginPage = isNotLoginPage;
@@ -4137,9 +4307,6 @@ ipcMain.on('send-prompt-to-instances', async (event, text, instanceKeys, filePat
             }
 
             const wc = viewObj.view.webContents;
-            if (service === 'gemini') {
-                await forceGeminiResetNavigation(wc, `send-prompt-to-instances:${instanceKey}`);
-            }
 
             // 1) File uploads (if present)
             if (hasFiles && selectors.fileInputSelector) {

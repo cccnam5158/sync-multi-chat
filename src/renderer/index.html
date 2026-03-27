@@ -11,47 +11,143 @@
 
 <body>
     <div id="app-container">
-        <div id="history-sidebar" class="sidebar collapsed">
-            <div class="sidebar-header">
-                <button id="sidebar-toggle-btn" class="icon-btn" title="Toggle History">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+        <div id="history-sidebar" class="sidebar" data-active-panel="none">
+            <nav id="smc-sidebar-rail" class="sidebar-rail" aria-label="Primary navigation">
+                <button type="button" id="sidebar-toggle-btn" class="sidebar-hamburger icon-btn" title="Expand menu" aria-expanded="false" aria-controls="smc-sidebar-rail">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
                         <line x1="3" y1="12" x2="21" y2="12"></line>
                         <line x1="3" y1="6" x2="21" y2="6"></line>
                         <line x1="3" y1="18" x2="21" y2="18"></line>
                     </svg>
                 </button>
-                <h2 class="sidebar-title">Chat History</h2>
-                <button id="history-select-mode-btn" class="icon-btn" title="Select multiple">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                        <path d="M20 6"></path>
-                    </svg>
+                <button type="button" class="sidebar-rail-btn sidebar-rail-new-chat" data-sidebar-panel="new-chat" title="New Chat">
+                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>
+                    <span class="rail-btn-label">New Chat</span>
                 </button>
-            </div>
-            <div id="history-list">
-                <!-- History items will be injected here -->
-            </div>
-            <div class="sidebar-footer">
-                <div id="history-bulk-actions" class="history-bulk-actions hidden">
-                    <button id="history-exit-selection-btn" class="history-bulk-close-btn" title="Exit selection" aria-label="Exit selection">
-                        <span class="history-bulk-close-text">X</span>
-                    </button>
-                    <div class="history-bulk-row history-bulk-row-count">
-                        <div class="history-bulk-count history-bulk-count-center">
-                            <span><span id="history-selected-count">0</span> selected</span>
-                        </div>
-                    </div>
-                    <div class="history-bulk-row history-bulk-row-actions">
-                        <button id="history-select-all-btn" class="history-pill-btn">All</button>
-                        <button id="history-clear-selection-btn" class="history-pill-btn">Clear</button>
-                        <button id="history-bulk-delete-btn" class="history-pill-btn history-pill-danger" disabled>Delete</button>
-                    </div>
-                </div>
-                <button id="clear-history-btn" class="btn-ghost-danger">Clear All</button>
-            </div>
+                <button type="button" class="sidebar-rail-btn" data-sidebar-panel="dashboard" title="Dashboard">
+                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span>
+                    <span class="rail-btn-label">Dashboard</span>
+                </button>
+                <button type="button" class="sidebar-rail-btn" data-sidebar-panel="prompt-hub" title="Prompt Hub">
+                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span>
+                    <span class="rail-btn-label">Prompt Hub</span>
+                </button>
+                <button type="button" class="sidebar-rail-btn" data-sidebar-panel="history" title="Chat History">
+                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></span>
+                    <span class="rail-btn-label">Chat History</span>
+                </button>
+            </nav>
         </div>
 
         <div id="main-content">
+            <div id="smc-panel-overlay-stack" class="smc-panel-overlay-stack" aria-hidden="true">
+                <div id="smc-overlay-dashboard" class="smc-full-panel" role="dialog" aria-modal="true" aria-labelledby="smc-bc-dashboard" aria-hidden="true">
+                    <header class="smc-panel-chrome">
+                        <h2 id="smc-bc-dashboard" class="smc-panel-title">Dashboard</h2>
+                        <button type="button" class="smc-panel-close icon-btn" data-smc-close-panel aria-label="Close panel">×</button>
+                    </header>
+                    <div class="smc-panel-body smc-panel-body-scroll smc-panel-body-dashboard">
+                        <div class="dashboard-root" id="dashboard-root">
+                            <div class="dashboard-stats-grid">
+                                <div class="dashboard-stat-card">
+                                    <span class="dashboard-stat-label">Chat mode</span>
+                                    <span class="dashboard-stat-value" id="dash-chat-mode">—</span>
+                                </div>
+                                <div class="dashboard-stat-card dashboard-stat-card-wide">
+                                    <span class="dashboard-stat-label">Selection</span>
+                                    <span class="dashboard-stat-value" id="dash-services">—</span>
+                                </div>
+                                <div class="dashboard-stat-card">
+                                    <span class="dashboard-stat-label">Prompt categories</span>
+                                    <span class="dashboard-stat-value" id="dash-prompt-cats">0</span>
+                                </div>
+                                <div class="dashboard-stat-card">
+                                    <span class="dashboard-stat-label">Saved prompts</span>
+                                    <span class="dashboard-stat-value" id="dash-prompt-total">0</span>
+                                </div>
+                                <div class="dashboard-stat-card">
+                                    <span class="dashboard-stat-label">History sessions</span>
+                                    <span class="dashboard-stat-value" id="dash-history-total">0</span>
+                                </div>
+                            </div>
+                            <div class="dashboard-chart-block">
+                                <div class="dashboard-chart-head">
+                                    <span>Sessions over time</span>
+                                    <select id="dash-chart-granularity" class="dashboard-select" aria-label="Chart granularity">
+                                        <option value="day">Day</option>
+                                        <option value="week">Week</option>
+                                        <option value="month">Month</option>
+                                        <option value="year">Year</option>
+                                    </select>
+                                </div>
+                                <p class="dashboard-chart-hint">Click a bar to list sessions for that period.</p>
+                                <div class="dashboard-chart-canvas-wrap">
+                                    <canvas id="dash-chart" width="420" height="210"></canvas>
+                                    <div id="dash-chart-x-labels" class="dashboard-chart-x-labels" aria-hidden="true"></div>
+                                </div>
+                                <div id="dash-bucket-detail" class="dashboard-bucket-detail hidden" aria-live="polite">
+                                    <div class="dashboard-bucket-detail-head">
+                                        <h3 id="dash-bucket-title" class="dashboard-bucket-title"></h3>
+                                        <span id="dash-bucket-count" class="dashboard-bucket-count"></span>
+                                    </div>
+                                    <div class="dashboard-table-wrap">
+                                        <table class="dashboard-sessions-table">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">Title</th>
+                                                    <th scope="col">Updated</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="dash-bucket-tbody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="smc-overlay-prompt-hub" class="smc-full-panel" role="dialog" aria-modal="true" aria-labelledby="smc-bc-prompt-hub" aria-hidden="true">
+                    <header class="smc-panel-chrome smc-panel-chrome-with-actions">
+                        <h2 id="smc-bc-prompt-hub" class="smc-panel-title">Prompt Hub</h2>
+                        <div class="smc-panel-chrome-actions">
+                            <button type="button" id="smc-ph-new-prompt-btn" class="btn-primary smc-header-primary-btn">+ New Prompt</button>
+                            <button type="button" class="smc-panel-close icon-btn" data-smc-close-panel aria-label="Close panel">×</button>
+                        </div>
+                    </header>
+                    <div class="smc-panel-body smc-panel-body-scroll smc-panel-body-fill">
+                        <div id="prompt-hub-root" class="prompt-hub-root"></div>
+                    </div>
+                </div>
+                <div id="smc-overlay-history" class="smc-full-panel" role="dialog" aria-modal="true" aria-labelledby="smc-bc-history" aria-hidden="true">
+                    <header class="smc-panel-chrome">
+                        <h2 id="smc-bc-history" class="smc-panel-title">Chat History</h2>
+                        <button type="button" class="smc-panel-close icon-btn" data-smc-close-panel aria-label="Close panel">×</button>
+                    </header>
+                    <div class="smc-panel-body smc-panel-body-scroll smc-panel-body-column">
+                        <div class="history-toolbar">
+                            <input type="search" id="history-title-search" class="history-toolbar-search" placeholder="Search title…" autocomplete="off" />
+                            <select id="history-sort-select" class="history-toolbar-sort" title="Sort">
+                                <option value="updatedDesc">Last updated</option>
+                                <option value="createdDesc">Created</option>
+                                <option value="titleAsc">Title A–Z</option>
+                            </select>
+                        </div>
+                        <div id="history-bulk-actions" class="history-bulk-bar hidden">
+                            <button id="history-exit-selection-btn" class="history-bulk-exit-btn" title="Clear selection" aria-label="Clear selection">&times;</button>
+                            <span class="history-bulk-label"><span id="history-selected-count">0</span> selected</span>
+                            <div class="history-bulk-btns">
+                                <button id="history-select-all-btn" class="history-pill-btn">All</button>
+                                <button id="history-clear-selection-btn" class="history-pill-btn">Clear</button>
+                                <button id="history-bulk-delete-btn" class="history-pill-btn history-pill-danger" disabled>Delete</button>
+                            </div>
+                        </div>
+                        <div class="sidebar-panel-history-inner">
+                            <div id="history-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div id="views-placeholder">
                 <!-- BrowserViews will be positioned over this area by the Main process -->
                 <div class="view-label">ChatGPT</div>
@@ -311,8 +407,8 @@
         <div id="cross-check-modal" class="modal">
             <div class="modal-content cross-check-content">
                 <div class="modal-header">
-                    <h2>Cross Check Options</h2>
-                    <button id="close-cross-check-btn" class="close-btn">&times;</button>
+                    <h2 id="cross-check-modal-title">Cross Check Options</h2>
+                    <button type="button" id="close-cross-check-btn" class="close-btn" aria-label="Close">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div id="cross-check-options" class="options-view">
@@ -325,17 +421,19 @@
                             </div>
                             <h3>Compare AI Responses</h3>
                             <p>Use a predefined prompt to analyze and compare responses.</p>
-                            <div class="hover-preview">
-                                <strong>Preview:</strong><br>
-                                <span id="predefined-prompt-preview-text">"Below are responses from different AI models.
-                                    Please compare and analyze them for accuracy, completeness, and logic. Identify any
-                                    discrepancies and suggest the best answer."</span>
-                            </div>
-                            <div class="edit-icon-container" id="edit-predefined-btn" title="Edit Predefined Prompt">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                    <path d="M12 20h9"></path>
-                                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
-                                </svg>
+                            <div class="cc-compare-card-actions">
+                                <div class="cc-compare-icon-btn" id="predefined-prompt-preview-btn" role="button" tabindex="0" title="Prompt Preview" aria-label="Prompt Preview">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </div>
+                                <div class="cc-compare-icon-btn edit-icon-container" id="edit-predefined-btn" role="button" tabindex="0" title="Edit Predefined Prompt" aria-label="Edit Predefined Prompt">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                        <path d="M12 20h9"></path>
+                                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+                                    </svg>
+                                </div>
                             </div>
                         </button>
                         <button id="btn-custom-prompt" class="option-card">
@@ -351,15 +449,9 @@
                     </div>
 
                     <div id="predefined-prompt-edit-view" class="custom-view hidden">
-                        <div class="custom-header">
-                            <button id="back-to-options-predefined-btn" class="btn-ghost">← Back</button>
-                            <h3>Edit Predefined Prompt</h3>
-                            <button id="close-predefined-edit-btn" class="close-btn"
-                                style="margin-left: auto;">&times;</button>
-                        </div>
                         <div class="input-group">
                             <textarea id="predefined-prompt-input" class="textarea-field"
-                                style="min-height: 150px;"></textarea>
+                                style="min-height: 300px;"></textarea>
                         </div>
                         <div class="controls-row" style="justify-content: flex-end; gap: 8px;">
                             <button id="btn-cancel-predefined" class="btn-ghost">Cancel</button>
@@ -560,26 +652,6 @@
             </div>
         </div>
 
-        <!-- Generic Confirm Modal -->
-        <div id="smc-confirm-modal" class="modal smc-confirm-modal">
-            <div class="modal-content smc-confirm-modal-content">
-                <div class="smc-confirm-body">
-                    <div class="smc-confirm-icon">
-                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="8" x2="12" y2="12"></line>
-                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                        </svg>
-                    </div>
-                    <p id="smc-confirm-msg" class="smc-confirm-msg"></p>
-                </div>
-                <div class="smc-confirm-actions">
-                    <button id="smc-confirm-cancel" class="btn-ghost">Cancel</button>
-                    <button id="smc-confirm-ok" class="btn-primary">OK</button>
-                </div>
-            </div>
-        </div>
-
         <!-- Variable Input Modal -->
         <div id="var-input-modal" class="modal var-input-modal">
             <div class="modal-content var-input-modal-content">
@@ -641,27 +713,39 @@
         <!-- Custom Prompt Builder Modal (CPB) -->
         <div id="cpb-modal" class="modal cpb-modal-root">
             <div class="cpb-app">
+                <!-- Top header chrome (like PH) -->
+                <header class="cpb-header-chrome" id="cpb-header-chrome">
+                    <h2 class="cpb-header-title">Custom Prompt Builder</h2>
+                    <div class="cpb-header-actions">
+                        <button class="btn-primary smc-header-primary-btn" id="cpb-btn-new" title="New prompt">+ New Prompt</button>
+                        <button class="smc-panel-close icon-btn cpb-header-close" id="cpb-close-btn" title="Close" aria-label="Close">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                </header>
+                <div class="cpb-content-body">
                 <!-- Sidebar -->
                 <aside class="cpb-sidebar" id="cpb-sidebar">
-                    <div class="cpb-sb-top">
-                        <div class="cpb-sb-title">
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                            Saved Prompts
+                    <button type="button" class="ph-collapse-toggle cpb-sidebar-collapse-toggle" id="cpb-btn-collapse-sidebar" title="Collapse filter panel" aria-label="Toggle filter panel">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <div class="cpb-sidebar-body">
+                    <div class="cpb-ph-panel ph-filters" id="cpb-ph-panel-root">
+                        <label class="ph-label" for="cpb-ph-filter-title">Search title</label>
+                        <input type="search" class="ph-input" id="cpb-ph-filter-title" placeholder="Filter by title…" autocomplete="off" />
+                        <label class="ph-label" for="cpb-ph-filter-tag">Tag contains</label>
+                        <input type="text" class="ph-input" id="cpb-ph-filter-tag" placeholder="Tag…" autocomplete="off" />
+                        <div class="ph-label-row">
+                            <label class="ph-label">Categories</label>
+                            <span class="ph-label-row-actions">
+                                <button type="button" class="ph-tree-add-root-btn" title="Add root category" aria-label="Add root category">+</button>
+                                <span class="ph-help-tip" tabindex="0" role="button" aria-label="Category guide">?
+                                    <span class="ph-help-tip-bubble">Click a category to filter prompts. Drag a prompt row onto a category to assign. Drag categories to reorder.</span>
+                                </span>
+                            </span>
                         </div>
-                        <div class="cpb-sb-actions">
-                            <button class="cpb-btn cpb-btn-primary cpb-btn-icon-only" id="cpb-btn-new" title="New prompt">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            </button>
-                            <button class="cpb-icon-btn" id="cpb-btn-collapse-sidebar" title="Toggle sidebar">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                            </button>
-                        </div>
+                        <div data-ph-cat-tree-host id="cpb-ph-cat-tree-host"></div>
                     </div>
-                    <div class="cpb-sb-search">
-                        <input id="cpb-search" class="cpb-input" placeholder="Search prompts..." autocomplete="off" />
-                        <div class="cpb-chip cpb-sort-chip" id="cpb-sort-btn" title="Toggle sort">Sort: Recent</div>
-                    </div>
-                    <div class="cpb-list" id="cpb-list"></div>
                     <div class="cpb-sb-footer">
                         <button class="cpb-btn cpb-btn-secondary" id="cpb-btn-import" title="Import JSON">
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -672,14 +756,19 @@
                             Export
                         </button>
                     </div>
+                    </div>
                     <div class="cpb-resize-handle cpb-resize-right" id="cpb-sb-resize"></div>
                 </aside>
 
                 <!-- Main Area -->
-                <main class="cpb-main">
+                <main class="cpb-main cpb-mode-list" id="cpb-main">
                     <!-- Topbar -->
                     <div class="cpb-topbar">
                         <div class="cpb-tb-title-area">
+                            <button type="button" id="cpb-btn-back-list" class="cpb-back-to-list" title="Back to prompt list" aria-label="Back to prompt list">
+                                <span class="cpb-back-icon" aria-hidden="true">&lt;</span>
+                            </button>
+                            <button type="button" id="cpb-fav-star" class="cpb-fav-star" title="Toggle favorite" aria-label="Toggle favorite">★</button>
                             <input id="cpb-prompt-title" class="cpb-input cpb-input-title" placeholder="Prompt title" />
                         </div>
                         <div class="cpb-tb-meta-area">
@@ -711,11 +800,32 @@
                                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                 Delete
                             </button>
-                            <!-- Close -->
-                            <button class="cpb-icon-btn" id="cpb-close-btn" title="Close">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
                         </div>
+                    </div>
+                    <div class="cpb-topbar-meta">
+                        <div class="cpb-field-row">
+                            <label class="cpb-field-label" for="cpb-prompt-summary">Summary</label>
+                            <input id="cpb-prompt-summary" class="cpb-input cpb-input-block" placeholder="Short description (Prompt Hub)" autocomplete="off" />
+                        </div>
+                        <div class="cpb-field-row">
+                            <label class="cpb-field-label" for="cpb-prompt-tags">Tags</label>
+                            <input id="cpb-prompt-tags" class="cpb-input cpb-input-block" placeholder="Comma separated, e.g. writing, code" autocomplete="off" />
+                        </div>
+                    </div>
+
+                    <div class="cpb-main-list-shell">
+                        <div class="cpb-main-list-header">
+                            <span class="cpb-main-list-title">Prompts</span>
+                            <label class="switch-container ph-fav-only-toggle cpb-fav-toggle-inline" for="cpb-ph-filter-favorites">
+                                <input type="checkbox" id="cpb-ph-filter-favorites" />
+                                <span class="switch-slider" aria-hidden="true"></span>
+                                <span class="switch-label">Favorites</span>
+                            </label>
+                            <span class="cpb-main-list-header-actions">
+                                <button type="button" class="cpb-chip cpb-sort-chip" id="cpb-sort-btn" title="Toggle sort">Sort: Recent</button>
+                            </span>
+                        </div>
+                        <div class="cpb-list cpb-main-list" id="cpb-list"></div>
                     </div>
 
                     <!-- Workspace (Editor + Variables) -->
@@ -764,7 +874,12 @@
   - Global/Session examples: {{output_format}}, {{role}}, {{lang}}, {{timezone}}
   - Reserved: {{main_prompt}} cannot be used in this editor."></textarea>
                                     </div>
-                                    <div class="cpb-preview" id="cpb-editor-preview"></div>
+                                    <div class="cpb-preview-stack" id="cpb-preview-stack">
+                                        <button type="button" class="cpb-preview-fs-fab" id="cpb-preview-fs-open" title="Fullscreen preview" aria-label="Fullscreen preview">
+                                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                                        </button>
+                                        <div class="cpb-preview" id="cpb-editor-preview"></div>
+                                    </div>
                                     <div class="cpb-ac" id="cpb-ac"></div>
                                 </div>
                                 <!-- Bottom action bar -->
@@ -859,9 +974,61 @@
                         </aside>
                     </div>
                 </main>
+                </div><!-- /cpb-content-body -->
+            </div>
+            <div id="cpb-preview-fullscreen" class="cpb-preview-fs-overlay" hidden aria-hidden="true">
+                <button type="button" class="cpb-preview-fs-backdrop" id="cpb-preview-fs-backdrop" aria-label="Close fullscreen preview"></button>
+                <div class="cpb-preview-fs-panel" role="dialog" aria-modal="true" aria-label="Preview fullscreen">
+                    <button type="button" class="cpb-preview-fs-close" id="cpb-preview-fs-close" title="Close" aria-label="Close">&times;</button>
+                    <div class="cpb-preview cpb-preview-fs-inner" id="cpb-preview-fs-body"></div>
+                </div>
             </div>
         </div>
 
+        <div id="smc-confirm-modal" class="modal smc-confirm-modal">
+            <div class="modal-content prompt-delete-content smc-confirm-modal-content">
+                <div class="modal-header">
+                    <h3 id="smc-confirm-title">Confirm</h3>
+                    <button type="button" id="smc-confirm-close" class="close-btn" aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="smc-confirm-message" class="smc-confirm-msg"></p>
+                </div>
+                <div class="prompt-delete-actions">
+                    <button type="button" id="smc-confirm-cancel" class="btn-ghost">Cancel</button>
+                    <button type="button" id="smc-confirm-ok" class="btn-primary">OK</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="smc-category-modal" class="modal smc-category-modal">
+            <div class="modal-content prompt-delete-content smc-category-modal-content">
+                <div class="modal-header">
+                    <h3>Manage categories</h3>
+                    <button type="button" id="smc-category-modal-close" class="close-btn" aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-body" id="smc-category-modal-body"></div>
+                <div class="prompt-delete-actions smc-category-modal-actions">
+                    <button type="button" id="smc-category-add-root" class="btn-secondary">+ Root category</button>
+                    <button type="button" id="smc-category-modal-done" class="btn-primary">Done</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="cross-check-predefined-preview-layer" class="smc-cc-prompt-preview-layer" aria-hidden="true">
+            <button type="button" class="smc-cc-prompt-preview-backdrop" id="cross-check-predefined-preview-backdrop" aria-label="Close preview"></button>
+            <div class="smc-cc-prompt-preview-panel" role="dialog" aria-modal="true" aria-labelledby="smc-cc-prompt-preview-heading">
+                <div class="smc-cc-prompt-preview-header">
+                    <h3 id="smc-cc-prompt-preview-heading">Prompt Preview</h3>
+                    <button type="button" class="close-btn" id="cross-check-predefined-preview-close" aria-label="Close">&times;</button>
+                </div>
+                <div class="smc-cc-prompt-preview-body">
+                    <pre id="cross-check-predefined-preview-text" class="smc-cc-prompt-preview-pre"></pre>
+                </div>
+            </div>
+        </div>
+
+        <script src="../../node_modules/gridjs/dist/gridjs.umd.js"></script>
         <script src="../../node_modules/marked/lib/marked.umd.js"></script>
         <script src="../../node_modules/mermaid/dist/mermaid.min.js"></script>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" crossorigin="anonymous">
@@ -872,6 +1039,7 @@
         <script src="../../node_modules/prettier/standalone.js"></script>
         <script src="../../node_modules/prettier/plugins/markdown.js"></script>
         <script src="history-manager.js"></script>
+        <script src="prompt-hub.js"></script>
         <script src="renderer.js"></script>
         <script src="custom-prompt-builder.js"></script>
         <script>
