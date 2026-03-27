@@ -1932,6 +1932,27 @@ function getServiceResetUrl(service) {
     return url;
 }
 
+/**
+ * Navigate a webContents to `url` using in-page JavaScript (`window.location.href`)
+ * instead of Electron's `loadURL()`. This preserves the existing page context (cookies,
+ * TLS session, Referrer header) so Cloudflare sees a natural user navigation rather than
+ * a cold top-level request, greatly reducing bot-challenge frequency.
+ *
+ * Falls back to `loadURL()` if executeJavaScript fails (e.g. page is a Cloudflare challenge
+ * page or about:blank where JS execution is not possible).
+ */
+async function softNavigate(wc, url, label = '') {
+    if (!wc || wc.isDestroyed()) return;
+    try {
+        await wc.executeJavaScript(`window.location.href = ${JSON.stringify(url)};`);
+        if (label) console.log(`[SoftNav] ${label} → ${url}`);
+    } catch (e) {
+        // Fallback: page context may not support JS (challenge page, about:blank, etc.)
+        console.warn(`[SoftNav] executeJavaScript failed for ${label}, falling back to loadURL:`, e?.message || e);
+        wc.loadURL(url);
+    }
+}
+
 /** True when URL path looks like a login / sign-in page (cookie sync should not treat as "landed on app" yet). */
 function urlLooksLikeLoginPage(urlStr) {
     if (!urlStr || typeof urlStr !== 'string') return false;
@@ -2006,7 +2027,7 @@ ipcMain.on('new-chat', () => {
                     if (singleAiService === 'gemini') {
                         await forceGeminiResetNavigation(wc, `new-chat:${instanceKey}`);
                     } else {
-                        wc.loadURL(url);
+                        await softNavigate(wc, url, `new-chat:${instanceKey}`);
                     }
                 } catch (e) {
                     console.error(`[SingleAI] Failed to reset ${instanceKey}:`, e);
@@ -2029,7 +2050,7 @@ ipcMain.on('new-chat', () => {
             if (service === 'gemini') {
                 await forceGeminiResetNavigation(wc, 'new-chat:multi');
             } else {
-                wc.loadURL(url);
+                await softNavigate(wc, url, `new-chat:multi:${service}`);
             }
         }
     })();
@@ -2049,7 +2070,7 @@ ipcMain.on('new-chat-for-service', (event, service) => {
         })();
     } else {
         console.log(`Resetting chat for ${service} to ${url}`);
-        if (wc && !wc.isDestroyed()) wc.loadURL(url);
+        if (wc && !wc.isDestroyed()) softNavigate(wc, url, `new-chat-for-service:${service}`);
     }
 });
 
@@ -3379,6 +3400,9 @@ ipcMain.handle('get-external-login-browser', async () => {
 /**
  * Clear persisted partition storage (cookies, localStorage, SW cache, etc.) for one AI service, then reload its webview(s).
  * Use before "Sign in with Chrome/Edge" for a clean cookie sync (Cloudflare cf_clearance + app session).
+ *
+ * IMPORTANT: Preserves Cloudflare `cf_clearance` cookies to avoid forcing a fresh bot challenge after every reset.
+ * The cf_clearance cookie proves the browser already passed Turnstile; destroying it causes repeated challenge loops.
  */
 ipcMain.handle('clear-service-partition-storage', async (_event, service) => {
     if (!services.includes(service)) {
@@ -3386,6 +3410,22 @@ ipcMain.handle('clear-service-partition-storage', async (_event, service) => {
     }
     const partition = `persist:service-${service}`;
     const ses = session.fromPartition(partition);
+
+    // Step 1: Save Cloudflare cf_clearance cookies before clearing (bot-challenge avoidance)
+    let cfCookiesToRestore = [];
+    try {
+        const allCookies = await ses.cookies.get({});
+        cfCookiesToRestore = allCookies.filter(c =>
+            c.name === 'cf_clearance' || c.name === '_cf_bm' || c.name === '__cf_bm'
+        );
+        if (cfCookiesToRestore.length > 0) {
+            console.log(`[${service}] Preserving ${cfCookiesToRestore.length} Cloudflare cookie(s) across partition clear`);
+        }
+    } catch (e) {
+        console.warn(`[${service}] Failed to save Cloudflare cookies:`, e?.message || e);
+    }
+
+    // Step 2: Clear all storage
     try {
         await ses.clearStorageData({
             storages: [
@@ -3408,6 +3448,32 @@ ipcMain.handle('clear-service-partition-storage', async (_event, service) => {
     } catch (e) {
         console.warn(`[${service}] clearCache/flush:`, e?.message || e);
     }
+
+    // Step 3: Restore Cloudflare cookies so the webview does not face a fresh challenge
+    for (const cookie of cfCookiesToRestore) {
+        try {
+            const cleanDomain = (cookie.domain || '').startsWith('.') ? cookie.domain.substring(1) : (cookie.domain || '');
+            const cookieUrl = `${cookie.secure ? 'https' : 'http'}://${cleanDomain}${cookie.path || '/'}`;
+            await ses.cookies.set({
+                url: cookieUrl,
+                name: cookie.name,
+                value: cookie.value,
+                domain: cookie.domain,
+                path: cookie.path || '/',
+                secure: cookie.secure,
+                httpOnly: cookie.httpOnly,
+                expirationDate: cookie.expirationDate,
+                sameSite: cookie.sameSite || 'no_restriction'
+            });
+        } catch (e) {
+            console.warn(`[${service}] Failed to restore Cloudflare cookie ${cookie.name}:`, e?.message || e);
+        }
+    }
+    if (cfCookiesToRestore.length > 0) {
+        try { await ses.cookies.flushStore(); } catch (_) {}
+        console.log(`[${service}] Cloudflare cookies restored after partition clear`);
+    }
+
     const targetUrl = serviceUrls[service];
     try {
         if (views[service]?.view?.webContents && !views[service].view.webContents.isDestroyed()) {
@@ -4390,7 +4456,11 @@ ipcMain.on('new-chat-for-instance', (event, instanceKey) => {
         const service = singleModeViews[instanceKey].service;
         const url = getServiceResetUrl(service);
         console.log(`[SingleAI] New chat for ${instanceKey}: ${url}`);
-        singleModeViews[instanceKey].view.webContents.loadURL(url);
+        if (service === 'gemini') {
+            singleModeViews[instanceKey].view.webContents.loadURL(url);
+        } else {
+            softNavigate(singleModeViews[instanceKey].view.webContents, url, `new-chat-for-instance:${instanceKey}`);
+        }
     }
 });
 
@@ -4416,6 +4486,58 @@ ipcMain.on('status-update', (event, { isLoggedIn }) => {
         if (slotKey && !isLoggedIn) {
             console.log('[gemini] Preload reported not logged in (session may have expired) slotKey=', slotKey);
         }
+    }
+});
+
+// ========================================
+// Cloudflare Challenge Detection & Auto-Retry
+// ========================================
+// When a service webview hits a Cloudflare challenge (Turnstile / "Just a moment"),
+// we wait for it to auto-resolve. If it doesn't within a timeout, we reload once.
+// This avoids the user needing to manually intervene for transient challenges.
+
+const cfChallengeTimers = new Map(); // key = webContents.id, value = timeoutId
+
+ipcMain.on('cloudflare-challenge-detected', (event, { service, instanceKey, count }) => {
+    const wcId = event.sender.id;
+    console.log(`[CF] Challenge detected: service=${service}, instanceKey=${instanceKey || 'multi'}, count=${count}`);
+
+    // Notify renderer to show challenge indicator
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('cloudflare-challenge-status', {
+            service, instanceKey, active: true
+        });
+    }
+
+    // Auto-reload after 20 seconds if challenge doesn't resolve on its own (one attempt only)
+    if (!cfChallengeTimers.has(wcId) && count <= 2) {
+        const timerId = setTimeout(() => {
+            cfChallengeTimers.delete(wcId);
+            if (!event.sender.isDestroyed()) {
+                console.log(`[CF] Auto-reloading ${service} after challenge timeout`);
+                event.sender.reload();
+            }
+        }, 20000);
+        cfChallengeTimers.set(wcId, timerId);
+    }
+});
+
+ipcMain.on('cloudflare-challenge-resolved', (event, { service, instanceKey }) => {
+    const wcId = event.sender.id;
+    console.log(`[CF] Challenge resolved: service=${service}, instanceKey=${instanceKey || 'multi'}`);
+
+    // Cancel pending auto-reload
+    const timerId = cfChallengeTimers.get(wcId);
+    if (timerId) {
+        clearTimeout(timerId);
+        cfChallengeTimers.delete(wcId);
+    }
+
+    // Notify renderer to hide challenge indicator
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('cloudflare-challenge-status', {
+            service, instanceKey, active: false
+        });
     }
 });
 

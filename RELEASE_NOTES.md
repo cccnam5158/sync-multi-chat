@@ -1,5 +1,17 @@
 # Release Notes
 
+## v0.9.0 (2026-03-27)
+
+### ✨ New Features
+*   **Left Panel navigation expansion**: Added dedicated **Dashboard** and **Prompt Hub** menus to the left rail, so key workflows are directly accessible from panel navigation.
+*   **Custom prompt category management**: Added category management flow in the Custom Prompt Builder, including root/sub-category organization and improved assignment workflow shared with Prompt Hub.
+
+### ⬆️ Improvements
+*   **Chat History visibility polish**: Improved left rail menu visibility and readability for the **Chat History** entry.
+*   **Mermaid live preview enhancements**: Improved Mermaid preview rendering stability with better fullscreen/fit behavior and more reliable re-rendering in prompt preview contexts.
+
+---
+
 ## v0.8.2 (2026-03-19)
 
 ### ⬆️ Improvements

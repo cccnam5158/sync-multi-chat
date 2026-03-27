@@ -1,21 +1,184 @@
 const { ipcRenderer } = require('electron');
 
-// Anti-detection: Remove navigator.webdriver
+// =============================================
+// ANTI-BOT-DETECTION: Browser Fingerprint Normalization
+// Makes Electron WebContentsView indistinguishable from real Chrome
+// for Cloudflare Turnstile / bot-management systems.
+// =============================================
+
+// 1. Remove navigator.webdriver (Automation flag)
 Object.defineProperty(navigator, 'webdriver', {
     get: () => undefined,
 });
 
-// Anti-detection: Spoof plugins (Chrome usually has some, Electron has 0)
-if (navigator.plugins.length === 0) {
-    Object.defineProperty(navigator, 'plugins', {
-        get: () => [1, 2, 3, 4, 5],
-    });
-}
+// 2. Spoof navigator.plugins with realistic Chrome PluginArray
+// Real Chrome has named Plugin objects; raw numbers like [1,2,3,4,5] are trivially fingerprinted.
+(function spoofPlugins() {
+    function FakePlugin(name, description, filename, mimeType) {
+        return { name, description, filename, length: 1, item: () => ({ type: mimeType }), namedItem: () => null, [Symbol.iterator]: function*() { yield { type: mimeType }; } };
+    }
+    const pluginList = [
+        FakePlugin('Chrome PDF Plugin', 'Portable Document Format', 'internal-pdf-viewer', 'application/x-google-chrome-pdf'),
+        FakePlugin('Chrome PDF Viewer', '', 'mhjfbmdgcfjbbpaeojofohoefgiehjai', 'application/pdf'),
+        FakePlugin('Native Client', '', 'internal-nacl-plugin', 'application/x-nacl'),
+    ];
+    const fakePlugins = {
+        length: pluginList.length,
+        item: (i) => pluginList[i] || null,
+        namedItem: (name) => pluginList.find(p => p.name === name) || null,
+        refresh: () => {},
+        [Symbol.iterator]: function*() { for (const p of pluginList) yield p; }
+    };
+    for (let i = 0; i < pluginList.length; i++) fakePlugins[i] = pluginList[i];
+    Object.defineProperty(navigator, 'plugins', { get: () => fakePlugins });
+})();
 
-// Anti-detection: Spoof languages
+// 3. Spoof navigator.mimeTypes (Chrome has entries matching plugins)
+(function spoofMimeTypes() {
+    const mimeList = [
+        { type: 'application/x-google-chrome-pdf', suffixes: 'pdf', description: 'Portable Document Format' },
+        { type: 'application/pdf', suffixes: 'pdf', description: '' },
+    ];
+    const fakeMimeTypes = {
+        length: mimeList.length,
+        item: (i) => mimeList[i] || null,
+        namedItem: (type) => mimeList.find(m => m.type === type) || null,
+        [Symbol.iterator]: function*() { for (const m of mimeList) yield m; }
+    };
+    for (let i = 0; i < mimeList.length; i++) fakeMimeTypes[i] = mimeList[i];
+    Object.defineProperty(navigator, 'mimeTypes', { get: () => fakeMimeTypes });
+})();
+
+// 4. Spoof languages
 Object.defineProperty(navigator, 'languages', {
     get: () => ['ko-KR', 'ko', 'en-US', 'en'],
 });
+
+// 5. Spoof window.chrome (critical for Cloudflare)
+// Real Chrome exposes window.chrome with runtime, csi, loadTimes etc.
+// Electron does not have this — Cloudflare detects the absence.
+if (!window.chrome) {
+    const fakeRuntime = {
+        connect: function() { return { onMessage: { addListener: function() {} }, postMessage: function() {}, disconnect: function() {} }; },
+        sendMessage: function() {},
+        onMessage: { addListener: function() {}, removeListener: function() {}, hasListeners: function() { return false; } },
+        onConnect: { addListener: function() {}, removeListener: function() {} },
+        id: undefined,
+        getManifest: function() { return undefined; },
+        getURL: function(path) { return ''; },
+        PlatformOs: { MAC: 'mac', WIN: 'win', ANDROID: 'android', CROS: 'cros', LINUX: 'linux', OPENBSD: 'openbsd' }
+    };
+    window.chrome = {
+        app: { isInstalled: false, InstallState: { DISABLED: 'disabled', INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' }, RunningState: { CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' } },
+        runtime: fakeRuntime,
+        csi: function() { return { pageT: Date.now(), startE: Date.now(), onloadT: Date.now(), tran: 15 }; },
+        loadTimes: function() { return { commitLoadTime: Date.now() / 1000, connectionInfo: 'h2', finishDocumentLoadTime: Date.now() / 1000, finishLoadTime: Date.now() / 1000, firstPaintAfterLoadTime: 0, firstPaintTime: Date.now() / 1000, navigationType: 'Other', npnNegotiatedProtocol: 'h2', requestTime: Date.now() / 1000, startLoadTime: Date.now() / 1000, wasAlternateProtocolAvailable: false, wasFetchedViaSpdy: true, wasNpnNegotiated: true }; }
+    };
+}
+
+// 6. Spoof navigator.connection (NetworkInformation API)
+// Real Chrome exposes this; Electron may not. Cloudflare fingerprints its absence.
+if (!navigator.connection) {
+    const fakeConnection = {
+        effectiveType: '4g',
+        rtt: 50,
+        downlink: 10,
+        saveData: false,
+        onchange: null,
+        addEventListener: function() {},
+        removeEventListener: function() {},
+        dispatchEvent: function() { return true; }
+    };
+    Object.defineProperty(navigator, 'connection', { get: () => fakeConnection, configurable: true });
+}
+
+// 7. Normalize Notification.permission
+// Electron may return unexpected values; Chrome defaults to 'default'.
+try {
+    if (typeof Notification !== 'undefined') {
+        const origPermission = Object.getOwnPropertyDescriptor(Notification, 'permission');
+        if (!origPermission || origPermission.get) {
+            Object.defineProperty(Notification, 'permission', { get: () => 'default', configurable: true });
+        }
+    }
+} catch (e) { /* ignore in contexts where Notification is restricted */ }
+
+// 8. Spoof navigator.permissions.query for 'notifications'
+// Cloudflare checks if permissions.query resolves consistently with Notification.permission.
+try {
+    const origQuery = navigator.permissions && navigator.permissions.query;
+    if (origQuery) {
+        navigator.permissions.query = function(desc) {
+            if (desc && desc.name === 'notifications') {
+                return Promise.resolve({ state: 'prompt', onchange: null, addEventListener: function() {}, removeEventListener: function() {} });
+            }
+            return origQuery.call(navigator.permissions, desc);
+        };
+    }
+} catch (e) { /* ignore */ }
+
+// 9. Prevent iframe-based Electron detection
+// Some bot detectors create an iframe and check properties inside it.
+// Ensure toString() of key functions returns native-looking strings.
+try {
+    const origToString = Function.prototype.toString;
+    Function.prototype.toString = function() {
+        // For our spoofed functions, return a native-looking string
+        if (this === Function.prototype.toString) return 'function toString() { [native code] }';
+        if (this === navigator.permissions?.query) return 'function query() { [native code] }';
+        return origToString.call(this);
+    };
+} catch (e) { /* ignore */ }
+
+//===========================================
+// CLOUDFLARE CHALLENGE DETECTION
+//===========================================
+
+let cfChallengeDetectedAt = 0;
+let cfChallengeReportedCount = 0;
+
+function isCloudflareChallengePage() {
+    try {
+        const title = (document.title || '').toLowerCase();
+        if (title.includes('just a moment') || title.includes('checking your browser') || title.includes('attention required')) return true;
+        if (document.querySelector('#challenge-running, #challenge-stage, .cf-browser-verification, #cf-challenge-running')) return true;
+        if (document.querySelector('#turnstile-wrapper, [data-ray], .cf-turnstile')) return true;
+        const bodyText = (document.body && document.body.innerText || '').substring(0, 500).toLowerCase();
+        if (bodyText.includes('verify you are human') || bodyText.includes('checking if the site connection is secure')) return true;
+        return false;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Poll for challenge state and notify main process
+setInterval(() => {
+    if (!currentService) return;
+    const isChallenge = isCloudflareChallengePage();
+    if (isChallenge) {
+        const now = Date.now();
+        // Report challenge detection (throttled: once per 10s per occurrence)
+        if (now - cfChallengeDetectedAt > 10000) {
+            cfChallengeDetectedAt = now;
+            cfChallengeReportedCount++;
+            console.log(`[Preload] Cloudflare challenge detected for ${currentService} (count: ${cfChallengeReportedCount})`);
+            ipcRenderer.send('cloudflare-challenge-detected', {
+                service: currentService,
+                instanceKey: currentInstanceKey,
+                count: cfChallengeReportedCount
+            });
+        }
+    } else if (cfChallengeDetectedAt > 0) {
+        // Challenge resolved — notify main process
+        console.log(`[Preload] Cloudflare challenge resolved for ${currentService}`);
+        cfChallengeDetectedAt = 0;
+        cfChallengeReportedCount = 0;
+        ipcRenderer.send('cloudflare-challenge-resolved', {
+            service: currentService,
+            instanceKey: currentInstanceKey
+        });
+    }
+}, 3000);
 
 //===========================================
 // PROMPT INJECTION

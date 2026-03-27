@@ -14,7 +14,7 @@ const translations = {
         "nav.getStarted": "Get Started",
 
         // Hero Section
-        "hero.badge": "New: Single AI Mode – Compare models from one provider",
+        "hero.badge": "New in v0.9.0: Dashboard + Prompt Hub + Category Management",
         "hero.title1": "No API keys.",
         "hero.title2a": "Use your ChatGPT, Claude, Gemini",
         "hero.title2b": "subscriptions in one place.",
@@ -136,7 +136,11 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "Release History",
-        "releaseNotes.lastUpdated": "Last updated: Mar 18, 2026",
+        "releaseNotes.lastUpdated": "Last updated: Mar 27, 2026",
+        "releaseNotes.v090.feature1": "Left Panel: Dashboard + Prompt Hub: Added dedicated entries in the left rail so users can jump directly into dashboard insights and prompt workflows.",
+        "releaseNotes.v090.feature2": "Custom Prompt category management: Added root/sub-category organization and assignment workflow in the Custom Prompt Builder and Prompt Hub.",
+        "releaseNotes.v090.imp1": "Chat History visibility: Improved left rail visual clarity so the Chat History menu is easier to spot and access.",
+        "releaseNotes.v090.imp2": "Mermaid live preview: Improved Mermaid block render stability with better fullscreen/fit behavior and more reliable preview redraw.",
         "releaseNotes.v082.imp1": "Gemini idle refresh preserves conversation: The Gemini webview now reloads the current conversation URL in-place instead of navigating to a new chat. Your multi-panel conversation context is no longer lost after each refresh cycle.",
         "releaseNotes.v082.imp2": "Typing-aware refresh pause: While typing in the main prompt input, the Gemini refresh timer automatically pauses (blinking countdown) and resumes 3 seconds after you stop typing—no more focus stealing mid-composition.",
         "releaseNotes.v082.imp3": "Scroll & caret restoration: After an idle refresh, the Gemini webview's scroll position on conversation URLs is saved and restored. The main prompt input's caret position and text selection are also preserved.",
@@ -222,7 +226,7 @@ const translations = {
         "nav.getStarted": "시작하기",
 
         // Hero Section
-        "hero.badge": "신규: 싱글 AI 모드 – 하나의 서비스에서 여러 모델 비교",
+        "hero.badge": "v0.9.0 신규: Dashboard + Prompt Hub + 카테고리 관리",
         "hero.title1": "API 키 없이.",
         "hero.title2a": "개인 구독 ChatGPT, Claude, Gemini를",
         "hero.title2b": "한 곳에서 최대한 활용.",
@@ -344,7 +348,11 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "릴리스 히스토리",
-        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 3월 18일",
+        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 3월 27일",
+        "releaseNotes.v090.feature1": "Left Panel: Dashboard + Prompt Hub: 좌측 레일에 전용 메뉴를 추가해 대시보드와 프롬프트 워크플로우로 즉시 이동할 수 있습니다.",
+        "releaseNotes.v090.feature2": "커스텀 프롬프트 카테고리 관리: Custom Prompt Builder와 Prompt Hub에서 루트/서브 카테고리 구성 및 프롬프트 할당 흐름을 추가했습니다.",
+        "releaseNotes.v090.imp1": "Chat History 시인성 개선: 좌측 레일 가시성을 개선해 Chat History 메뉴를 더 쉽게 찾고 접근할 수 있습니다.",
+        "releaseNotes.v090.imp2": "Mermaid 라이브 프리뷰 개선: 전체화면/맞춤 동작과 재렌더 안정성을 개선해 Mermaid 블록 프리뷰 품질을 높였습니다.",
         "releaseNotes.v082.imp1": "Gemini 유휴 새로고침 시 대화 유지: Gemini 웹뷰가 유휴 새로고침될 때 새 챗으로 이동하지 않고 현재 대화 URL을 그대로 다시 로드합니다. 멀티 패널 대화 컨텍스트가 더 이상 새로고침마다 사라지지 않습니다.",
         "releaseNotes.v082.imp2": "타이핑 감지 새로고침 일시정지: 메인 프롬프트 입력 중에는 Gemini 새로고침 타이머가 자동으로 일시정지(깜빡이는 카운트다운)되며, 입력을 멈춘 후 3초 뒤에 재개됩니다. 작성 중 포커스가 빼앗기지 않습니다.",
         "releaseNotes.v082.imp3": "스크롤 및 커서 위치 복원: 유휴 새로고침 후 대화 URL의 스크롤 위치가 저장·복원됩니다. 메인 프롬프트 입력의 커서 위치와 텍스트 선택 범위도 유지됩니다.",
@@ -430,7 +438,7 @@ const translations = {
         "nav.getStarted": "始める",
 
         // Hero Section
-        "hero.badge": "新機能: シングルAIモード – 1つのサービスで複数モデルを比較",
+        "hero.badge": "v0.9.0新機能: Dashboard + Prompt Hub + カテゴリ管理",
         "hero.title1": "APIキー不要。",
         "hero.title2a": "個人のChatGPT・Claude・Geminiを",
         "hero.title2b": "1つのアプリで最大限に。",
@@ -552,7 +560,11 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "リリース履歴",
-        "releaseNotes.lastUpdated": "最終更新: 2026年3月18日",
+        "releaseNotes.lastUpdated": "最終更新: 2026年3月27日",
+        "releaseNotes.v090.feature1": "Left Panel: Dashboard + Prompt Hub: 左レールに専用メニューを追加し、ダッシュボードとプロンプトワークフローへ素早く移動できます。",
+        "releaseNotes.v090.feature2": "カスタムプロンプトのカテゴリ管理: Custom Prompt BuilderとPrompt Hubで、ルート/サブカテゴリ構成と割り当てフローを追加しました。",
+        "releaseNotes.v090.imp1": "Chat Historyの視認性改善: 左レールの視認性を高め、Chat Historyメニューを見つけやすくしました。",
+        "releaseNotes.v090.imp2": "Mermaidライブプレビュー改善: 全画面/フィット挙動と再レンダリング安定性を改善し、Mermaidブロックのプレビュー品質を向上しました。",
         "releaseNotes.v082.imp1": "Geminiアイドル時リフレッシュで会話を維持: Geminiウェブビューがアイドル更新される際、新規チャットに遷移せず現在の会話URLをそのままリロードします。マルチパネルの会話コンテキストがリフレッシュごとに失われなくなりました。",
         "releaseNotes.v082.imp2": "タイピング検知リフレッシュ一時停止: メインプロンプト入力中はGeminiリフレッシュタイマーが自動的に一時停止（点滅カウントダウン）し、入力停止後3秒で再開。入力中のフォーカス奪取がなくなりました。",
         "releaseNotes.v082.imp3": "スクロール・キャレット位置の復元: アイドルリフレッシュ後、会話URLのスクロール位置が保存・復元されます。メインプロンプト入力のキャレット位置とテキスト選択範囲も維持されます。",

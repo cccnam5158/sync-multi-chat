@@ -24,11 +24,11 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 -   **Multi-Pane Interface**: View and interact with up to 4 AI services (ChatGPT, Claude, Gemini, Grok, Perplexity) simultaneously in a grid layout.
 -   **Single AI Mode** *(New in v0.6.0)*: For users who subscribe to only one AI service—open up to 4 instances of the same provider and compare responses from different models.
--   **Custom Prompt Builder** *(New in v0.7.0)*: Create, save, and manage custom prompts with System/Global/Local variables; use Slash Command (`/`) in the main input to insert saved prompts and inline variable editing. *(v0.8.0)* Live preview for **Mermaid** diagrams, **code blocks** (syntax highlighting), and **LaTeX** formulas in the prompt builder and main prompt preview.
+-   **Custom Prompt Builder** *(New in v0.7.0)*: Create, save, and manage custom prompts with System/Global/Local variables; use Slash Command (`/`) in the main input to insert saved prompts and inline variable editing. *(v0.8.0)* Live preview for **Mermaid** diagrams, **code blocks** (syntax highlighting), and **LaTeX** formulas in the prompt builder and main prompt preview. *(v0.9.0)* Added category management workflow (create/reorder/assign) and tighter Prompt Hub integration.
 -   **Simultaneous Prompting**: Send a message from a central "Master Input" to all active AI services instantly.
 -   **Broad Service Support**: Supports ChatGPT, Claude, Gemini, Grok (xAI), Perplexity, and **Genspark**. *(v0.8.1)* **Perplexity** login-state detection in the panel is improved (fewer false “logged in” / “logged out” mismatches).
 -   **Chat History Management**: Save and restore entire chat sessions including active services, layouts, and URLs.
--   **Conversation History**: Access past sessions from the sidebar and restore them instantly.
+-   **Conversation History**: Access past sessions from the sidebar and restore them instantly. *(v0.9.0)* Left Panel navigation now includes **Dashboard** and **Prompt Hub**, and the **Chat History** rail item has improved visibility.
 -   **Zoom & Layout Controls**: Adjust text size and switch between 2x2, 1x3, 1x4, and Maximize layouts.
 -   **Prompt History**: Save and reuse frequently used prompts.
 -   **Cross Check**: Iterate on your prompts by sending an AI's response as a new prompt to others.
@@ -41,13 +41,13 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 ## Version
 
--   **Current Version**: v0.8.2
+-   **Current Version**: v0.9.0
 
 ## Installation
 
 This application is distributed as a **Windows Installer** with **automatic update support**.
 
-1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.8.2.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.8.2/Sync-Multi-Chat-Setup-0.8.2.exe)
+1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.9.0.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.9.0/Sync-Multi-Chat-Setup-0.9.0.exe)
 2.  Run the installer and follow the installation wizard.
 3.  The app will automatically check for updates on startup.
 
@@ -70,6 +70,8 @@ This application is distributed as a **Windows Installer** with **automatic upda
 -   **No Credential Storage**: Your passwords are never stored by the app; you log in directly via the official service websites.
 -   **External browser login** *(v0.8.1)*: Optional flow opens **Google Chrome** or, if Chrome is unavailable, **Microsoft Edge** so cookie sync works on Edge-only setups.
 -   **Gemini session stability** *(v0.8.2)*: Idle refresh reloads the current conversation in-place (no redirect to new chat), pauses automatically while you type, and restores scroll position after reload.
+-   **Navigation & Prompt workflow polish** *(v0.9.0)*: Left Panel gets Dashboard + Prompt Hub entries, Chat History visibility is improved, and custom prompt category management is now directly available in the builder.
+-   **Mermaid live preview improvements** *(v0.9.0)*: Better fullscreen/fit behavior and more reliable re-rendering for Mermaid blocks in custom prompt previews.
 -   **Bot Detection Evasion**: Uses User-Agent spoofing and human-like input event triggering to ensure compatibility.
 
 ---

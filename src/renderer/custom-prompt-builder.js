@@ -69,9 +69,35 @@
     let _cpbPhState = { titleQ: '', tagQ: '', catId: '', favoritesOnly: false, catExpanded: {}, allUnderAllExpanded: true };
     let _cpbListSelected = new Set();
 
+    function hasRequiredPromptFields(p) {
+        if (!p) return false;
+        const title = String(p.title || '').trim();
+        const content = String(p.content || '').trim();
+        return title.length > 0 && content.length > 0;
+    }
+
+    function isTransientDraftPrompt(p) {
+        return !!(p && p._isDraft);
+    }
+
+    function isVisibleInPromptList(p) {
+        if (!p) return false;
+        if (isTransientDraftPrompt(p) && !hasRequiredPromptFields(p)) return false;
+        return true;
+    }
+
+    function dropTransientDraftPrompts(opts = {}) {
+        const { keepId = null } = opts;
+        cpbPrompts = cpbPrompts.filter((x) => {
+            if (!isTransientDraftPrompt(x)) return true;
+            if (keepId && x.id === keepId) return true;
+            return hasRequiredPromptFields(x);
+        });
+    }
+
     function getCpbFilteredSnapshot() {
         var cats = window.SMCPromptLibrary ? window.SMCPromptLibrary.loadCategories() : [];
-        var items = sortPrompts([].concat(cpbPrompts));
+        var items = sortPrompts([].concat(cpbPrompts).filter(isVisibleInPromptList));
         var filtered = items.filter(function (p) {
             if (!window.SMCPromptLibrary || !window.SMCPromptLibrary.filterPromptBySidebarState) return true;
             return window.SMCPromptLibrary.filterPromptBySidebarState(p, cats, _cpbPhState);
@@ -348,6 +374,7 @@
     }
 
     function savePrompts() {
+        dropTransientDraftPrompts();
         localStorage.setItem(LS_PROMPTS, JSON.stringify(cpbPrompts));
         try { window.electronAPI?.saveCustomPrompts?.(cpbPrompts); } catch (e) { }
     }
@@ -379,6 +406,7 @@
         clearTimeout(promptsTimer);
         clearTimeout(globalsTimer);
         if (cpbDirty) saveCurrent({ renderListNow: true });
+        dropTransientDraftPrompts({ keepId: cpbCurrentId });
     }
 
     function scheduleSidePanelAutoSave() {
@@ -2155,8 +2183,14 @@
         if (el.promptTags) p.tags = parseTagsFromInput(el.promptTags.value);
         if (el.favoriteCheck) p.favorite = !!el.favoriteCheck.checked;
         touchPrompt(p);
-        savePrompts();
-        cpbDirty = false;
+        const isValid = hasRequiredPromptFields(p);
+        if (isValid) {
+            p._isDraft = false;
+            savePrompts();
+            cpbDirty = false;
+        } else {
+            cpbDirty = true;
+        }
         const hasSearchFilter = !!(_cpbPhState.titleQ || '').trim() || !!(_cpbPhState.tagQ || '').trim() || !!_cpbPhState.favoritesOnly;
         const shouldRenderList = renderListNow || hasSearchFilter || cpbSortMode === 'title';
         if (shouldRenderList) renderList();
@@ -2208,8 +2242,9 @@
     function handleNew() {
         flushPendingCurrentSave();
         if (cpbDirty) { if (!confirm('Unsaved changes will be lost. Continue?')) return; }
-        const p = { id: uid(), title: '', content: '', localVars: [], createdAt: Date.now(), updatedAt: Date.now(), lastUsedAt: Date.now(), categoryId: null, tags: [], summary: '', favorite: false };
-        cpbPrompts.unshift(p); cpbCurrentId = p.id; savePrompts(); renderAll(); loadToEditor(p.id); setMainMode('editor'); el.promptTitle.focus();
+        dropTransientDraftPrompts();
+        const p = { id: uid(), title: '', content: '', localVars: [], createdAt: Date.now(), updatedAt: Date.now(), lastUsedAt: Date.now(), categoryId: null, tags: [], summary: '', favorite: false, _isDraft: true };
+        cpbPrompts.unshift(p); cpbCurrentId = p.id; renderAll(); loadToEditor(p.id); setMainMode('editor'); el.promptTitle.focus();
     }
 
     function handleDuplicate() {
