@@ -14,7 +14,7 @@ const translations = {
         "nav.getStarted": "Get Started",
 
         // Hero Section
-        "hero.badge": "New in v0.9.0: Dashboard + Prompt Hub + Category Management",
+        "hero.badge": "v0.9.1: Prompt Hub & custom prompt category editing fixes (DnD, rename)",
         "hero.title1": "No API keys.",
         "hero.title2a": "Use your ChatGPT, Claude, Gemini",
         "hero.title2b": "subscriptions in one place.",
@@ -136,7 +136,11 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "Release History",
-        "releaseNotes.lastUpdated": "Last updated: Mar 27, 2026",
+        "releaseNotes.lastUpdated": "Last updated: Mar 30, 2026",
+        "releaseNotes.v091.fix1": "Category tree editing (Hub + CPB): Single-click filter is deferred so double-click rename no longer refreshes the list before the inline editor opens.",
+        "releaseNotes.v091.fix2": "Custom Prompt Builder — prompts to categories: Grid.js re-renders no longer break drag-and-drop; rows stay in sync via MutationObserver and delegated dragstart on the modal.",
+        "releaseNotes.v091.fix3": "Category drag-and-drop: Reorder/reparent rules for roots and subcategories are completed; dropping on self or Uncategorized is a safe no-op.",
+        "releaseNotes.v091.imp1": "Drop highlight & rename focus: Visual highlight on category targets while dragging prompts; inline rename regains focus after tree rebuilds when appropriate.",
         "releaseNotes.v090.feature1": "Left Panel: Dashboard + Prompt Hub: Added dedicated entries in the left rail so users can jump directly into dashboard insights and prompt workflows.",
         "releaseNotes.v090.feature2": "Custom Prompt category management: Added root/sub-category organization and assignment workflow in the Custom Prompt Builder and Prompt Hub.",
         "releaseNotes.v090.imp1": "Chat History visibility: Improved left rail visual clarity so the Chat History menu is easier to spot and access.",
@@ -226,7 +230,7 @@ const translations = {
         "nav.getStarted": "시작하기",
 
         // Hero Section
-        "hero.badge": "v0.9.0 신규: Dashboard + Prompt Hub + 카테고리 관리",
+        "hero.badge": "v0.9.1: Prompt Hub·커스텀 프롬프트 카테고리 편집 버그 수정 (DnD, 이름 변경)",
         "hero.title1": "API 키 없이.",
         "hero.title2a": "개인 구독 ChatGPT, Claude, Gemini를",
         "hero.title2b": "한 곳에서 최대한 활용.",
@@ -348,7 +352,11 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "릴리스 히스토리",
-        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 3월 27일",
+        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 3월 30일",
+        "releaseNotes.v091.fix1": "카테고리 트리 편집(Hub + CPB): 단일 클릭 필터를 짧게 지연해 더블클릭 이름 변경 시 목록이 먼저 갱신되지 않습니다.",
+        "releaseNotes.v091.fix2": "커스텀 프롬프트 빌더 — 프롬프트를 카테고리로: Grid.js 재렌더 후에도 드래그 앤 드롭이 유지되도록 MutationObserver와 모달 위임 dragstart로 행 속성을 동기화합니다.",
+        "releaseNotes.v091.fix3": "카테고리 드래그 앤 드롭: 루트/서브 재정렬·재부모 규칙을 보완했고, 자기 자신·미분류에 드롭 시 안전하게 무시합니다.",
+        "releaseNotes.v091.imp1": "드롭 하이라이트·이름 입력 포커스: 프롬프트 드래그 중 카테고리에 시각적 하이라이트; 트리 재구성 후 인라인 이름 입력 포커스를 유지합니다.",
         "releaseNotes.v090.feature1": "Left Panel: Dashboard + Prompt Hub: 좌측 레일에 전용 메뉴를 추가해 대시보드와 프롬프트 워크플로우로 즉시 이동할 수 있습니다.",
         "releaseNotes.v090.feature2": "커스텀 프롬프트 카테고리 관리: Custom Prompt Builder와 Prompt Hub에서 루트/서브 카테고리 구성 및 프롬프트 할당 흐름을 추가했습니다.",
         "releaseNotes.v090.imp1": "Chat History 시인성 개선: 좌측 레일 가시성을 개선해 Chat History 메뉴를 더 쉽게 찾고 접근할 수 있습니다.",
@@ -438,7 +446,7 @@ const translations = {
         "nav.getStarted": "始める",
 
         // Hero Section
-        "hero.badge": "v0.9.0新機能: Dashboard + Prompt Hub + カテゴリ管理",
+        "hero.badge": "v0.9.1: Prompt Hub・カスタムプロンプトのカテゴリ編集修正（DnD・リネーム）",
         "hero.title1": "APIキー不要。",
         "hero.title2a": "個人のChatGPT・Claude・Geminiを",
         "hero.title2b": "1つのアプリで最大限に。",
@@ -560,7 +568,11 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "リリース履歴",
-        "releaseNotes.lastUpdated": "最終更新: 2026年3月27日",
+        "releaseNotes.lastUpdated": "最終更新: 2026年3月30日",
+        "releaseNotes.v091.fix1": "カテゴリツリー編集（Hub + CPB）: シングルクリックのフィルタを短く遅延させ、ダブルクリックのリネーム時にリストが先に更新されないようにしました。",
+        "releaseNotes.v091.fix2": "カスタムプロンプトビルダー — プロンプトをカテゴリへ: Grid.jsの再レンダ後もDnDが壊れないよう、MutationObserverとモーダル委譲のdragstartで行属性を同期します。",
+        "releaseNotes.v091.fix3": "カテゴリのドラッグ＆ドロップ: ルート/サブの並べ替え・親変更ルールを補完。自分自身や未分類へのドロップは安全に無視します。",
+        "releaseNotes.v091.imp1": "ドロップハイライト・リネームフォーカス: プロンプトドラッグ中にカテゴリへ視覚的ハイライト。ツリー再構築後もインラインリネームにフォーカスを維持します。",
         "releaseNotes.v090.feature1": "Left Panel: Dashboard + Prompt Hub: 左レールに専用メニューを追加し、ダッシュボードとプロンプトワークフローへ素早く移動できます。",
         "releaseNotes.v090.feature2": "カスタムプロンプトのカテゴリ管理: Custom Prompt BuilderとPrompt Hubで、ルート/サブカテゴリ構成と割り当てフローを追加しました。",
         "releaseNotes.v090.imp1": "Chat Historyの視認性改善: 左レールの視認性を高め、Chat Historyメニューを見つけやすくしました。",

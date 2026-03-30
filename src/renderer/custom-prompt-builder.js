@@ -132,6 +132,35 @@
         var modal = document.getElementById('cpb-modal');
         if (!modal || modal.dataset.cpbSelBulkDeleg === '1') return;
         modal.dataset.cpbSelBulkDeleg = '1';
+        modal.addEventListener('dragstart', function (e) {
+            var catRow = e.target.closest('[data-ph-dnd-cat]');
+            var gridTr = e.target.closest('.gridjs-tr');
+            var item = e.target.closest('.cpb-item[data-prompt-id]');
+            if (catRow && modal.contains(catRow) && !gridTr && !item) {
+                if (e.target.closest('button, input, a, textarea, label, .ph-tree-act')) return;
+                var cid = catRow.getAttribute('data-ph-dnd-cat');
+                var isRoot = catRow.getAttribute('data-ph-dnd-root') === '1';
+                e.dataTransfer.setData('application/smc-category', JSON.stringify({ id: cid, isRoot: isRoot }));
+                e.dataTransfer.effectAllowed = 'move';
+                return;
+            }
+            if (gridTr && el.list && el.list.contains(gridTr)) {
+                if (e.target.closest('button, input, a, textarea, label')) return;
+                var pidCell = gridTr.querySelector('input.ph-row-chk[data-pid]');
+                var pid = (pidCell && pidCell.getAttribute('data-pid')) || gridTr.getAttribute('data-pid');
+                if (!pid) return;
+                var ids = _cpbListSelected.size > 0 ? Array.from(_cpbListSelected) : [pid];
+                e.dataTransfer.setData('application/smc-prompt-ids', JSON.stringify(ids));
+                e.dataTransfer.effectAllowed = 'copyMove';
+                return;
+            }
+            if (item && el.list && el.list.contains(item)) {
+                if (e.target.closest('button, input, a, textarea')) return;
+                var pid2 = item.getAttribute('data-prompt-id');
+                e.dataTransfer.setData('application/smc-prompt-ids', JSON.stringify([pid2]));
+                e.dataTransfer.effectAllowed = 'copyMove';
+            }
+        });
         modal.addEventListener('change', function (e) {
             var chk = e.target && e.target.closest && e.target.closest('.ph-row-chk');
             if (!chk || !el.list || !el.list.contains(chk)) return;
@@ -217,7 +246,10 @@
         if (!lib || !lib.buildCategoryTreeForPanel) return;
         const cats = lib.loadCategories();
         const th = document.getElementById('cpb-ph-cat-tree-host');
-        if (th) th.innerHTML = lib.buildCategoryTreeForPanel(cats, _cpbPhState);
+        if (th) {
+            th.innerHTML = lib.buildCategoryTreeForPanel(cats, _cpbPhState);
+            if (lib._focusCategoryTreeInlineInput) lib._focusCategoryTreeInlineInput(th);
+        }
     }
 
     function assignCategoryFromTreeClick(dataCat) {
@@ -1011,6 +1043,7 @@
     }
 
     var _cpbGridInstance = null;
+    var _cpbGridDragObserver = null;
 
     function cpbCatLabel(cid, cats) {
         var uncategorized = (window.SMCPromptLibrary && window.SMCPromptLibrary.uncategorizedLabel) || 'Uncategorized';
@@ -1024,7 +1057,29 @@
         return c.name;
     }
 
+    /** Watch Grid.js tbody for re-renders (e.g. internal sort) and re-apply draggable attrs. */
+    function wireCpbGridDragObserver(host) {
+        if (_cpbGridDragObserver) {
+            _cpbGridDragObserver.disconnect();
+            _cpbGridDragObserver = null;
+        }
+        if (!host) return;
+        var raf = null;
+        _cpbGridDragObserver = new MutationObserver(function () {
+            if (raf) cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(function () {
+                raf = null;
+                syncCpbGridPromptRowsForDrag(host);
+            });
+        });
+        _cpbGridDragObserver.observe(host, { childList: true, subtree: true });
+    }
+
     function destroyCpbGrid() {
+        if (_cpbGridDragObserver) {
+            _cpbGridDragObserver.disconnect();
+            _cpbGridDragObserver = null;
+        }
         if (_cpbGridInstance) {
             try { _cpbGridInstance.destroy(); } catch (_) {}
             _cpbGridInstance = null;
@@ -1229,6 +1284,7 @@
                 _cpbGridInstance.forceRender();
                 requestAnimationFrame(function () {
                     applyCpbGridColumnClasses(el.list);
+                    syncCpbGridPromptRowsForDrag(el.list);
                     wireCpbGridjsResizePersist(el.list);
                 });
                 return;
@@ -1252,6 +1308,8 @@
 
         requestAnimationFrame(function () {
             applyCpbGridColumnClasses(el.list);
+            syncCpbGridPromptRowsForDrag(el.list);
+            wireCpbGridDragObserver(el.list);
             wireCpbGridjsResizePersist(el.list);
         });
         wireCpbGridEvents();
@@ -1271,6 +1329,24 @@
             host.querySelectorAll('th[data-column-id="' + colId + '"], td[data-column-id="' + colId + '"]').forEach(function (el2) {
                 el2.classList.add(cls);
             });
+        });
+    }
+
+    function syncCpbGridPromptRowsForDrag(host) {
+        if (!host) return;
+        host.querySelectorAll('tr.gridjs-tr').forEach(function (tr) {
+            if (tr.closest('thead')) return;
+            var inp = tr.querySelector('input.ph-row-chk[data-pid]');
+            var pid = inp && inp.getAttribute('data-pid');
+            if (!pid) {
+                tr.removeAttribute('data-pid');
+                tr.draggable = false;
+                tr.querySelectorAll('td').forEach(function (td) { td.draggable = false; });
+                return;
+            }
+            tr.setAttribute('data-pid', pid);
+            tr.draggable = false;
+            tr.querySelectorAll('td').forEach(function (td) { td.draggable = true; });
         });
     }
 

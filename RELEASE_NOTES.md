@@ -1,5 +1,18 @@
 # Release Notes
 
+## v0.9.1 (2026-03-30)
+
+### 🔧 Bug Fixes
+*   **Prompt Hub & Custom Prompt Builder — category tree editing**: Single-click category filter is **deferred briefly** so **double-click rename** no longer refreshes the list before the inline editor opens (same behavior in Hub and CPB panel).
+*   **Custom Prompt Builder — drag prompts to categories**: **Grid.js** re-renders could strip drag attributes; prompt rows are **re-synced** after render/sort and a **MutationObserver** keeps `data-pid` / cell draggability consistent. **Delegated `dragstart`** on the modal also covers list rows and category rows for reliable DnD payloads.
+*   **Category drag-and-drop rules**: Completed reorder/reparent behavior for roots and subcategories (e.g. move root to end, promote subcategory to root, reorder siblings, reparent across targets). **No-op** when dropping on **self** or **Uncategorized** to avoid accidental data changes.
+
+### ⬆️ Improvements
+*   **Drop-target highlight**: While dragging prompts over a category, the target row shows a **clear visual highlight** (Hub and CPB).
+*   **Inline rename focus**: After the category tree rebuilds, the **inline rename field** is focused when appropriate so typing can continue without extra clicks.
+
+---
+
 ## v0.9.0 (2026-03-27)
 
 ### ✨ New Features

@@ -109,6 +109,22 @@
     /** Sidebar category inline editor (replaces window.prompt in Electron). */
     let _phCatQuick = { mode: 'idle', parentId: null, targetId: null, initialName: null, panel: 'hub' };
 
+    /** Single-click category filter is deferred so double-click rename does not refresh the list first. */
+    const PH_CAT_NAV_DELAY_MS = 280;
+    let _deferredCatNavTimerHub = null;
+    let _deferredCatNavTimerCpb = null;
+
+    function clearDeferredCatNavFilter(which) {
+        if (which === 'hub' && _deferredCatNavTimerHub) {
+            clearTimeout(_deferredCatNavTimerHub);
+            _deferredCatNavTimerHub = null;
+        }
+        if (which === 'cpb' && _deferredCatNavTimerCpb) {
+            clearTimeout(_deferredCatNavTimerCpb);
+            _deferredCatNavTimerCpb = null;
+        }
+    }
+
     function escapeHtml(s) {
         return String(s || '')
             .replace(/&/g, '&amp;')
@@ -264,6 +280,59 @@
         if (!ch || !ch.parentId || !root) return;
         ch.parentId = newParentRootId;
         saveCategories(list);
+    }
+
+    /** Move a root category to the end of the root list (Rule 3: Root → All). */
+    function reorderRootToEnd(dragId) {
+        const list = loadCategories();
+        const drag = list.find((c) => c.id === dragId && !c.parentId);
+        if (!drag) return;
+        const roots = list.filter((c) => !c.parentId);
+        if (roots[roots.length - 1]?.id === dragId) return;
+        const order = roots.filter((c) => c.id !== dragId);
+        order.push(drag);
+        const next = [];
+        order.forEach((r) => {
+            next.push(r);
+            list.filter((c) => c.parentId === r.id).forEach((ch) => next.push(ch));
+        });
+        saveCategories(next);
+    }
+
+    /** Promote a subcategory to a root category (Rule 8: Sub → All). */
+    function promoteToRoot(childId) {
+        const list = loadCategories();
+        const ch = list.find((c) => c.id === childId);
+        if (!ch || !ch.parentId) return;
+        ch.parentId = null;
+        saveCategories(list);
+    }
+
+    /** Reorder a subcategory before another within the same parent (Rule 7: Sub → Sub same parent). */
+    function reorderSubBefore(dragId, beforeId, parentId) {
+        const list = loadCategories();
+        if (dragId === beforeId) return;
+        const drag = list.find((c) => c.id === dragId && c.parentId === parentId);
+        const before = list.find((c) => c.id === beforeId && c.parentId === parentId);
+        if (!drag || !before) return;
+        const parent = list.find((c) => c.id === parentId && !c.parentId);
+        if (!parent) return;
+        const siblings = list.filter((c) => c.parentId === parentId);
+        const order = siblings.filter((c) => c.id !== dragId);
+        const idx = order.findIndex((c) => c.id === beforeId);
+        if (idx < 0) return;
+        order.splice(idx, 0, drag);
+        const roots = list.filter((c) => !c.parentId);
+        const next = [];
+        roots.forEach((r) => {
+            next.push(r);
+            if (r.id === parentId) {
+                order.forEach((ch) => next.push(ch));
+            } else {
+                list.filter((c) => c.parentId === r.id).forEach((ch) => next.push(ch));
+            }
+        });
+        saveCategories(next);
     }
 
     function assignPromptsToCategory(ids, catVal) {
@@ -635,6 +704,7 @@
     }
 
     let _phGridInstance = null;
+    let _phGridDragObserver = null;
 
     function phCatLabel(p, cats) {
         const uncategorized = window.SMCPromptLibrary.uncategorizedLabel;
@@ -719,6 +789,7 @@
                 _phGridInstance.forceRender();
                 requestAnimationFrame(() => {
                     applyPhGridColumnClasses(host);
+                    syncPhGridPromptRowsForDrag(host);
                     wireGridjsResizePersist(host, wMap, saveTableColWidths);
                 });
                 return;
@@ -742,12 +813,14 @@
 
         requestAnimationFrame(() => {
             phGridPostRender(host, filtered);
+            wirePhGridDragObserver(host);
             wireGridjsResizePersist(host, wMap, saveTableColWidths);
         });
     }
 
     function phGridPostRender(host, filtered) {
         applyPhGridColumnClasses(host);
+        syncPhGridPromptRowsForDrag(host);
         /* Wire event delegation on the grid container */
         if (host.dataset.phGridBound) return;
         host.dataset.phGridBound = '1';
@@ -814,13 +887,16 @@
                 return;
             }
         });
-        host.addEventListener('dblclick', (ev) => {
+        /** Open edit on double-click; uses click detail===2 because native dblclick
+         *  is unreliable when td has draggable="true" (Chromium may start a drag instead). */
+        host.addEventListener('click', (ev) => {
+            if (ev.detail !== 2) return;
             if (ev.target.closest('button, input, a')) return;
             const row = ev.target.closest('.gridjs-tr');
-            if (!row) return;
-            const pidCell = row.querySelector('.smc-grid-col-chk input[data-pid]');
-            if (!pidCell) return;
-            const pid = pidCell.getAttribute('data-pid');
+            if (!row || row.closest('thead')) return;
+            const pid = row.getAttribute('data-pid')
+                || row.querySelector('input.ph-row-chk[data-pid]')?.getAttribute('data-pid');
+            if (!pid) return;
             if (window.openCustomPromptBuilderForIdEdit) window.openCustomPromptBuilderForIdEdit(pid);
             else if (window.openCustomPromptBuilderForId) window.openCustomPromptBuilderForId(pid);
         });
@@ -842,7 +918,54 @@
         });
     }
 
+    /**
+     * Grid.js: mark row with data-pid and make cells draggable — Chromium often ignores draggable on <tr>.
+     */
+    function syncPhGridPromptRowsForDrag(host) {
+        if (!host) return;
+        host.querySelectorAll('tr.gridjs-tr').forEach((tr) => {
+            if (tr.closest('thead')) return;
+            const inp = tr.querySelector('input.ph-row-chk[data-pid]');
+            const pid = inp && inp.getAttribute('data-pid');
+            if (!pid) {
+                tr.removeAttribute('data-pid');
+                tr.draggable = false;
+                tr.querySelectorAll('td').forEach((td) => {
+                    td.draggable = false;
+                });
+                return;
+            }
+            tr.setAttribute('data-pid', pid);
+            tr.draggable = false;
+            tr.querySelectorAll('td').forEach((td) => {
+                td.draggable = true;
+            });
+        });
+    }
+
+    /** Watch Grid.js tbody for re-renders (e.g. internal sort) and re-apply draggable attrs. */
+    function wirePhGridDragObserver(host) {
+        if (_phGridDragObserver) {
+            _phGridDragObserver.disconnect();
+            _phGridDragObserver = null;
+        }
+        if (!host) return;
+        let raf = null;
+        _phGridDragObserver = new MutationObserver(() => {
+            if (raf) cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(() => {
+                raf = null;
+                syncPhGridPromptRowsForDrag(host);
+            });
+        });
+        _phGridDragObserver.observe(host, { childList: true, subtree: true });
+    }
+
     function destroyPhGrid() {
+        if (_phGridDragObserver) {
+            _phGridDragObserver.disconnect();
+            _phGridDragObserver = null;
+        }
         if (_phGridInstance) {
             try { _phGridInstance.destroy(); } catch (_) {}
             _phGridInstance = null;
@@ -1075,10 +1198,11 @@
             });
         });
 
-        root.querySelectorAll('tr[data-pid], .ph-card[data-pid]').forEach((el) => {
+        root.querySelectorAll('.ph-card[data-pid]').forEach((el) => {
             if (el.dataset.phDblBound) return;
             el.dataset.phDblBound = '1';
-            el.addEventListener('dblclick', (ev) => {
+            el.addEventListener('click', (ev) => {
+                if (ev.detail !== 2) return;
                 if (ev.target.closest('button, input, a')) return;
                 const pid = el.getAttribute('data-pid');
                 if (window.openCustomPromptBuilderForIdEdit) window.openCustomPromptBuilderForIdEdit(pid);
@@ -1112,12 +1236,41 @@
         _phCatQuick = { mode: 'idle', parentId: null, targetId: null, initialName: null, panel: 'hub' };
     }
 
+    /** After tree re-render, focus inline rename input and select full category name. */
+    function focusTreeInlineInputIfEditing(container) {
+        if (!container || _phCatQuick.mode !== 'rename' || !_phCatQuick.targetId) return;
+        const tid = String(_phCatQuick.targetId);
+        container.querySelectorAll('[data-tree-inline-input]').forEach((el) => {
+            if (el.getAttribute('data-tree-id') === tid) {
+                requestAnimationFrame(() => {
+                    try {
+                        el.focus();
+                        el.select();
+                    } catch (_) { /* ignore */ }
+                });
+            }
+        });
+    }
+
     function startTreeInlineRename(panel, categoryId, initialName) {
         _phCatQuick = { mode: 'rename', parentId: null, targetId: categoryId, initialName: initialName || '', panel: panel || 'hub' };
     }
 
     function createCategoryAndStartInlineRename(parentId, panel) {
         const list = loadCategories();
+        if (!parentId) {
+            const roots = list.filter((c) => !c.parentId);
+            const onlyAllNoRoots = roots.length === 0;
+            if (_phState.allUnderAllExpanded === false || onlyAllNoRoots) {
+                _phState.allUnderAllExpanded = true;
+            }
+            try {
+                const s = window.SMCPromptLibrary._getCpbPhState?.();
+                if (s && (s.allUnderAllExpanded === false || onlyAllNoRoots)) {
+                    s.allUnderAllExpanded = true;
+                }
+            } catch (e) { /* ignore */ }
+        }
         const id = uid();
         const name = parentId ? 'New Subcategory' : 'New Category';
         list.push({ id, name, parentId: parentId ? String(parentId) : null });
@@ -1239,7 +1392,46 @@
     function ensurePhHubHandlers(root) {
         if (root.dataset.phHubBound) return;
         root.dataset.phHubBound = '1';
+        root.addEventListener('dblclick', (e) => {
+            const treeHost = root.querySelector('[data-ph-cat-tree-host]');
+            if (!treeHost || !treeHost.contains(e.target)) return;
+            if (e.target.closest('.ph-tree-actions, .ph-tree-chev, .ph-tree-add-root-btn, .ph-help-tip')) return;
+            const btn = e.target.closest('.ph-cat-item');
+            if (!btn || !treeHost.contains(btn)) return;
+            const cat = btn.getAttribute('data-cat') || '';
+            if (!cat || cat === '__uncat__') return;
+            const allCats = loadCategories();
+            const c = allCats.find((x) => x.id === cat);
+            if (!c) return;
+            e.preventDefault();
+            e.stopPropagation();
+            clearDeferredCatNavFilter('hub');
+            startTreeInlineRename('hub', cat, c.name);
+            renderPromptHub();
+        });
         root.addEventListener('click', (e) => {
+            const treeHostNav = root.querySelector('[data-ph-cat-tree-host]');
+            const catNavBtn = e.target.closest('.ph-cat-item');
+            if (treeHostNav && catNavBtn && treeHostNav.contains(catNavBtn)) {
+                if (e.detail === 2) {
+                    clearDeferredCatNavFilter('hub');
+                    return;
+                }
+                if (e.detail === 1) {
+                    e.preventDefault();
+                    clearDeferredCatNavFilter('hub');
+                    const catId = catNavBtn.getAttribute('data-cat') || '';
+                    _deferredCatNavTimerHub = setTimeout(() => {
+                        _deferredCatNavTimerHub = null;
+                        _phState.catId = catId;
+                        _phState.selected.clear();
+                        renderPromptHub();
+                    }, PH_CAT_NAV_DELAY_MS);
+                    return;
+                }
+                return;
+            }
+
             const chevAll = e.target.closest('.ph-tree-chev-all');
             if (chevAll && root.contains(chevAll)) {
                 e.preventDefault();
@@ -1335,31 +1527,45 @@
             commitTreeInlineRename('hub', id, t.value);
         });
         root.addEventListener('dragstart', (e) => {
+            const listHost = root.querySelector('#ph-list-host');
             const catRow = e.target.closest('[data-ph-dnd-cat]');
             const tr = e.target.closest('tr[data-pid]');
             const card = e.target.closest('.ph-card[data-pid]');
-            if (catRow && !tr && !card) {
+            const promptFromList = tr && listHost && listHost.contains(tr);
+            if (catRow && !promptFromList && !card) {
                 if (e.target.closest('button, input, a, textarea, label, .ph-tree-act')) return;
                 const id = catRow.getAttribute('data-ph-dnd-cat');
                 const isRoot = catRow.getAttribute('data-ph-dnd-root') === '1';
                 e.dataTransfer.setData('application/smc-category', JSON.stringify({ id, isRoot }));
                 e.dataTransfer.effectAllowed = 'move';
-            } else if (tr || card) {
-                if (e.target.closest('button, input, a, textarea')) return;
+            } else if (promptFromList || card) {
+                if (e.target.closest('button, input, a, textarea, label')) return;
                 const el = tr || card;
                 const pid = el.getAttribute('data-pid');
+                if (!pid) return;
                 const ids = _phState.selected.size ? [..._phState.selected] : [pid];
                 e.dataTransfer.setData('application/smc-prompt-ids', JSON.stringify(ids));
                 e.dataTransfer.effectAllowed = 'copyMove';
             }
         });
+        let _hubDropHighlight = null;
+        const clearHubDropHighlight = () => {
+            if (_hubDropHighlight) { _hubDropHighlight.classList.remove('ph-cat-item--drag-over'); _hubDropHighlight = null; }
+        };
         root.addEventListener('dragover', (e) => {
-            if (e.target.closest('[data-ph-drop-cat]')) {
+            const dt = e.target.closest('[data-ph-drop-cat]');
+            if (_hubDropHighlight && _hubDropHighlight !== dt) clearHubDropHighlight();
+            if (dt) {
                 e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
+                const isCatDrag = e.dataTransfer.types.includes('application/smc-category');
+                e.dataTransfer.dropEffect = isCatDrag ? 'move' : 'copy';
+                dt.classList.add('ph-cat-item--drag-over');
+                _hubDropHighlight = dt;
             }
         });
+        root.addEventListener('dragend', clearHubDropHighlight);
         root.addEventListener('drop', (e) => {
+            clearHubDropHighlight();
             const dropEl = e.target.closest('[data-ph-drop-cat]');
             if (!dropEl) return;
             e.preventDefault();
@@ -1389,15 +1595,51 @@
             const { id: dragId, isRoot } = parsed;
             const cats = loadCategories();
             const dropOnRoot = dropEl.getAttribute('data-ph-drop-root') === '1';
-            if (isRoot && dropOnRoot && cat && cat !== '' && cat !== '__uncat__') {
-                reorderRootBefore(dragId, cat);
-                phToast('Categories reordered');
-            } else if (!isRoot && cat && cat !== '' && cat !== '__uncat__') {
-                const target = cats.find((c) => c.id === cat);
-                const parentId = target && (target.parentId || target.id);
-                if (parentId) {
-                    reparentCategory(dragId, parentId);
-                    phToast('Category moved');
+            /* Rule 10: drop on self → no-op */
+            if (dragId === cat) { renderPromptHub(); return; }
+            /* Rule 4,9: drop on Uncategorized → no-op */
+            if (cat === '__uncat__') { renderPromptHub(); return; }
+            if (isRoot) {
+                if (cat === '' || cat == null) {
+                    /* Rule 3: Root → All → move to end */
+                    reorderRootToEnd(dragId);
+                    phToast('Category moved to end');
+                } else if (dropOnRoot) {
+                    /* Rule 1: Root → Root → reorder */
+                    reorderRootBefore(dragId, cat);
+                    phToast('Categories reordered');
+                } else {
+                    /* Rule 2: Root → Sub → reorder before target's parent root */
+                    const target = cats.find((c) => c.id === cat);
+                    if (target && target.parentId) {
+                        reorderRootBefore(dragId, target.parentId);
+                        phToast('Categories reordered');
+                    }
+                }
+            } else {
+                if (cat === '' || cat == null) {
+                    /* Rule 8: Sub → All → promote to root */
+                    promoteToRoot(dragId);
+                    phToast('Category promoted to root');
+                } else {
+                    const dragCat = cats.find((c) => c.id === dragId);
+                    const targetCat = cats.find((c) => c.id === cat);
+                    if (dragCat && targetCat) {
+                        const targetParent = targetCat.parentId || targetCat.id;
+                        if (dragCat.parentId === targetCat.parentId && targetCat.parentId) {
+                            /* Rule 7: Sub → Sub (same parent) → reorder */
+                            reorderSubBefore(dragId, cat, dragCat.parentId);
+                            phToast('Categories reordered');
+                        } else if (!targetCat.parentId) {
+                            /* Rule 5: Sub → Root → reparent under target root */
+                            reparentCategory(dragId, cat);
+                            phToast('Category moved');
+                        } else {
+                            /* Rule 6: Sub → Sub (diff parent) → reparent under target's parent */
+                            reparentCategory(dragId, targetParent);
+                            phToast('Category moved');
+                        }
+                    }
                 }
             }
             renderPromptHub();
@@ -1568,14 +1810,6 @@
         renderPhListIntoHost(root, host, filtered, cats, favCats, wMap);
         wirePhListHandlers(root);
 
-        root.querySelectorAll('.ph-cat-item').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                _phState.catId = btn.getAttribute('data-cat') || '';
-                _phState.selected.clear();
-                renderPromptHub();
-            });
-        });
-
         root.querySelectorAll('.ph-toggle').forEach((b) => {
             b.addEventListener('click', () => {
                 _phState.view = b.getAttribute('data-view') || 'table';
@@ -1585,6 +1819,7 @@
 
         wirePhFilterResizeHandle(root);
         wirePhCollapseToggle(root);
+        focusTreeInlineInputIfEditing(root.querySelector('#ph-cat-tree-host'));
     }
 
     function wirePhFilterResizeHandle(root) {
@@ -1627,7 +1862,49 @@
         const getS = () => window.SMCPromptLibrary._getCpbPhState?.();
         const refresh = () => window.SMCPromptLibrary._cpbPhRefresh?.();
 
+        panel.addEventListener('dblclick', (e) => {
+            const treeHost = panel.querySelector('[data-ph-cat-tree-host]');
+            if (!treeHost || !treeHost.contains(e.target)) return;
+            if (e.target.closest('.ph-tree-actions, .ph-tree-chev, .ph-tree-add-root-btn, .ph-help-tip')) return;
+            const btn = e.target.closest('.ph-cat-item');
+            if (!btn || !treeHost.contains(btn)) return;
+            const cat = btn.getAttribute('data-cat') || '';
+            if (!cat || cat === '__uncat__') return;
+            const allCats = loadCategories();
+            const c = allCats.find((x) => x.id === cat);
+            if (!c) return;
+            e.preventDefault();
+            e.stopPropagation();
+            clearDeferredCatNavFilter('cpb');
+            startTreeInlineRename('cpb', cat, c.name);
+            window.SMCPromptLibrary._cpbShowListMode?.();
+            refresh();
+        });
         panel.addEventListener('click', (e) => {
+            const treeHostNav = panel.querySelector('[data-ph-cat-tree-host]');
+            const catNavBtn = e.target.closest('.ph-cat-item');
+            if (treeHostNav && catNavBtn && catNavBtn.closest('.ph-cat-dnd-tree') && panel.contains(catNavBtn)) {
+                if (e.detail === 2) {
+                    clearDeferredCatNavFilter('cpb');
+                    return;
+                }
+                if (e.detail === 1) {
+                    e.preventDefault();
+                    clearDeferredCatNavFilter('cpb');
+                    const v = catNavBtn.getAttribute('data-cat') ?? '';
+                    const S = getS();
+                    if (!S) return;
+                    _deferredCatNavTimerCpb = setTimeout(() => {
+                        _deferredCatNavTimerCpb = null;
+                        S.catId = v;
+                        window.SMCPromptLibrary._cpbAssignCategoryFromTree?.(v);
+                        refresh();
+                    }, PH_CAT_NAV_DELAY_MS);
+                    return;
+                }
+                return;
+            }
+
             const chevAll = e.target.closest('.ph-tree-chev-all');
             if (chevAll && panel.contains(chevAll)) {
                 e.preventDefault();
@@ -1636,18 +1913,6 @@
                 if (!S) return;
                 const wasOpen = S.allUnderAllExpanded !== false;
                 S.allUnderAllExpanded = !wasOpen;
-                refresh();
-                return;
-            }
-
-            const catItem = e.target.closest('.ph-cat-item');
-            if (catItem && catItem.closest('.ph-cat-dnd-tree') && panel.contains(catItem)) {
-                e.preventDefault();
-                const v = catItem.getAttribute('data-cat') ?? '';
-                const S = getS();
-                if (!S) return;
-                S.catId = v;
-                window.SMCPromptLibrary._cpbAssignCategoryFromTree?.(v);
                 refresh();
                 return;
             }
@@ -1761,13 +2026,24 @@
                 e.dataTransfer.effectAllowed = 'copyMove';
             }
         });
+        let _cpbDropHighlight = null;
+        const clearCpbDropHighlight = () => {
+            if (_cpbDropHighlight) { _cpbDropHighlight.classList.remove('ph-cat-item--drag-over'); _cpbDropHighlight = null; }
+        };
         panel.addEventListener('dragover', (e) => {
-            if (e.target.closest('[data-ph-drop-cat]')) {
+            const dt = e.target.closest('[data-ph-drop-cat]');
+            if (_cpbDropHighlight && _cpbDropHighlight !== dt) clearCpbDropHighlight();
+            if (dt) {
                 e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
+                const isCatDrag = e.dataTransfer.types.includes('application/smc-category');
+                e.dataTransfer.dropEffect = isCatDrag ? 'move' : 'copy';
+                dt.classList.add('ph-cat-item--drag-over');
+                _cpbDropHighlight = dt;
             }
         });
+        panel.addEventListener('dragend', clearCpbDropHighlight);
         panel.addEventListener('drop', (e) => {
+            clearCpbDropHighlight();
             const dropEl = e.target.closest('[data-ph-drop-cat]');
             if (!dropEl || !panel.contains(dropEl)) return;
             e.preventDefault();
@@ -1799,15 +2075,44 @@
             const { id: dragId, isRoot } = parsed;
             const cats = loadCategories();
             const dropOnRoot = dropEl.getAttribute('data-ph-drop-root') === '1';
-            if (isRoot && dropOnRoot && cat && cat !== '' && cat !== '__uncat__') {
-                reorderRootBefore(dragId, cat);
-                phToast('Categories reordered');
-            } else if (!isRoot && cat && cat !== '' && cat !== '__uncat__') {
-                const target = cats.find((c) => c.id === cat);
-                const parentId = target && (target.parentId || target.id);
-                if (parentId) {
-                    reparentCategory(dragId, parentId);
-                    phToast('Category moved');
+            /* Rule 10: drop on self → no-op */
+            if (dragId === cat) { refresh(); renderPromptHub(); return; }
+            /* Rule 4,9: drop on Uncategorized → no-op */
+            if (cat === '__uncat__') { refresh(); renderPromptHub(); return; }
+            if (isRoot) {
+                if (cat === '' || cat == null) {
+                    reorderRootToEnd(dragId);
+                    phToast('Category moved to end');
+                } else if (dropOnRoot) {
+                    reorderRootBefore(dragId, cat);
+                    phToast('Categories reordered');
+                } else {
+                    const target = cats.find((c) => c.id === cat);
+                    if (target && target.parentId) {
+                        reorderRootBefore(dragId, target.parentId);
+                        phToast('Categories reordered');
+                    }
+                }
+            } else {
+                if (cat === '' || cat == null) {
+                    promoteToRoot(dragId);
+                    phToast('Category promoted to root');
+                } else {
+                    const dragCat = cats.find((c) => c.id === dragId);
+                    const targetCat = cats.find((c) => c.id === cat);
+                    if (dragCat && targetCat) {
+                        const targetParent = targetCat.parentId || targetCat.id;
+                        if (dragCat.parentId === targetCat.parentId && targetCat.parentId) {
+                            reorderSubBefore(dragId, cat, dragCat.parentId);
+                            phToast('Categories reordered');
+                        } else if (!targetCat.parentId) {
+                            reparentCategory(dragId, cat);
+                            phToast('Category moved');
+                        } else {
+                            reparentCategory(dragId, targetParent);
+                            phToast('Category moved');
+                        }
+                    }
                 }
             }
             refresh();
@@ -2012,6 +2317,7 @@
     window.SMCPromptLibrary.filterPromptBySidebarState = filterPromptBySidebarState;
     window.SMCPromptLibrary.buildCategoryTreeForPanel = buildCategoryTreeDndHtml;
     window.SMCPromptLibrary.buildFavoriteCategoriesHtmlForPanel = buildFavoriteCategoriesHtml;
+    window.SMCPromptLibrary._focusCategoryTreeInlineInput = focusTreeInlineInputIfEditing;
 
     window.initPromptHubShell = function (deps) {
         _deps = deps || {};

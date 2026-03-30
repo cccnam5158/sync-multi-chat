@@ -1029,6 +1029,15 @@ body {
     background: transparent !important;
 }
 
+/* Drop-target highlight while dragging a prompt over a category */
+.ph-cat-item--drag-over,
+.ph-filters .ph-tree-row:has(.ph-cat-item--drag-over) {
+    background: hsl(265 62% 56% / 0.35) !important;
+    outline: 1.5px dashed hsl(265 62% 62% / 0.7);
+    outline-offset: -1.5px;
+    border-radius: var(--radius);
+}
+
 .ph-cat-child {
     padding-left: 10px;
 }
