@@ -2947,6 +2947,8 @@
     }
     function mermaidPreviewIsDark(container) {
         if (!container) return false;
+        // Task chat workspace and Customize skills preview are always dark themed
+        if (container.closest('.task-chat-messages, .task-workspace, .customize-md-preview')) return true;
         return !!container.closest('.inline-preview-dark, .master-preview-theme-dark, .cpb-preview-theme-dark, [class*="preview-theme-dark"]');
     }
 
@@ -3148,6 +3150,44 @@
         });
     }
 
+    /** Scope ZenUML global styles that leak into the whole app.
+     *  Removes dangerous global resets while keeping utility classes scoped to .mermaid. */
+    var _zenumlStylesProcessed = new WeakSet();
+    function scopeZenumlSheet(styleEl) {
+        if (!styleEl || _zenumlStylesProcessed.has(styleEl)) return;
+        _zenumlStylesProcessed.add(styleEl);
+        var css = styleEl.textContent || '';
+        if (!css) return;
+        // Remove Tailwind preflight reset rules that break global layout
+        css = css.replace(/(^|})\s*\*\s*,\s*::before\s*,\s*::after\s*\{[^}]*\}/g, '$1');
+        css = css.replace(/(^|})\s*::backdrop\s*\{[^}]*\}/g, '$1');
+        css = css.replace(/(^|})\s*:root\s*\{[^}]*\}/g, '$1');
+        // Scope .container rule (Tailwind default) to .mermaid
+        css = css.replace(/(^|})(\s*)\.container\s*\{/g, '$1$2.mermaid .container{');
+        // Scope [contenteditable] rules to .mermaid
+        css = css.replace(/(\s*)\[contenteditable/g, '$1.mermaid [contenteditable');
+        // Scope .editable-label rules to .mermaid
+        css = css.replace(/(^|})\s*\.editable-label/g, '$1 .mermaid .editable-label');
+        styleEl.textContent = css;
+    }
+    function cleanupZenumlGlobalStyles() {
+        // Scope the Tailwind-based ZenUML style (900KB+)
+        var globalStyle = document.getElementById('zenuml-style');
+        if (globalStyle) scopeZenumlSheet(globalStyle);
+        var remoteCss = document.getElementById('zenuml-remote-css');
+        if (remoteCss) remoteCss.remove();
+        // Scope anonymous ZenUML component CSS injected by vite-plugin-css-injected-by-js
+        document.head.querySelectorAll('style:not([id])').forEach(function (el) {
+            var txt = (el.textContent || '').slice(0, 300);
+            if (txt.indexOf('_tooltip_5kyas') !== -1 || (txt.indexOf('[contenteditable=true]') !== -1 && txt.indexOf('editable-label') !== -1)) {
+                scopeZenumlSheet(el);
+            }
+        });
+        // Remove detector container that ZenUML appends to body
+        var detectorContainer = document.getElementById('zenuml-intersection-detector-container');
+        if (detectorContainer) detectorContainer.remove();
+    }
+
     function renderMermaidInContainer(container) {
         if (!container || typeof window.mermaid === 'undefined') return Promise.resolve();
         teardownMermaidInlinePanZoom(container);
@@ -3161,12 +3201,18 @@
                     node.textContent = mermaidB64ToRaw(b64);
                     node.removeAttribute('data-mermaid-b64');
                 }
+                // Fix case-sensitive diagram type keywords
+                var txt = node.textContent || '';
+                if (/^\s*gitgraph\b/i.test(txt)) {
+                    node.textContent = txt.replace(/^\s*gitgraph\b/i, 'gitGraph');
+                }
                 node.removeAttribute('data-processed');
                 node.removeAttribute('data-mermaid-processed');
             });
         }
         function finishMermaidRender() {
             mermaidScheduleForeignObjectContrast(container);
+            cleanupZenumlGlobalStyles();
             var w = container.closest('.prompt-block-wrapper');
             if (w && w.getAttribute('data-block-type') === 'mermaid' && w.getAttribute('data-view') === 'preview' && document.fullscreenElement !== w) {
                 initMermaidInlinePanZoom(container);
@@ -7550,6 +7596,16 @@
             setPreviewMode(false);
             if (el.promptTitle) el.promptTitle.focus();
         }
+    };
+
+    // Expose block rendering utilities for reuse by task chat
+    window._cpbBlockUtils = {
+        extractAllFencedBlocks: extractAllFencedBlocks,
+        buildBlockWrapperHtml: buildBlockWrapperHtml,
+        injectBlockWrappersIntoHtml: injectBlockWrappersIntoHtml,
+        renderMermaidInContainer: renderMermaidInContainer,
+        highlightCodeBlocksInContainer: highlightCodeBlocksInContainer,
+        safeHtml: safeHtml,
     };
 
     // Setup main input features on load

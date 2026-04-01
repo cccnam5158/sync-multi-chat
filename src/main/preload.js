@@ -70,5 +70,36 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onGeminiIdleRefreshStarting: (callback) => ipcRenderer.on('gemini-idle-refresh-starting', () => callback()),
     onGeminiIdleRefreshDone: (callback) => ipcRenderer.on('gemini-idle-refresh-done', () => callback()),
     setGeminiTypingPause: (active) => ipcRenderer.send('gemini-typing-pause', active),
-    captureElementImage: (rect) => ipcRenderer.invoke('capture-element-image', rect)
+    captureElementImage: (rect) => ipcRenderer.invoke('capture-element-image', rect),
+    // BYOK Task System APIs
+    taskStart: (params) => ipcRenderer.send('task-start', params),
+    taskStop: (sessionId) => ipcRenderer.send('task-stop', sessionId),
+    taskGetState: (sessionId) => ipcRenderer.invoke('task-get-state', sessionId),
+    byokHasApiKey: (providerId) => ipcRenderer.invoke('byok-has-api-key', providerId),
+    byokSaveApiKey: (providerId, apiKey) => ipcRenderer.invoke('byok-save-api-key', providerId, apiKey),
+    byokValidateKey: (providerId, apiKey) => ipcRenderer.invoke('byok-validate-key', providerId, apiKey),
+    byokGetModels: (providerId) => ipcRenderer.invoke('byok-get-models', providerId),
+    onTaskStreamChunk: (callback) => ipcRenderer.on('task-stream-chunk', (event, data) => callback(data)),
+    onTaskStreamThinking: (callback) => ipcRenderer.on('task-stream-thinking', (event, data) => callback(data)),
+    onTaskStreamTool: (callback) => ipcRenderer.on('task-stream-tool', (event, data) => callback(data)),
+    onTaskStreamDone: (callback) => ipcRenderer.on('task-stream-done', (event, data) => callback(data)),
+    onTaskStreamError: (callback) => ipcRenderer.on('task-stream-error', (event, data) => callback(data)),
+    // Workspace & Codex CLI
+    selectWorkspaceDir: () => ipcRenderer.invoke('select-workspace-dir'),
+    checkCodexCli: () => ipcRenderer.invoke('check-codex-cli'),
+    // ChatGPT Subscription OAuth
+    chatgptSubLogin: () => ipcRenderer.invoke('chatgpt-sub-login'),
+    chatgptSubCallback: (callbackUrl) => ipcRenderer.invoke('chatgpt-sub-callback', callbackUrl),
+    chatgptSubGetModels: () => ipcRenderer.invoke('chatgpt-sub-get-models'),
+    onChatgptSubAuthComplete: (callback) => ipcRenderer.on('chatgpt-sub-auth-complete', (event, data) => callback(data)),
+    // Permission system
+    permissionRespond: (reqId, decision) => ipcRenderer.send('permission-respond', reqId, decision),
+    onPermissionRequest: (callback) => ipcRenderer.on('permission-request', (event, data) => callback(data)),
+    // Skills & Connectors
+    skillsList: (workspaceDir) => ipcRenderer.invoke('skills-list', workspaceDir),
+    skillsToggle: (name, enabled) => ipcRenderer.invoke('skills-toggle', name, enabled),
+    skillsListFiles: (skillLocation) => ipcRenderer.invoke('skills-list-files', skillLocation),
+    skillsReadFile: (filePath) => ipcRenderer.invoke('skills-read-file', filePath),
+    connectorsList: () => ipcRenderer.invoke('connectors-list'),
+    connectorsToggle: (id, enabled) => ipcRenderer.invoke('connectors-toggle', id, enabled),
 });

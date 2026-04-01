@@ -184,6 +184,7 @@ async function resetCurrentSessionViews({ onlySlotKey = null } = {}) {
 }
 
 async function triggerNewChatWorkflow() {
+    hideTaskWorkspace();
     // Save current session first (if there is one)
     if (currentSessionId) {
         await saveCurrentSession();
@@ -492,6 +493,9 @@ window.electronAPI.onChatThreadCopied((data) => {
         copyChatBtn.innerText = 'Copied!';
     }
 
+    // Store for task context auto-attach
+    if (data?.text) _pendingTaskContext = { type: 'chat_thread', content: data.text, source: 'All Services' };
+
     setTimeout(() => {
         copyChatBtn.innerText = originalText;
     }, 2000);
@@ -512,6 +516,9 @@ if (copyLastResponseBtn) {
         } else {
             copyLastResponseBtn.innerText = 'Copied!';
         }
+
+        // Store for task context auto-attach
+        if (data?.text) _pendingTaskContext = { type: 'last_response', content: data.text, source: 'All Services' };
 
         setTimeout(() => {
             copyLastResponseBtn.innerText = originalText;
@@ -2001,6 +2008,10 @@ function openSmcFullPanel(panel) {
         dashboard: 'smc-overlay-dashboard',
         'prompt-hub': 'smc-overlay-prompt-hub',
         history: 'smc-overlay-history',
+        automations: 'smc-overlay-automations',
+        customize: 'smc-overlay-customize',
+        remote: 'smc-overlay-remote',
+        settings: 'smc-overlay-settings',
     };
     const id = map[panel];
     if (!id) return;
@@ -2018,6 +2029,7 @@ function openSmcFullPanel(panel) {
         b.classList.toggle('active', b.getAttribute('data-sidebar-panel') === panel);
     });
     if (panel === 'prompt-hub' && typeof window.renderPromptHub === 'function') window.renderPromptHub();
+    if (panel === 'customize' && typeof renderCustomizePanel === 'function') renderCustomizePanel();
     if (panel === 'dashboard') refreshDashboard();
 }
 
@@ -2043,8 +2055,13 @@ function closeSmcFullPanels() {
 
 window.closeSmcFullPanels = closeSmcFullPanels;
 
+function isTaskWorkspaceVisible() {
+    const ws = document.getElementById('task-workspace');
+    return ws && !ws.classList.contains('hidden');
+}
+
 function updateBounds() {
-    if (smcOpenFullPanel && window.electronAPI?.updateViewBounds) {
+    if ((smcOpenFullPanel || isTaskWorkspaceVisible()) && window.electronAPI?.updateViewBounds) {
         const z = {};
         activeServiceKeys.forEach((key) => {
             z[key] = { x: 0, y: 0, width: 0, height: 0 };
@@ -3089,7 +3106,7 @@ let historySuppressScrollEvents = false;
 
 const historyTitleSearchInput = document.getElementById('history-title-search');
 const historySortSelect = document.getElementById('history-sort-select');
-let historySortBy = 'updatedDesc';
+let historySortBy = 'createdDesc';
 let historySearchTitle = '';
 
 const selectedHistorySessionIds = new Set();
@@ -3591,7 +3608,14 @@ function initSidebarNavigation() {
             if (p === 'new-chat') {
                 e.preventDefault();
                 closeSmcFullPanels();
+                hideTaskWorkspace();
                 triggerNewChatWorkflow();
+                return;
+            }
+            if (p === 'new-task') {
+                e.preventDefault();
+                closeSmcFullPanels();
+                triggerNewTaskWorkflow();
                 return;
             }
             e.preventDefault();
@@ -3889,8 +3913,9 @@ async function setupHistory() {
             });
         }
         if (historySortSelect) {
+            historySortSelect.value = historySortBy;
             historySortSelect.addEventListener('change', () => {
-                historySortBy = historySortSelect.value || 'updatedDesc';
+                historySortBy = historySortSelect.value || 'createdDesc';
                 historyOffset = 0;
                 loadHistoryList();
             });
@@ -4027,12 +4052,25 @@ async function loadHistoryList(options = {}) {
             // Tooltip with full info
             const tooltip = `title: ${title}\ncreatedAt: ${createdAtStr}\nupdatedAt: ${updatedAtStr}`;
 
+            const isTask = session.sessionType === 'task';
+            const taskState = session.taskState || 'done';
+            let badgesHtml = '';
+            if (isTask) {
+                badgesHtml += '<span class="history-item-badge history-badge-task">Task</span>';
+                if (taskState === 'running') {
+                    badgesHtml += '<span class="history-item-badge history-badge-running">Running</span>';
+                    badgesHtml += '<button type="button" class="history-task-stop-btn" data-task-session-id="' + escapeHtml(session.id) + '" title="Stop task">Stop</button>';
+                } else {
+                    badgesHtml += '<span class="history-item-badge history-badge-done">Done</span>';
+                }
+            }
+
             item.innerHTML = `
                 <label class="history-item-check-label" title="Select session">
                     <input class="history-item-checkbox" type="checkbox" data-session-id="${escapeHtml(session.id)}" ${chk} aria-label="Select session" />
                 </label>
                 <div class="history-item-content" title="${tooltip.replace(/"/g, '&quot;')}">
-                    <div class="history-title">${escapeHtml(title)}</div>
+                    <div class="history-title">${escapeHtml(title)}${badgesHtml}</div>
                     <div class="history-date">${escapeHtml(dateLine)}</div>
                 </div>
                 <div class="history-item-actions" role="group" aria-label="Session actions">
@@ -4074,6 +4112,27 @@ async function loadHistoryList(options = {}) {
                 window.electronAPI?.setServiceVisibility?.(false);
                 showHistoryDeleteModal(session);
             });
+
+            // Task stop button in history
+            const stopBtn = item.querySelector('.history-task-stop-btn');
+            if (stopBtn) {
+                stopBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    stopTask(session.id);
+                });
+            }
+
+            // For task sessions, open in task workspace instead of webview restore
+            if (isTask) {
+                const openBtn = item.querySelector('.history-open-session-btn');
+                if (openBtn) {
+                    openBtn.replaceWith(openBtn.cloneNode(true));
+                    item.querySelector('.history-open-session-btn')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openTaskFromHistory(session);
+                    });
+                }
+            }
 
             listContainer.appendChild(item);
         });
@@ -4373,6 +4432,17 @@ async function saveCurrentSession() {
             // Session doesn't exist yet, that's fine
         }
 
+        // If current session is a task, save task-specific data only (don't overwrite with chat data)
+        if (existingSession?.sessionType === 'task') {
+            // Task sessions are saved by saveTaskSession() / inline in task functions
+            // Just update the in-memory cache if active
+            if (_currentTaskSession && _currentTaskSession.id === existingSession.id) {
+                _currentTaskSession.updatedAt = new Date().toISOString();
+                await historyManager.saveSession(_currentTaskSession);
+            }
+            return;
+        }
+
         // Gather state based on current Chat Mode
         let urls = {};
         let activeServices = [];
@@ -4555,6 +4625,15 @@ async function saveCurrentSession() {
 
 async function loadSession(session) {
     if (!session) return;
+
+    // Task sessions use the task workspace, not webview restoration
+    if (session.sessionType === 'task') {
+        openTaskFromHistory(session);
+        return;
+    }
+
+    // Hide task workspace if returning to a chat session
+    hideTaskWorkspace();
 
     closeSmcFullPanels();
 
@@ -5056,4 +5135,1885 @@ function setupSessionPersistence() {
         }
     }
 }
+
+/* ─── Task System (Chat-Based UI) ─────────────────────────────── */
+
+/** Active task sessions: sessionId -> { state, abortController, currentMsgId } */
+const taskSessions = new Map();
+let activeTaskSessionId = null;
+let _currentTaskSession = null; // in-memory session cache
+let _pendingTaskContext = null; // pending context from webview copy
+let _streamRenderTimer = null;
+
+function showTaskWorkspace() {
+    const ws = document.getElementById('task-workspace');
+    if (ws) ws.classList.remove('hidden');
+    setMainWorkspaceWebviewsObscured(true);
+    const vp = document.getElementById('views-placeholder');
+    const cc = document.getElementById('controls-container');
+    const rh = document.getElementById('prompt-resize-handle');
+    if (vp) vp.style.display = 'none';
+    if (cc) cc.style.display = 'none';
+    if (rh) rh.style.display = 'none';
+    // Refresh model list with latest provider state
+    populateTaskModelSelector();
+}
+
+function hideTaskWorkspace() {
+    const ws = document.getElementById('task-workspace');
+    if (ws) ws.classList.add('hidden');
+    activeTaskSessionId = null;
+    _currentTaskSession = null;
+    const vp = document.getElementById('views-placeholder');
+    const cc = document.getElementById('controls-container');
+    const rh = document.getElementById('prompt-resize-handle');
+    if (vp) vp.style.display = '';
+    if (cc) cc.style.display = '';
+    if (rh) rh.style.display = '';
+    if (!smcOpenFullPanel) setMainWorkspaceWebviewsObscured(false);
+}
+
+async function triggerNewTaskWorkflow() {
+    await saveCurrentSession();
+    const taskId = generateId();
+    const now = new Date().toISOString();
+    const taskSession = {
+        id: taskId,
+        title: `Task ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+        sessionType: 'task',
+        taskState: 'idle',
+        taskConfig: {
+            providerId: '', modelId: '',
+            executionMode: localStorage.getItem('smc_default_exec_mode') || 'ask',
+            workspaceDir: localStorage.getItem('smc_default_workspace') || null,
+        },
+        taskMessages: [],
+        chatMode: 'multi',
+        activeServices: [],
+        urls: {},
+        prompt: '',
+        createdAt: now,
+        updatedAt: now,
+    };
+
+    await historyManager.saveSession(taskSession);
+    _currentTaskSession = taskSession;
+    activeTaskSessionId = taskId;
+    currentSessionId = taskId;
+    localStorage.setItem(currentSessionIdKey, taskId);
+
+    renderTaskChatUI(taskSession);
+    showTaskWorkspace();
+
+    // Auto-attach pending context from webview copy
+    if (_pendingTaskContext) {
+        attachContextToTask(_pendingTaskContext.type, _pendingTaskContext.content, _pendingTaskContext.source);
+        _pendingTaskContext = null;
+    }
+
+    loadHistoryList();
+}
+
+/* ─── Chat UI Rendering ─── */
+
+function renderTaskChatUI(session) {
+    const messagesEl = document.getElementById('task-chat-messages');
+    const emptyEl = document.getElementById('task-chat-empty');
+    const modelSel = document.getElementById('task-model-selector');
+    const modeLbl = document.getElementById('task-mode-label');
+    const dirLbl = document.getElementById('task-workspace-dir-label');
+    const chipsEl = document.getElementById('task-chat-chips');
+    const inputEl = document.getElementById('task-chat-input');
+
+    // Clear messages and thinking blocks
+    if (messagesEl) {
+        messagesEl.querySelectorAll('.task-chat-message, .task-thinking-block').forEach(m => m.remove());
+    }
+
+    // Set config UI
+    if (modelSel && session.taskConfig?.modelId) {
+        const val = (session.taskConfig.providerId || '') + '/' + session.taskConfig.modelId;
+        for (const opt of modelSel.options) {
+            if (opt.value === val) { modelSel.value = val; break; }
+        }
+    }
+    if (modeLbl) {
+        const modeLabels = { plan: 'Plan mode', ask: 'Ask before edits', auto: 'Edit automatically' };
+        const activeMode = session.taskConfig?.executionMode || 'ask';
+        modeLbl.textContent = modeLabels[activeMode] || 'Ask before edits';
+        // Sync the mode menu active state
+        document.querySelectorAll('.task-mode-option').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-mode') === activeMode);
+        });
+    }
+    if (dirLbl) dirLbl.textContent = session.taskConfig?.workspaceDir || 'Entire computer';
+
+    // Render messages
+    const messages = session.taskMessages || [];
+    if (emptyEl) emptyEl.style.display = messages.length === 0 ? '' : 'none';
+    const wsEl = document.getElementById('task-workspace');
+    if (wsEl) wsEl.classList.toggle('task-ws-empty', messages.length === 0);
+
+    messages.forEach(msg => appendTaskMessageBubble(msg, false));
+
+    // Show AI action buttons for all assistant messages when session is done
+    if (session.taskState === 'done' || !session.taskState || session.taskState === 'idle') {
+        messagesEl?.querySelectorAll('.task-msg-actions-ai.hidden').forEach(el => el.classList.remove('hidden'));
+        // Re-render mermaid diagrams and markdown previews from history
+        renderPendingMermaid().catch(() => {});
+    }
+
+    // Scroll to bottom
+    if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    // Clear input
+    if (inputEl) { inputEl.value = ''; autoGrowTextarea(inputEl); }
+    if (chipsEl) { chipsEl.innerHTML = ''; chipsEl.style.display = 'none'; }
+
+    // Update state badge
+    updateTaskStateBadge(session.taskState || 'idle');
+    // Top-bar stop button permanently hidden — stop is handled by send button
+    const stopBtn = document.getElementById('task-ws-stop-btn');
+    if (stopBtn) stopBtn.classList.add('hidden');
+
+    updateTaskSendBtnState();
+}
+
+function appendTaskMessageBubble(msg, animate = true) {
+    const messagesEl = document.getElementById('task-chat-messages');
+    const emptyEl = document.getElementById('task-chat-empty');
+    if (!messagesEl) return;
+    if (emptyEl) emptyEl.style.display = 'none';
+    const wsEl = document.getElementById('task-workspace');
+    if (wsEl) wsEl.classList.remove('task-ws-empty');
+
+    const div = document.createElement('div');
+    div.className = `task-chat-message task-chat-message-${msg.role}`;
+    div.setAttribute('data-message-id', msg.id);
+    if (!animate) div.style.animation = 'none';
+
+    const avatarLetter = msg.role === 'user' ? 'U' : msg.role === 'assistant' ? 'AI' : '!';
+    let attachHtml = '';
+    if (msg.attachments?.length) {
+        attachHtml = '<div class="task-chat-msg-attachments">' +
+            msg.attachments.map(a => `<span class="task-chat-msg-attachment" title="${escapeHtml(a.label)}">${escapeHtml(a.label)}</span>`).join('') +
+            '</div>';
+    }
+
+    const contentHtml = msg.content ? renderMarkdownToHtml(msg.content) : '<span class="task-typing-indicator"><span></span><span></span><span></span></span>';
+
+    const userActions = `<div class="task-msg-actions task-msg-actions-user" data-msg-id="${msg.id}">
+            <button class="task-msg-action-btn" data-action="copy" title="Copy"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            <button class="task-msg-action-btn" data-action="edit" title="Edit"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            <button class="task-msg-action-btn" data-action="retry" title="Retry"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>
+          </div>`;
+    const aiActions = `<div class="task-msg-actions task-msg-actions-ai hidden" data-msg-id="${msg.id}">
+            <button class="task-msg-action-btn" data-action="copy" title="Copy"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>`;
+
+    div.innerHTML = `
+        <div class="task-chat-avatar">${avatarLetter}</div>
+        <div class="task-chat-bubble-wrap">
+            <div class="task-chat-bubble">
+                ${attachHtml}
+                <div class="task-chat-bubble-content">${contentHtml}</div>
+            </div>
+            ${msg.role === 'user' ? userActions : msg.role === 'assistant' ? aiActions : ''}
+        </div>
+    `;
+
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+}
+
+function updateAssistantBubbleContent(msgId, content) {
+    const bubble = document.querySelector(`[data-message-id="${msgId}"] .task-chat-bubble-content`);
+    if (!bubble) return;
+
+    // Preserve all special blocks (thinking + tool) before re-rendering
+    const specialBlocks = [];
+    bubble.querySelectorAll('.task-thinking-block, .task-tool-block').forEach(el => {
+        specialBlocks.push(el.cloneNode(true));
+    });
+
+    // Render new content
+    bubble.innerHTML = renderMarkdownToHtml(content);
+
+    // Re-insert all preserved blocks at the end
+    for (const el of specialBlocks) {
+        bubble.appendChild(el);
+    }
+
+    const messagesEl = document.getElementById('task-chat-messages');
+    if (messagesEl) {
+        const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 80;
+        if (atBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+}
+
+/* ─── Send Message ─── */
+
+async function sendTaskMessage() {
+    const inputEl = document.getElementById('task-chat-input');
+    const chipsEl = document.getElementById('task-chat-chips');
+    if (!inputEl || !_currentTaskSession) return;
+
+    const content = inputEl.value.trim();
+    const chipEls = chipsEl?.querySelectorAll('.task-chat-chip') || [];
+    const attachments = [];
+
+    chipEls.forEach(chip => {
+        attachments.push({
+            id: chip.getAttribute('data-chip-id'),
+            type: chip.getAttribute('data-chip-type') || 'text',
+            label: chip.querySelector('.task-chat-chip-label')?.textContent || 'Context',
+            content: chip.getAttribute('data-chip-content') || '',
+            source: chip.getAttribute('data-chip-source') || '',
+        });
+    });
+
+    if (!content && attachments.length === 0) return;
+
+    // Parse model selector value: "provider/model"
+    const modelSel = document.getElementById('task-model-selector');
+    const modelVal = modelSel?.value || '';
+    const [providerId, ...modelParts] = modelVal.split('/');
+    const modelId = modelParts.join('/');
+    if (!providerId || !modelId) {
+        if (modelSel) {
+            modelSel.classList.remove('model-select-flash');
+            void modelSel.offsetWidth;
+            modelSel.classList.add('model-select-flash');
+            modelSel.focus();
+            try { modelSel.showPicker(); } catch {}
+        }
+        return;
+    }
+
+    // Create user message
+    const userMsg = {
+        id: generateId(),
+        role: 'user',
+        content: content,
+        timestamp: new Date().toISOString(),
+        attachments: attachments,
+        metadata: {},
+    };
+
+    // Add to session
+    if (!_currentTaskSession.taskMessages) _currentTaskSession.taskMessages = [];
+    _currentTaskSession.taskMessages.push(userMsg);
+    _currentTaskSession.taskConfig.providerId = providerId;
+    _currentTaskSession.taskConfig.modelId = modelId;
+    _currentTaskSession.taskConfig.executionMode = document.querySelector('.task-mode-option.active')?.getAttribute('data-mode') || 'ask';
+
+    // Render user bubble
+    appendTaskMessageBubble(userMsg);
+
+    // Clear input and chips
+    inputEl.value = '';
+    autoGrowTextarea(inputEl);
+    if (chipsEl) { chipsEl.innerHTML = ''; chipsEl.style.display = 'none'; }
+
+    // Create assistant message placeholder
+    const assistantMsg = {
+        id: generateId(),
+        role: 'assistant',
+        content: '',
+        timestamp: new Date().toISOString(),
+        attachments: [],
+        metadata: { model: modelId, provider: providerId },
+    };
+    _currentTaskSession.taskMessages.push(assistantMsg);
+
+    // Clean up any previous thinking blocks
+    document.querySelectorAll('.task-thinking-block').forEach(el => el.remove());
+
+    appendTaskMessageBubble(assistantMsg);
+
+    // Insert thinking indicator INSIDE the assistant bubble
+    const bubbleContent = document.querySelector(`[data-message-id="${assistantMsg.id}"] .task-chat-bubble-content`);
+    if (bubbleContent) {
+        const thinkEl = document.createElement('details');
+        thinkEl.id = 'task-thinking-block';
+        thinkEl.className = 'task-thinking-block';
+        thinkEl.open = true;
+        thinkEl.innerHTML = '<summary class="task-thinking-summary">Thinking...</summary><pre class="task-thinking-content"></pre>';
+        bubbleContent.prepend(thinkEl);
+    }
+
+    // Update state
+    _currentTaskSession.taskState = 'running';
+    updateTaskStateBadge('running');
+    // Top-bar stop button permanently hidden — stop is handled by send button
+
+    const abortController = new AbortController();
+    taskSessions.set(activeTaskSessionId, { state: 'running', abortController, currentMsgId: assistantMsg.id });
+
+    // Persist running state
+    _currentTaskSession.updatedAt = new Date().toISOString();
+    await historyManager.saveSession(_currentTaskSession);
+    loadHistoryList();
+
+    // Build messages for API (include attachments as context)
+    const apiMessages = [];
+    for (const m of _currentTaskSession.taskMessages) {
+        if (m.role === 'system') continue;
+        let text = m.content || '';
+        if (m.attachments?.length) {
+            const attachText = m.attachments.map(a => `[Attached: ${a.label}]\n${a.content}`).join('\n\n');
+            text = attachText + (text ? '\n\n' + text : '');
+        }
+        if (m.role === 'user' || m.role === 'assistant') {
+            apiMessages.push({ role: m.role, content: text });
+        }
+    }
+
+    // Send to main process
+    if (window.electronAPI?.taskStart) {
+        window.electronAPI.taskStart({
+            sessionId: activeTaskSessionId,
+            providerId,
+            modelId,
+            messages: apiMessages,
+            executionMode: _currentTaskSession.taskConfig.executionMode,
+            workspaceDir: _currentTaskSession.taskConfig.workspaceDir,
+            activeSkills: _currentTaskSession.taskConfig.activeSkills || [],
+        });
+    }
+
+    updateTaskSendBtnState();
+}
+
+/* ─── Stop / State ─── */
+
+async function stopTask(sessionId) {
+    const live = taskSessions.get(sessionId);
+    if (live?.abortController) live.abortController.abort();
+
+    // Notify main process to cancel the server-side stream
+    if (window.electronAPI?.taskStop) {
+        window.electronAPI.taskStop(sessionId);
+    }
+
+    // Clear debounced render timer to prevent stale updates
+    if (_streamRenderTimer) {
+        clearTimeout(_streamRenderTimer);
+        _streamRenderTimer = null;
+    }
+
+    // Immediately stop processing chunks and update UI (before any await)
+    taskSessions.delete(sessionId);
+
+    if (activeTaskSessionId === sessionId) {
+        updateTaskStateBadge('done');
+        document.getElementById('task-ws-stop-btn')?.classList.add('hidden');
+    }
+
+    // Save state asynchronously
+    if (_currentTaskSession && _currentTaskSession.id === sessionId) {
+        _currentTaskSession.taskState = 'done';
+        _currentTaskSession.updatedAt = new Date().toISOString();
+        await historyManager.saveSession(_currentTaskSession);
+    } else {
+        const session = await historyManager.getSession(sessionId);
+        if (session) {
+            session.taskState = 'done';
+            session.updatedAt = new Date().toISOString();
+            await historyManager.saveSession(session);
+        }
+    }
+    loadHistoryList();
+}
+
+function updateTaskStateBadge(state) {
+    const badge = document.getElementById('task-ws-state-badge');
+    if (badge) {
+        badge.className = 'task-state-badge hidden';
+    }
+
+    // Transform send button into stop button when running
+    const sendBtn = document.getElementById('task-chat-send-btn');
+    if (!sendBtn) return;
+    if (state === 'running') {
+        sendBtn.classList.add('is-running');
+        sendBtn.disabled = false;
+        sendBtn.title = 'Stop (click to cancel)';
+        sendBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" stroke="none"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>';
+    } else {
+        sendBtn.classList.remove('is-running');
+        sendBtn.title = 'Send (Enter)';
+        sendBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+        updateTaskSendBtnState(); // re-evaluate disabled state
+    }
+}
+
+/* ─── History Integration ─── */
+
+async function openTaskFromHistory(session) {
+    closeSmcFullPanels();
+
+    // Migrate old format (taskContext/taskResult) → taskMessages
+    if (!session.taskMessages && (session.taskContext || session.taskInstruction || session.taskResult)) {
+        const messages = [];
+        if (session.taskContext || session.taskInstruction) {
+            messages.push({
+                id: generateId(), role: 'user', content: session.taskInstruction || '',
+                timestamp: session.createdAt, metadata: {},
+                attachments: session.taskContext ? [{ id: generateId(), type: 'text', label: 'Context', content: session.taskContext, source: 'webview' }] : [],
+            });
+        }
+        if (session.taskResult) {
+            messages.push({
+                id: generateId(), role: 'assistant', content: session.taskResult,
+                timestamp: session.updatedAt, attachments: [], metadata: { model: session.taskConfig?.modelId },
+            });
+        }
+        session.taskMessages = messages;
+        delete session.taskContext; delete session.taskInstruction; delete session.taskResult; delete session.taskError;
+        await historyManager.saveSession(session);
+    }
+
+    if (!session.taskMessages) session.taskMessages = [];
+
+    _currentTaskSession = session;
+    activeTaskSessionId = session.id;
+    currentSessionId = session.id;
+    localStorage.setItem(currentSessionIdKey, session.id);
+
+    // If running in memory, get live state
+    const live = taskSessions.get(session.id);
+    if (live && live.state === 'running') {
+        session.taskState = 'running';
+    }
+
+    renderTaskChatUI(session);
+    showTaskWorkspace();
+}
+
+async function saveTaskSession() {
+    if (!_currentTaskSession) return;
+    _currentTaskSession.updatedAt = new Date().toISOString();
+    // Update config from UI
+    const modelSel = document.getElementById('task-model-selector');
+    if (modelSel?.value) {
+        const [prov, ...mparts] = modelSel.value.split('/');
+        _currentTaskSession.taskConfig.providerId = prov;
+        _currentTaskSession.taskConfig.modelId = mparts.join('/');
+    }
+    const modeBtn = document.querySelector('.task-mode-option.active');
+    if (modeBtn) _currentTaskSession.taskConfig.executionMode = modeBtn.getAttribute('data-mode');
+    await historyManager.saveSession(_currentTaskSession);
+}
+
+/* ─── Context Chips ─── */
+
+function attachContextToTask(type, content, source) {
+    const chipsEl = document.getElementById('task-chat-chips');
+    if (!chipsEl) return;
+    chipsEl.style.display = 'flex';
+
+    const chipId = generateId();
+    const label = type === 'chat_thread' ? `${source || 'Webview'} Thread` :
+                  type === 'last_response' ? `${source || 'Webview'} Response` : 'Context';
+    const truncContent = content.length > 60 ? content.substring(0, 57) + '...' : content;
+
+    const chip = document.createElement('div');
+    chip.className = 'task-chat-chip';
+    chip.setAttribute('data-chip-id', chipId);
+    chip.setAttribute('data-chip-type', type);
+    chip.setAttribute('data-chip-content', content);
+    chip.setAttribute('data-chip-source', source || '');
+    chip.innerHTML = `
+        <span class="task-chat-chip-label" title="${escapeHtml(truncContent)}">${escapeHtml(label)}</span>
+        <button type="button" class="task-chat-chip-remove" title="Remove">&times;</button>
+    `;
+    chip.querySelector('.task-chat-chip-remove').addEventListener('click', () => {
+        chip.remove();
+        if (chipsEl.children.length === 0) chipsEl.style.display = 'none';
+        updateTaskSendBtnState();
+    });
+    chipsEl.appendChild(chip);
+    updateTaskSendBtnState();
+}
+
+/* ─── Helpers ─── */
+
+function updateTaskSendBtnState() {
+    const btn = document.getElementById('task-chat-send-btn');
+    const input = document.getElementById('task-chat-input');
+    const modelSel = document.getElementById('task-model-selector');
+    const chips = document.getElementById('task-chat-chips');
+    const hasChips = chips && chips.children.length > 0;
+    const hasText = input && input.value.trim().length > 0;
+    const hasModel = modelSel && modelSel.value;
+    if (btn) btn.disabled = !hasModel || (!hasText && !hasChips);
+}
+
+function autoGrowTextarea(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    // Let CSS max-height (50vh) be the cap instead of a hardcoded value
+    const maxH = Math.floor(window.innerHeight * 0.5);
+    el.style.height = Math.min(el.scrollHeight, maxH) + 'px';
+}
+
+/** Render markdown to HTML with syntax highlighting (fail-safe).
+ *  Uses CPB's block rendering system for code/mermaid/latex blocks. */
+function renderMarkdownToHtml(md) {
+    if (!md) return '';
+    try {
+        const cpb = window._cpbBlockUtils;
+        if (typeof marked !== 'undefined' && marked.parse) {
+            // If CPB block utils available, extract fenced blocks first and use CPB wrappers
+            if (cpb) {
+                const { text: stripped, blocks } = cpb.extractAllFencedBlocks(md);
+                marked.setOptions({ breaks: true, gfm: true });
+                let html = marked.parse(stripped);
+                html = cpb.injectBlockWrappersIntoHtml(html, blocks);
+                return html;
+            }
+            // Fallback: basic marked rendering without CPB
+            marked.setOptions({ breaks: true, gfm: true });
+            return marked.parse(md);
+        }
+    } catch {
+        // Fail-safe: if marked throws during streaming, fall back to plain text
+    }
+    return md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+}
+
+/** Render all pending mermaid/code blocks in chat using CPB's rendering system.
+ *  Called ONLY after streaming is done or when loading from history. */
+async function renderPendingMermaid() {
+    const cpb = window._cpbBlockUtils;
+    const messagesEl = document.getElementById('task-chat-messages');
+    if (!messagesEl) return;
+
+    // Use CPB's renderMermaidInContainer for each mermaid block
+    if (cpb && typeof cpb.renderMermaidInContainer === 'function') {
+        // Wait for layout to stabilize after DOM changes
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const mermaidWrappers = messagesEl.querySelectorAll('.prompt-block-wrapper[data-block-type="mermaid"]');
+        for (const wrapper of mermaidWrappers) {
+            const content = wrapper.querySelector('.prompt-block-content');
+            if (!content) continue;
+            // Skip if already rendered (has SVG inside .mermaid)
+            if (content.querySelector('.mermaid svg')) continue;
+            try {
+                await cpb.renderMermaidInContainer(content);
+            } catch { /* ignore render errors */ }
+        }
+
+        // Retry any that failed due to zero dimensions (container not visible yet)
+        await new Promise(r => setTimeout(r, 300));
+        const retryWrappers = messagesEl.querySelectorAll('.prompt-block-wrapper[data-block-type="mermaid"]');
+        for (const wrapper of retryWrappers) {
+            const content = wrapper.querySelector('.prompt-block-content');
+            if (!content || content.querySelector('.mermaid svg')) continue;
+            try {
+                await cpb.renderMermaidInContainer(content);
+            } catch { /* ignore */ }
+        }
+    }
+
+    // Final cleanup: remove stray mermaid error elements from body
+    document.querySelectorAll('body > [id*="mmd-"], body > .error-icon, body > [data-mermaid-error]').forEach(el => el.remove());
+    document.querySelectorAll('body > div').forEach(el => {
+        if (el.textContent?.includes('Syntax error in text') && !el.closest('.task-chat-messages')) {
+            el.remove();
+        }
+    });
+
+    // Highlight code blocks with syntax highlighting
+    if (cpb && typeof cpb.highlightCodeBlocksInContainer === 'function') {
+        cpb.highlightCodeBlocksInContainer(messagesEl);
+    }
+}
+
+/** Initialize mermaid if available */
+try {
+    if (typeof mermaid !== 'undefined') {
+        mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose', suppressErrorRendering: true });
+        // Register ZenUML external diagram
+        const zenumlPlugin = globalThis['mermaid-zenuml'];
+        if (zenumlPlugin) {
+            mermaid.registerExternalDiagrams([zenumlPlugin]).catch(() => {});
+        }
+    }
+} catch {}
+
+/* ─── Provider / API Key Helpers ─── */
+
+async function checkProviderApiKey(providerId) {
+    // ChatGPT Subscription uses OAuth token, not BYOK API key
+    if (providerId === 'chatgpt-sub') {
+        loadChatGPTSubState();
+        return _chatgptSubState.connected;
+    }
+    if (window.electronAPI?.byokHasApiKey) return await window.electronAPI.byokHasApiKey(providerId);
+    const keys = JSON.parse(localStorage.getItem('smc_byok_keys_v1') || '{}');
+    return !!keys[providerId];
+}
+
+async function saveAndValidateApiKey(providerId, apiKey) {
+    if (window.electronAPI?.byokSaveApiKey) return await window.electronAPI.byokSaveApiKey(providerId, apiKey);
+    const keys = JSON.parse(localStorage.getItem('smc_byok_keys_v1') || '{}');
+    keys[providerId] = apiKey;
+    localStorage.setItem('smc_byok_keys_v1', JSON.stringify(keys));
+    return true;
+}
+
+/* ─── Task Workspace Event Wiring ─── */
+
+(function initTaskChatEvents() {
+    // Message action buttons (copy, edit, retry) — delegation
+    document.getElementById('task-chat-messages')?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.task-msg-action-btn');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const msgId = btn.closest('.task-msg-actions')?.dataset.msgId;
+        if (!msgId || !_currentTaskSession) return;
+        const msg = _currentTaskSession.taskMessages.find(m => m.id === msgId);
+        if (!msg) return;
+
+        if (action === 'copy') {
+            try {
+                await navigator.clipboard.writeText(msg.content || '');
+                btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="hsl(142 72% 50%)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+                setTimeout(() => { btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'; }, 1500);
+            } catch {}
+        } else if (action === 'edit' && msg.role === 'user') {
+            // Inline edit: replace bubble with textarea
+            const msgEl = btn.closest('.task-chat-message');
+            const bubbleWrap = msgEl?.querySelector('.task-chat-bubble-wrap');
+            if (!bubbleWrap) return;
+            const originalHtml = bubbleWrap.innerHTML;
+            bubbleWrap.innerHTML = `
+                <textarea class="task-msg-edit-area">${escapeHtml(msg.content || '')}</textarea>
+                <div class="task-msg-edit-actions">
+                    <button class="task-msg-edit-btn edit-cancel" title="Cancel"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                    <button class="task-msg-edit-btn edit-send" title="Send"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+                </div>`;
+            const textarea = bubbleWrap.querySelector('.task-msg-edit-area');
+            textarea?.focus();
+            textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
+            bubbleWrap.querySelector('.edit-cancel')?.addEventListener('click', () => { bubbleWrap.innerHTML = originalHtml; });
+            bubbleWrap.querySelector('.edit-send')?.addEventListener('click', () => {
+                const newText = textarea?.value?.trim();
+                if (!newText) return;
+                // Remove this message and all subsequent messages
+                const idx = _currentTaskSession.taskMessages.indexOf(msg);
+                if (idx >= 0) _currentTaskSession.taskMessages.splice(idx);
+                // Remove DOM elements from this message onward
+                const allMsgEls = document.querySelectorAll('.task-chat-message');
+                let found = false;
+                allMsgEls.forEach(el => { if (el === msgEl) found = true; if (found) el.remove(); });
+                document.querySelectorAll('.task-thinking-block, .task-tool-block').forEach(el => el.remove());
+                // Set input and send
+                const input = document.getElementById('task-chat-input');
+                if (input) { input.value = newText; input.focus(); }
+                setTimeout(() => document.getElementById('task-chat-send-btn')?.click(), 50);
+            });
+        } else if (action === 'retry' && msg.role === 'user') {
+            // Remove this message's response (and any after) then re-send
+            const idx = _currentTaskSession.taskMessages.indexOf(msg);
+            if (idx >= 0) _currentTaskSession.taskMessages.splice(idx);
+            const msgEl = btn.closest('.task-chat-message');
+            const allMsgEls = document.querySelectorAll('.task-chat-message');
+            let found = false;
+            allMsgEls.forEach(el => { if (el === msgEl) found = true; if (found) el.remove(); });
+            document.querySelectorAll('.task-thinking-block, .task-tool-block').forEach(el => el.remove());
+            const input = document.getElementById('task-chat-input');
+            if (input) { input.value = msg.content || ''; input.focus(); }
+            setTimeout(() => document.getElementById('task-chat-send-btn')?.click(), 50);
+        }
+    });
+
+    // Close
+    document.getElementById('task-ws-close-btn')?.addEventListener('click', () => {
+        saveTaskSession();
+        closeSmcFullPanels();
+        hideTaskWorkspace();
+    });
+
+    // Stop
+    document.getElementById('task-ws-stop-btn')?.addEventListener('click', () => {
+        if (activeTaskSessionId) stopTask(activeTaskSessionId);
+    });
+
+    // Model selector
+    const modelSel = document.getElementById('task-model-selector');
+    if (modelSel) {
+        modelSel.addEventListener('change', async () => {
+            const val = modelSel.value;
+            if (!val) { updateTaskSendBtnState(); return; }
+            const [providerId] = val.split('/');
+            const hasKey = await checkProviderApiKey(providerId);
+            const banner = document.getElementById('task-api-key-banner');
+            const provName = document.getElementById('task-api-key-provider-name');
+            if (!hasKey && banner) {
+                banner.classList.remove('hidden');
+                if (provName) provName.textContent = providerId;
+            } else if (banner) {
+                banner.classList.add('hidden');
+            }
+            updateTaskSendBtnState();
+        });
+    }
+
+    // Execution mode dropdown
+    const modeBtn = document.getElementById('task-mode-btn');
+    const modeMenu = document.getElementById('task-mode-menu');
+    if (modeBtn && modeMenu) {
+        modeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            modeMenu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', () => modeMenu.classList.add('hidden'));
+        modeMenu.querySelectorAll('.task-mode-option').forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                modeMenu.querySelectorAll('.task-mode-option').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                const modeLbl = document.getElementById('task-mode-label');
+                if (modeLbl) modeLbl.textContent = opt.querySelector('strong')?.textContent || 'Ask before edits';
+                modeMenu.classList.add('hidden');
+            });
+        });
+    }
+
+    // Send button
+    document.getElementById('task-chat-send-btn')?.addEventListener('click', () => {
+        const btn = document.getElementById('task-chat-send-btn');
+        if (btn?.classList.contains('is-running')) {
+            // Stop the running task
+            if (activeTaskSessionId) stopTask(activeTaskSessionId);
+        } else {
+            sendTaskMessage();
+        }
+    });
+
+    // Chat input
+    const chatInput = document.getElementById('task-chat-input');
+    if (chatInput) {
+        chatInput.addEventListener('input', () => {
+            autoGrowTextarea(chatInput);
+            updateTaskSendBtnState();
+        });
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const btn = document.getElementById('task-chat-send-btn');
+                if (btn && !btn.disabled) sendTaskMessage();
+            }
+        });
+        // Paste handler: only convert to chip if >= 500 lines
+        chatInput.addEventListener('paste', (e) => {
+            const text = e.clipboardData?.getData('text/plain');
+            if (text) {
+                const lineCount = text.split('\n').length;
+                if (lineCount >= 500) {
+                    e.preventDefault();
+                    attachContextToTask('text', text, 'clipboard');
+                }
+                // Otherwise let the default paste go into the textarea
+            }
+        });
+    }
+
+    // Attach "+" button — shows context/skill menu
+    const attachBtn = document.getElementById('task-attach-btn');
+    if (attachBtn) {
+        attachBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Remove existing menu
+            document.querySelector('.task-attach-menu')?.remove();
+
+            const menu = document.createElement('div');
+            menu.className = 'task-attach-menu';
+
+            // Clipboard option
+            const clipOpt = document.createElement('div');
+            clipOpt.className = 'task-attach-menu-option';
+            clipOpt.textContent = 'Paste from clipboard';
+            clipOpt.addEventListener('click', async (ev) => {
+                ev.stopPropagation();
+                menu.remove();
+                try { const t = await navigator.clipboard.readText(); if (t) attachContextToTask('text', t, 'clipboard'); } catch {}
+            });
+            menu.appendChild(clipOpt);
+
+            // Skills section
+            try {
+                const skills = await window.electronAPI?.skillsList?.() || [];
+                const enabled = skills.filter(s => s.enabled);
+                if (enabled.length > 0) {
+                    const divider = document.createElement('div');
+                    divider.className = 'task-attach-menu-divider';
+                    menu.appendChild(divider);
+                    const label = document.createElement('div');
+                    label.className = 'task-attach-menu-label';
+                    label.textContent = 'Skills';
+                    menu.appendChild(label);
+                    for (const s of enabled) {
+                        const opt = document.createElement('div');
+                        opt.className = 'task-attach-menu-option';
+                        const isActive = (_currentTaskSession?.taskConfig?.activeSkills || []).includes(s.name);
+                        opt.textContent = s.name + (isActive ? ' (active)' : '');
+                        if (!isActive) {
+                            opt.addEventListener('click', (ev) => { ev.stopPropagation(); menu.remove(); _addSkillChip(s.name); });
+                        } else {
+                            opt.style.opacity = '0.5';
+                        }
+                        menu.appendChild(opt);
+                    }
+                }
+            } catch (err) { console.warn('Skills load error:', err); }
+
+            // Position: place above the toolbar
+            const inputArea = attachBtn.closest('.task-chat-input-area');
+            if (inputArea) {
+                inputArea.style.position = 'relative';
+                inputArea.appendChild(menu);
+                // Position above the toolbar
+                menu.style.bottom = '60px';
+                menu.style.left = '0';
+            }
+
+            // Dismiss on outside click (with delay to avoid immediate dismissal)
+            requestAnimationFrame(() => {
+                const dismiss = (ev) => {
+                    if (!menu.contains(ev.target) && ev.target !== attachBtn) {
+                        menu.remove();
+                        document.removeEventListener('click', dismiss, true);
+                    }
+                };
+                document.addEventListener('click', dismiss, true);
+            });
+        });
+    }
+
+    function _addSkillChip(name) {
+        if (!_currentTaskSession) return;
+        if (!_currentTaskSession.taskConfig.activeSkills) _currentTaskSession.taskConfig.activeSkills = [];
+        if (_currentTaskSession.taskConfig.activeSkills.includes(name)) return;
+        _currentTaskSession.taskConfig.activeSkills.push(name);
+        _renderSkillChips();
+    }
+
+    function _removeSkillChip(name) {
+        if (!_currentTaskSession) return;
+        _currentTaskSession.taskConfig.activeSkills = (_currentTaskSession.taskConfig.activeSkills || []).filter(n => n !== name);
+        _renderSkillChips();
+    }
+
+    function _renderSkillChips() {
+        const chipsEl = document.getElementById('task-chat-chips');
+        if (!chipsEl) return;
+        const skills = _currentTaskSession?.taskConfig?.activeSkills || [];
+        // Remove existing skill chips
+        chipsEl.querySelectorAll('.task-skill-chip').forEach(c => c.remove());
+        for (const name of skills) {
+            const chip = document.createElement('span');
+            chip.className = 'task-skill-chip';
+            chip.innerHTML = `${escapeHtml(name)}<button class="task-skill-chip-remove" data-skill="${escapeHtml(name)}">&times;</button>`;
+            chip.querySelector('.task-skill-chip-remove').onclick = () => _removeSkillChip(name);
+            chipsEl.appendChild(chip);
+        }
+        chipsEl.style.display = (chipsEl.children.length > 0) ? 'flex' : 'none';
+    }
+
+    // Workspace directory button
+    document.getElementById('task-workspace-dir-btn')?.addEventListener('click', async () => {
+        if (window.electronAPI?.selectWorkspaceDir) {
+            const dir = await window.electronAPI.selectWorkspaceDir();
+            if (dir) {
+                const lbl = document.getElementById('task-workspace-dir-label');
+                if (lbl) lbl.textContent = dir;
+                if (_currentTaskSession) _currentTaskSession.taskConfig.workspaceDir = dir;
+            }
+        }
+    });
+
+    // API key banner
+    document.getElementById('task-api-key-save-btn')?.addEventListener('click', async () => {
+        const keyInput = document.getElementById('task-api-key-input');
+        const statusEl = document.getElementById('task-api-key-status');
+        const modelSel = document.getElementById('task-model-selector');
+        if (!keyInput?.value || !modelSel?.value) return;
+        const [providerId] = modelSel.value.split('/');
+        if (statusEl) statusEl.textContent = 'Validating...';
+        const valid = await saveAndValidateApiKey(providerId, keyInput.value);
+        if (valid) {
+            if (statusEl) { statusEl.textContent = 'Saved'; statusEl.style.color = 'hsl(142 60% 65%)'; }
+            keyInput.value = '';
+            document.getElementById('task-api-key-banner')?.classList.add('hidden');
+            updateSidebarFooterStatus();
+        } else {
+            if (statusEl) { statusEl.textContent = 'Invalid key'; statusEl.style.color = 'hsl(0 72% 65%)'; }
+        }
+    });
+
+    document.getElementById('task-api-key-dismiss')?.addEventListener('click', () => {
+        document.getElementById('task-api-key-banner')?.classList.add('hidden');
+    });
+
+    // Stream events from main process
+    if (window.electronAPI) {
+        window.electronAPI.onTaskStreamChunk?.((data) => {
+            const { sessionId, chunk } = data;
+            const live = taskSessions.get(sessionId);
+            if (!live) return;
+
+            // Update in-memory message
+            if (_currentTaskSession?.id === sessionId) {
+                // Handle active thinking block when content arrives
+                const thinkEl = document.getElementById('task-thinking-block');
+                if (thinkEl) {
+                    const hasContent = thinkEl.querySelector('.task-thinking-content')?.textContent.trim();
+                    if (hasContent) {
+                        thinkEl.open = false;
+                        thinkEl.removeAttribute('id'); // detach — keep collapsed for review
+                    } else {
+                        thinkEl.remove(); // empty — just remove
+                    }
+                }
+
+                const msgs = _currentTaskSession.taskMessages;
+                const lastMsg = msgs[msgs.length - 1];
+                if (lastMsg && lastMsg.role === 'assistant') {
+                    lastMsg.content += chunk;
+                    // Debounced render
+                    if (!_streamRenderTimer) {
+                        _streamRenderTimer = setTimeout(() => {
+                            updateAssistantBubbleContent(lastMsg.id, lastMsg.content);
+                            _streamRenderTimer = null;
+                        }, 80);
+                    }
+                }
+            }
+        });
+
+        window.electronAPI.onTaskStreamThinking?.((data) => {
+            const { sessionId, chunk, event: evt } = data;
+            if (_currentTaskSession?.id !== sessionId) return;
+
+            // For 'start' events — the block is already created in sendTaskMessage
+            if (evt === 'start') return;
+
+            // For 'new-round' — collapse current block and create a new one inside the assistant bubble
+            if (evt === 'new-round') {
+                const prev = document.getElementById('task-thinking-block');
+                if (prev) {
+                    const hasContent = prev.querySelector('.task-thinking-content')?.textContent.trim();
+                    if (hasContent) {
+                        prev.open = false;
+                        prev.removeAttribute('id');
+                    } else {
+                        prev.remove();
+                    }
+                }
+                // Find the current assistant bubble and insert new thinking block
+                const lastMsg = _currentTaskSession?.taskMessages?.[_currentTaskSession.taskMessages.length - 1];
+                if (lastMsg) {
+                    const bubbleContent = document.querySelector(`[data-message-id="${lastMsg.id}"] .task-chat-bubble-content`);
+                    if (bubbleContent) {
+                        const el = document.createElement('details');
+                        el.id = 'task-thinking-block';
+                        el.className = 'task-thinking-block';
+                        el.open = true;
+                        el.innerHTML = '<summary class="task-thinking-summary">Thinking...</summary><pre class="task-thinking-content"></pre>';
+                        bubbleContent.appendChild(el);
+                    }
+                }
+                return;
+            }
+
+            const thinkEl = document.getElementById('task-thinking-block');
+            if (!thinkEl || !chunk) return;
+
+            const contentEl = thinkEl.querySelector('.task-thinking-content');
+            if (contentEl) {
+                contentEl.textContent += chunk;
+                contentEl.scrollTop = contentEl.scrollHeight;
+            }
+            const summary = thinkEl.querySelector('.task-thinking-summary');
+            if (summary) {
+                if (chunk.includes('Tool:')) summary.textContent = 'Selecting tool...';
+                else if (!summary.dataset.reasoning) { summary.textContent = 'Reasoning...'; summary.dataset.reasoning = '1'; }
+            }
+        });
+
+        // Tool execution events — render as collapsible blocks inside the assistant bubble
+        window.electronAPI.onTaskStreamTool?.((data) => {
+            const { sessionId, tool, preview, output, phase } = data;
+            if (_currentTaskSession?.id !== sessionId) return;
+            const lastMsg = _currentTaskSession?.taskMessages?.[_currentTaskSession.taskMessages.length - 1];
+            if (!lastMsg) return;
+            const bubbleContent = document.querySelector(`[data-message-id="${lastMsg.id}"] .task-chat-bubble-content`);
+            if (!bubbleContent) return;
+
+            if (phase === 'start') {
+                // Create a tool execution block
+                const toolBlock = document.createElement('details');
+                toolBlock.className = 'task-tool-block';
+                toolBlock.id = `tool-block-${Date.now()}`;
+                toolBlock.dataset.tool = tool;
+                toolBlock.open = false;
+                toolBlock.innerHTML = `<summary class="task-tool-summary"><span class="task-tool-icon">&#9881;</span> ${escapeHtml(tool)}</summary><pre class="task-tool-preview">${escapeHtml(preview || '')}</pre><div class="task-tool-output-wrap"></div>`;
+                bubbleContent.appendChild(toolBlock);
+                // Scroll to bottom
+                const messagesEl = document.getElementById('task-chat-messages');
+                if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+            } else if (phase === 'done') {
+                // Find the last tool block for this tool and add output
+                const blocks = bubbleContent.querySelectorAll(`.task-tool-block[data-tool="${tool}"]`);
+                const lastBlock = blocks[blocks.length - 1];
+                if (lastBlock) {
+                    const outWrap = lastBlock.querySelector('.task-tool-output-wrap');
+                    if (outWrap && output) {
+                        outWrap.innerHTML = `<pre class="task-tool-output">${escapeHtml(output)}</pre>`;
+                    }
+                    // Update summary to show completion
+                    const summary = lastBlock.querySelector('.task-tool-summary');
+                    if (summary) summary.innerHTML = `<span class="task-tool-icon" style="color:hsl(142 72% 50%)">&#10003;</span> ${escapeHtml(tool)}`;
+                }
+            }
+        });
+
+        window.electronAPI.onTaskStreamDone?.((data) => {
+            const { sessionId } = data;
+            taskSessions.delete(sessionId);
+            if (_currentTaskSession?.id === sessionId) {
+                _currentTaskSession.taskState = 'done';
+                // Final render
+                const msgs = _currentTaskSession.taskMessages;
+                const lastMsg = msgs[msgs.length - 1];
+                if (lastMsg) {
+                    updateAssistantBubbleContent(lastMsg.id, lastMsg.content);
+                    // Show AI action buttons
+                    const aiActions = document.querySelector(`[data-message-id="${lastMsg.id}"] .task-msg-actions-ai`);
+                    if (aiActions) aiActions.classList.remove('hidden');
+                }
+                updateTaskStateBadge('done');
+                document.getElementById('task-ws-stop-btn')?.classList.add('hidden');
+                // Remove thinking / tool blocks (they were only needed during streaming)
+                const lastBubble = document.querySelector(`[data-message-id="${lastMsg?.id}"] .task-chat-bubble-content`);
+                if (lastBubble) {
+                    lastBubble.querySelectorAll('.task-thinking-block, .task-tool-block').forEach(el => el.remove());
+                }
+                // Render mermaid diagrams now that streaming is complete
+                renderPendingMermaid().catch(() => {});
+                saveTaskSession();
+            }
+            loadHistoryList();
+        });
+
+        window.electronAPI.onTaskStreamError?.((data) => {
+            const { sessionId, error } = data;
+            taskSessions.delete(sessionId);
+            if (_currentTaskSession?.id === sessionId) {
+                _currentTaskSession.taskState = 'done';
+                // Add error as system message
+                const errMsg = {
+                    id: generateId(), role: 'system', content: `Error: ${error}`,
+                    timestamp: new Date().toISOString(), attachments: [], metadata: {},
+                };
+                _currentTaskSession.taskMessages.push(errMsg);
+                appendTaskMessageBubble(errMsg);
+                updateTaskStateBadge('done');
+                document.getElementById('task-ws-stop-btn')?.classList.add('hidden');
+                saveTaskSession();
+            }
+            loadHistoryList();
+        });
+    }
+})();
+
+/* ─── Permission Dialog ─── */
+(function initPermissionDialog() {
+    if (!window.electronAPI?.onPermissionRequest) return;
+
+    let _currentPermReqId = null;
+
+    window.electronAPI.onPermissionRequest((data) => {
+        const { reqId, sessionId, toolName, preview } = data;
+        _currentPermReqId = reqId;
+        const dialog = document.getElementById('task-permission-dialog');
+        const toolNameEl = document.getElementById('task-perm-tool-name');
+        const previewEl = document.getElementById('task-perm-preview');
+        if (!dialog || !toolNameEl || !previewEl) return;
+
+        toolNameEl.textContent = toolName;
+        previewEl.textContent = preview || '(no preview)';
+        dialog.classList.remove('hidden');
+
+        // Focus Allow button for keyboard access
+        document.getElementById('task-perm-allow-btn')?.focus();
+    });
+
+    function respondPermission(decision) {
+        if (!_currentPermReqId) return;
+        const remember = document.getElementById('task-perm-remember')?.checked || false;
+        window.electronAPI.permissionRespond(_currentPermReqId, decision);
+        _currentPermReqId = null;
+        document.getElementById('task-permission-dialog')?.classList.add('hidden');
+    }
+
+    document.getElementById('task-perm-allow-btn')?.addEventListener('click', () => respondPermission('allow'));
+    document.getElementById('task-perm-deny-btn')?.addEventListener('click', () => respondPermission('deny'));
+
+    // Keyboard shortcuts: Y=Allow, N=Deny, Escape=Deny
+    document.addEventListener('keydown', (e) => {
+        if (!_currentPermReqId) return;
+        if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); respondPermission('allow'); }
+        else if (e.key === 'n' || e.key === 'N' || e.key === 'Escape') { e.preventDefault(); respondPermission('deny'); }
+    });
+})();
+
+/* ─── Customize Panel (3-Panel: Nav / List / Detail) ─── */
+const _cust = { section: 'skills', selectedItem: null, selectedFile: null, expandedSkills: new Set(), fileTreeCache: {}, skills: [], connectors: [], viewMode: 'preview', _fileDataCache: null };
+
+async function renderCustomizePanel() {
+    // Left nav switching
+    document.querySelectorAll('.customize-nav-item').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.customize-nav-item').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            _cust.section = btn.dataset.customizeSection;
+            _cust.selectedItem = null;
+            _cust.selectedFile = null;
+            const titleEl = document.getElementById('customize-list-title');
+            if (titleEl) titleEl.textContent = _cust.section === 'skills' ? 'Skills' : 'Connectors';
+            _renderCustList();
+            _renderCustDetail();
+        };
+    });
+    // Search
+    document.getElementById('customize-search').oninput = (e) => {
+        const q = e.target.value.toLowerCase();
+        document.querySelectorAll('.customize-list-item').forEach(el => {
+            const name = el.dataset.name?.toLowerCase() || '';
+            el.style.display = name.includes(q) ? '' : 'none';
+        });
+    };
+    // Expand/Collapse all
+    document.getElementById('cust-expand-all').onclick = async () => {
+        const items = document.querySelectorAll('.customize-list-item[data-type="skill"]');
+        for (const item of items) {
+            const name = item.dataset.name;
+            if (_cust.expandedSkills.has(name)) continue;
+            _cust.expandedSkills.add(name);
+            const chevron = item.querySelector('.customize-list-item-chevron');
+            if (chevron) chevron.classList.add('expanded');
+            const treeEl = document.querySelector(`.customize-file-tree[data-tree-for="${name}"]`);
+            if (treeEl) {
+                treeEl.style.display = 'block';
+                if (!treeEl.innerHTML) {
+                    const skill = _cust.skills.find(s => s.name === name);
+                    if (skill && window.electronAPI?.skillsListFiles) {
+                        const files = await window.electronAPI.skillsListFiles(skill.location);
+                        _cust.fileTreeCache[name] = files;
+                        treeEl.innerHTML = _buildFileTree(files, name);
+                    }
+                }
+            }
+        }
+    };
+    document.getElementById('cust-collapse-all').onclick = () => {
+        _cust.expandedSkills.clear();
+        document.querySelectorAll('.customize-list-item-chevron').forEach(c => c.classList.remove('expanded'));
+        document.querySelectorAll('.customize-file-tree').forEach(t => { t.style.display = 'none'; });
+    };
+    // Load data
+    try { _cust.skills = await window.electronAPI?.skillsList?.() || []; } catch { _cust.skills = []; }
+    try { _cust.connectors = await window.electronAPI?.connectorsList?.() || []; } catch { _cust.connectors = []; }
+    _renderCustList();
+    _renderCustDetail();
+}
+
+function _renderCustList() {
+    const el = document.getElementById('customize-list-content');
+    if (!el) return;
+    el.innerHTML = '';
+    if (_cust.section === 'skills') {
+        const grouped = { Examples: [], 'User Skills': [] };
+        _cust.skills.forEach(s => { (s.source === 'bundled' ? grouped.Examples : grouped['User Skills']).push(s); });
+        for (const [group, items] of Object.entries(grouped)) {
+            if (items.length === 0) continue;
+            el.innerHTML += `<div class="customize-group-header">${group} (${items.length})</div>`;
+            for (const s of items) {
+                el.innerHTML += `<div class="customize-list-item ${_cust.selectedItem?.name === s.name ? 'selected' : ''}" data-name="${escapeHtml(s.name)}" data-location="${escapeHtml(s.location)}" data-type="skill">
+                    <span class="customize-list-item-dot ${s.enabled ? 'active' : ''}"></span>
+                    <span class="customize-list-item-name">${escapeHtml(s.name)}</span>
+                    <span class="customize-list-item-chevron" data-chevron="${escapeHtml(s.name)}">&#9654;</span>
+                </div>
+                <div class="customize-file-tree" data-tree-for="${escapeHtml(s.name)}" style="display:${_cust.expandedSkills.has(s.name) ? 'block' : 'none'}"></div>`;
+            }
+        }
+    } else {
+        const grouped = {};
+        _cust.connectors.forEach(c => { if (!grouped[c.category]) grouped[c.category] = []; grouped[c.category].push(c); });
+        for (const [cat, items] of Object.entries(grouped)) {
+            el.innerHTML += `<div class="customize-group-header">${cat} (${items.length})</div>`;
+            for (const c of items) {
+                el.innerHTML += `<div class="customize-list-item ${_cust.selectedItem?.id === c.id ? 'selected' : ''}" data-name="${escapeHtml(c.name)}" data-id="${c.id}" data-type="connector">
+                    <span class="customize-list-item-dot ${c.enabled ? 'active' : ''}"></span>
+                    <span class="customize-list-item-name">${escapeHtml(c.name)}</span>
+                </div>`;
+            }
+        }
+    }
+    // Wire click handlers via delegation
+    el.onclick = async (e) => {
+        const chevron = e.target.closest('.customize-list-item-chevron');
+        if (chevron) {
+            const name = chevron.dataset.chevron;
+            const treeEl = document.querySelector(`.customize-file-tree[data-tree-for="${name}"]`);
+            if (_cust.expandedSkills.has(name)) {
+                _cust.expandedSkills.delete(name);
+                if (treeEl) treeEl.style.display = 'none';
+                chevron.classList.remove('expanded');
+            } else {
+                _cust.expandedSkills.add(name);
+                chevron.classList.add('expanded');
+                if (treeEl) {
+                    treeEl.style.display = 'block';
+                    if (!treeEl.innerHTML) {
+                        const skill = _cust.skills.find(s => s.name === name);
+                        if (skill && window.electronAPI?.skillsListFiles) {
+                            const files = await window.electronAPI.skillsListFiles(skill.location);
+                            _cust.fileTreeCache[name] = files;
+                            treeEl.innerHTML = _buildFileTree(files, name);
+                        }
+                    }
+                }
+            }
+            return;
+        }
+        const fileItem = e.target.closest('.customize-file-tree-item');
+        if (fileItem) {
+            if (fileItem.classList.contains('cust-dir')) {
+                const subTree = fileItem.nextElementSibling;
+                if (subTree && subTree.classList.contains('customize-file-tree-sub')) {
+                    const isCollapsed = subTree.style.display === 'none';
+                    subTree.style.display = isCollapsed ? 'block' : 'none';
+                    fileItem.classList.toggle('collapsed', !isCollapsed);
+                }
+                return;
+            }
+            _cust.selectedFile = { path: fileItem.dataset.path, fullPath: fileItem.dataset.fullpath, name: fileItem.dataset.filename };
+            document.querySelectorAll('.customize-file-tree-item').forEach(f => f.classList.remove('selected'));
+            fileItem.classList.add('selected');
+            _renderCustDetail();
+            return;
+        }
+        const item = e.target.closest('.customize-list-item');
+        if (item) {
+            _cust.selectedFile = null;
+            document.querySelectorAll('.customize-list-item').forEach(i => i.classList.remove('selected'));
+            item.classList.add('selected');
+            if (item.dataset.type === 'skill') {
+                _cust.selectedItem = _cust.skills.find(s => s.name === item.dataset.name) || null;
+            } else {
+                _cust.selectedItem = _cust.connectors.find(c => c.id === item.dataset.id) || null;
+                _cust.selectedItem._type = 'connector';
+            }
+            _renderCustDetail();
+        }
+    };
+    // Load file trees for already expanded skills
+    _cust.expandedSkills.forEach(async (name) => {
+        const treeEl = document.querySelector(`.customize-file-tree[data-tree-for="${name}"]`);
+        const chevron = document.querySelector(`.customize-list-item-chevron[data-chevron="${name}"]`);
+        if (chevron) chevron.classList.add('expanded');
+        if (treeEl && !treeEl.innerHTML) {
+            const skill = _cust.skills.find(s => s.name === name);
+            if (skill && window.electronAPI?.skillsListFiles) {
+                const files = await window.electronAPI.skillsListFiles(skill.location);
+                _cust.fileTreeCache[name] = files;
+                treeEl.innerHTML = _buildFileTree(files, name);
+            }
+        }
+    });
+}
+
+function _buildFileTree(files, skillName) {
+    function renderLevel(parentPath) {
+        const depth = parentPath ? parentPath.split('/').length : 0;
+        const children = files.filter(f => {
+            if (parentPath) {
+                return f.path.startsWith(parentPath + '/') && f.path.split('/').length === depth + 1;
+            }
+            return !f.path.includes('/');
+        });
+        const childDirs = children.filter(f => f.type === 'directory');
+        const childFiles = children.filter(f => f.type === 'file');
+        let html = '';
+        for (const f of childFiles) {
+            html += `<div class="customize-file-tree-item" data-path="${escapeHtml(f.path)}" data-fullpath="${escapeHtml(f.fullPath)}" data-filename="${escapeHtml(f.name)}">
+                <span class="cust-file-icon">${_fileIcon(f.ext)}</span> ${escapeHtml(f.name)}
+            </div>`;
+        }
+        for (const d of childDirs) {
+            html += `<div class="customize-file-tree-item cust-dir" data-path="${escapeHtml(d.path)}" data-fullpath="${escapeHtml(d.fullPath)}" data-filename="${escapeHtml(d.name)}">
+                <span class="cust-file-icon">&#128193;</span> ${escapeHtml(d.name)}
+            </div>`;
+            const subHtml = renderLevel(d.path);
+            if (subHtml) {
+                html += `<div class="customize-file-tree-sub">${subHtml}</div>`;
+            }
+        }
+        return html;
+    }
+    return renderLevel('');
+}
+
+function _fileIcon(ext) {
+    const map = { '.md': '&#128196;', '.py': '&#128013;', '.js': '&#9889;', '.sh': '&#9881;', '.html': '&#127760;', '.css': '&#127912;', '.json': '&#128203;', '.xml': '&#128196;', '.txt': '&#128196;', '.pdf': '&#128213;' };
+    return map[ext] || '&#128196;';
+}
+
+function _renderCustFileContent(panel, data) {
+    const ext = data.ext;
+    const hasToggle = ext === '.md' || ext === '.html';
+    const mode = _cust.viewMode || 'preview';
+
+    // Build header with optional toggle
+    let headerHtml = `<div class="customize-detail-header"><h3 class="customize-detail-title">${escapeHtml(data.name)}</h3></div>`;
+    let toggleHtml = '';
+    if (hasToggle) {
+        toggleHtml = `<div class="customize-view-toggle">
+            <button class="customize-view-toggle-btn ${mode === 'text' ? 'active' : ''}" data-view-mode="text">Text</button>
+            <button class="customize-view-toggle-btn ${mode === 'preview' ? 'active' : ''}" data-view-mode="preview">Preview</button>
+        </div>`;
+    }
+
+    let contentHtml;
+    let needsPostProcess = false;
+    if (hasToggle && mode === 'preview') {
+        if (ext === '.md') {
+            contentHtml = `<div class="customize-detail-content customize-md-preview">${renderMarkdownToHtml(data.content)}</div>`;
+            needsPostProcess = true;
+        } else {
+            // HTML preview via iframe — use Blob URL to avoid escaping issues
+            contentHtml = `<div class="customize-detail-content" style="padding:0;display:flex;flex:1;">
+                <iframe id="cust-html-preview-frame" class="customize-html-preview" sandbox="allow-scripts allow-same-origin"></iframe>
+            </div>`;
+        }
+    } else {
+        // Text mode (raw source with syntax highlighting)
+        const langMap = { '.py': 'python', '.js': 'javascript', '.sh': 'bash', '.html': 'html', '.css': 'css', '.json': 'json', '.xml': 'xml', '.txt': '', '.md': 'markdown' };
+        const lang = langMap[ext];
+        let highlighted;
+        if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
+            highlighted = hljs.highlight(data.content, { language: lang }).value;
+        } else {
+            highlighted = escapeHtml(data.content);
+        }
+        const lines = highlighted.split('\n');
+        contentHtml = `<div class="customize-detail-content"><pre class="customize-code-preview">${lines.map((l, i) => `<span class="line-number">${i + 1}</span>${l}`).join('\n')}</pre></div>`;
+    }
+
+    panel.innerHTML = headerHtml + toggleHtml + contentHtml;
+
+    // HTML preview: set iframe src via Blob URL (avoids srcdoc escaping issues)
+    if (hasToggle && mode === 'preview' && ext === '.html') {
+        const iframe = panel.querySelector('#cust-html-preview-frame');
+        if (iframe) {
+            const blob = new Blob([data.content], { type: 'text/html; charset=utf-8' });
+            iframe.src = URL.createObjectURL(blob);
+            iframe.onload = () => URL.revokeObjectURL(iframe.src);
+        }
+    }
+
+    // MD preview: render mermaid diagrams and highlight code blocks via CPB
+    if (needsPostProcess) {
+        const contentEl = panel.querySelector('.customize-md-preview');
+        if (contentEl) {
+            const cpb = window._cpbBlockUtils;
+            if (cpb) {
+                if (typeof cpb.renderMermaidInContainer === 'function') {
+                    contentEl.querySelectorAll('.prompt-block-wrapper[data-block-type="mermaid"]').forEach(w => {
+                        const c = w.querySelector('.prompt-block-content');
+                        if (c) cpb.renderMermaidInContainer(c);
+                    });
+                }
+                if (typeof cpb.highlightCodeBlocksInContainer === 'function') {
+                    cpb.highlightCodeBlocksInContainer(contentEl);
+                }
+            }
+            // Fallback: highlight any bare <pre><code> blocks not wrapped by CPB
+            if (typeof hljs !== 'undefined') {
+                contentEl.querySelectorAll('pre code:not([data-highlighted])').forEach(el => {
+                    try { hljs.highlightElement(el); } catch {}
+                });
+            }
+        }
+    }
+
+    // Wire toggle buttons
+    if (hasToggle) {
+        panel.querySelectorAll('.customize-view-toggle-btn').forEach(btn => {
+            btn.onclick = () => {
+                _cust.viewMode = btn.dataset.viewMode;
+                _renderCustFileContent(panel, _cust._fileDataCache || data);
+            };
+        });
+    }
+}
+
+async function _renderCustDetail() {
+    const panel = document.getElementById('customize-detail-panel');
+    if (!panel) return;
+    // If a sub-file is selected, show file preview (check before selectedItem)
+    if (_cust.selectedFile) {
+        panel.innerHTML = '<div class="customize-detail-loading">Loading...</div>';
+        try {
+            const data = await window.electronAPI?.skillsReadFile?.(_cust.selectedFile.fullPath);
+            if (!data || data.error) { panel.innerHTML = `<div class="customize-detail-empty">Error: ${data?.error || 'Unknown'}</div>`; return; }
+            _cust._fileDataCache = data;
+            if (data.binary) {
+                panel.innerHTML = `<div class="customize-detail-header"><h3 class="customize-detail-title">${escapeHtml(data.name)}</h3></div>
+                    <div class="customize-detail-content"><div class="customize-binary-info">
+                        <span style="font-size:2rem">&#128196;</span>
+                        <div><strong>${escapeHtml(data.name)}</strong><br><span style="font-size:0.72rem;color:hsl(var(--muted-foreground))">${data.ext.toUpperCase().replace('.', '')} &middot; ${(data.size / 1024).toFixed(1)} KB</span><br>No preview available</div>
+                    </div></div>`;
+            } else {
+                _renderCustFileContent(panel, data);
+            }
+        } catch { panel.innerHTML = '<div class="customize-detail-empty">Failed to load file</div>'; }
+        return;
+    }
+    // Skill detail
+    const item = _cust.selectedItem;
+    if (!item) {
+        panel.innerHTML = '<div class="customize-detail-empty">Select an item to view details</div>';
+        return;
+    }
+    if (item._type === 'connector') {
+        panel.innerHTML = `<div class="customize-detail-header">
+            <div><h3 class="customize-detail-title">${escapeHtml(item.name)}</h3>
+            <div class="customize-detail-meta">${escapeHtml(item.category)}</div></div>
+            <label class="plugins-toggle"><input type="checkbox" id="cust-detail-toggle" ${item.enabled ? 'checked' : ''} /><span class="plugins-toggle-slider"></span></label>
+        </div>
+        <div class="customize-detail-content"><p>${escapeHtml(item.description)}</p></div>`;
+        document.getElementById('cust-detail-toggle')?.addEventListener('change', async (e) => {
+            await window.electronAPI?.connectorsToggle?.(item.id, e.target.checked);
+            item.enabled = e.target.checked;
+            _renderCustList();
+        });
+        return;
+    }
+    // Skill: load SKILL.md content
+    let skillContent = '';
+    try {
+        const data = await window.electronAPI?.skillsReadFile?.(item.location);
+        if (data && !data.binary && data.content) skillContent = data.content;
+    } catch {}
+    panel.innerHTML = `<div class="customize-detail-header">
+        <div><h3 class="customize-detail-title">${escapeHtml(item.name)}</h3>
+        <div class="customize-detail-meta">Source: ${escapeHtml(item.source)} &middot; ${escapeHtml(item.description || '')}</div></div>
+        <label class="plugins-toggle"><input type="checkbox" id="cust-detail-toggle" ${item.enabled ? 'checked' : ''} /><span class="plugins-toggle-slider"></span></label>
+    </div>
+    <div class="customize-detail-content">${skillContent ? renderMarkdownToHtml(skillContent) : '<p style="color:hsl(var(--muted-foreground))">No content</p>'}</div>`;
+    document.getElementById('cust-detail-toggle')?.addEventListener('change', async (e) => {
+        await window.electronAPI?.skillsToggle?.(item.name, e.target.checked);
+        item.enabled = e.target.checked;
+        _renderCustList();
+    });
+}
+
+/* ─── Settings Panel ─── */
+
+/* ─── Settings Panel & Providers ─── */
+
+const BYOK_PROVIDERS = [
+    { id: 'openai', name: 'OpenAI', defaultModels: ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.2', 'gpt-4o', 'gpt-4o-mini', 'o3-mini'] },
+    { id: 'anthropic', name: 'Anthropic', defaultModels: ['claude-sonnet-4-20250514', 'claude-opus-4-20250514', 'claude-haiku-4-5-20251001'] },
+    { id: 'google', name: 'Google AI', defaultModels: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'] },
+    { id: 'xai', name: 'xAI', defaultModels: ['grok-3', 'grok-3-mini', 'grok-2'] },
+    { id: 'deepseek', name: 'DeepSeek', defaultModels: ['deepseek-chat', 'deepseek-reasoner'] },
+    { id: 'openrouter', name: 'OpenRouter', defaultModels: ['openai/gpt-5.4', 'anthropic/claude-sonnet-4', 'google/gemini-2.5-pro'] },
+];
+
+// ChatGPT Subscription state
+let _chatgptSubState = { connected: false, email: '', accessToken: '', accountId: '' };
+
+function loadChatGPTSubState() {
+    try {
+        const saved = localStorage.getItem('smc_chatgpt_sub_v1');
+        if (saved) _chatgptSubState = JSON.parse(saved);
+    } catch {}
+}
+
+function saveChatGPTSubState() {
+    localStorage.setItem('smc_chatgpt_sub_v1', JSON.stringify(_chatgptSubState));
+}
+
+async function renderSettingsProviders() {
+    const grid = document.getElementById('settings-provider-list');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    for (const prov of BYOK_PROVIDERS) {
+        const hasKey = await checkProviderApiKey(prov.id);
+        const card = document.createElement('div');
+        card.className = 'settings-provider-card';
+        card.innerHTML = `
+            <div class="settings-provider-info">
+                <span class="settings-provider-status ${hasKey ? 'configured' : 'unconfigured'}"></span>
+                <span class="settings-provider-name">${escapeHtml(prov.name)}</span>
+            </div>
+            <div class="settings-provider-actions">
+                ${hasKey ? `<button type="button" class="settings-provider-remove-btn" data-provider="${prov.id}">Remove Key</button>` :
+                `<input type="password" class="settings-provider-key-input" placeholder="API key..." data-provider="${prov.id}" autocomplete="off" />
+                 <button type="button" class="btn-primary settings-provider-save-btn" data-provider="${prov.id}">Save</button>`}
+            </div>
+        `;
+
+        const saveBtn = card.querySelector('.settings-provider-save-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                const input = card.querySelector('.settings-provider-key-input');
+                if (!input?.value) return;
+                const valid = await saveAndValidateApiKey(prov.id, input.value);
+                if (valid) {
+                    input.value = '';
+                    renderSettingsProviders();
+                    updateSidebarFooterStatus();
+                    populateTaskModelSelector();
+                }
+            });
+        }
+
+        const removeBtn = card.querySelector('.settings-provider-remove-btn');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', async () => {
+                if (window.electronAPI?.byokSaveApiKey) {
+                    await window.electronAPI.byokSaveApiKey(prov.id, '');
+                } else {
+                    const keys = JSON.parse(localStorage.getItem('smc_byok_keys_v1') || '{}');
+                    delete keys[prov.id];
+                    localStorage.setItem('smc_byok_keys_v1', JSON.stringify(keys));
+                }
+                renderSettingsProviders();
+                updateSidebarFooterStatus();
+                populateTaskModelSelector();
+            });
+        }
+
+        grid.appendChild(card);
+    }
+
+    // Also update ChatGPT Subscription UI state
+    renderChatGPTSubState();
+}
+
+function renderChatGPTSubState() {
+    loadChatGPTSubState();
+    const disconnectedEl = document.getElementById('chatgpt-sub-disconnected');
+    const waitingEl = document.getElementById('chatgpt-sub-waiting');
+    const connectedEl = document.getElementById('chatgpt-sub-connected');
+    if (!disconnectedEl || !waitingEl || !connectedEl) return;
+
+    disconnectedEl.classList.add('hidden');
+    waitingEl.classList.add('hidden');
+    connectedEl.classList.add('hidden');
+
+    if (_chatgptSubState.connected) {
+        connectedEl.classList.remove('hidden');
+        const emailEl = document.getElementById('chatgpt-sub-email');
+        if (emailEl) emailEl.textContent = _chatgptSubState.email || 'Connected';
+    } else {
+        disconnectedEl.classList.remove('hidden');
+    }
+}
+
+(function initSettingsPanel() {
+    loadChatGPTSubState();
+
+    // Settings tab navigation
+    document.querySelectorAll('.settings-nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.getAttribute('data-settings-tab');
+            document.querySelectorAll('.settings-nav-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.settings-tab-content').forEach(t => t.classList.add('hidden'));
+            const content = document.getElementById(`settings-tab-${tab}`);
+            if (content) content.classList.remove('hidden');
+            if (tab === 'providers') renderSettingsProviders();
+            if (tab === 'workspace') checkCodexCliStatus();
+        });
+    });
+
+    // ChatGPT Subscription - Sign In
+    document.getElementById('chatgpt-sub-signin-btn')?.addEventListener('click', async () => {
+        if (window.electronAPI?.chatgptSubLogin) {
+            const result = await window.electronAPI.chatgptSubLogin();
+            if (result?.authUrl) {
+                // Open in external browser
+                window.electronAPI.openUrlInChrome?.(result.authUrl);
+                // Show waiting state
+                document.getElementById('chatgpt-sub-disconnected')?.classList.add('hidden');
+                document.getElementById('chatgpt-sub-waiting')?.classList.remove('hidden');
+            }
+        }
+    });
+
+    // ChatGPT Subscription - Manual callback URL submit
+    document.getElementById('chatgpt-sub-callback-submit')?.addEventListener('click', async () => {
+        const input = document.getElementById('chatgpt-sub-callback-input');
+        const callbackUrl = input?.value?.trim();
+        if (!callbackUrl) return;
+
+        if (window.electronAPI?.chatgptSubCallback) {
+            const result = await window.electronAPI.chatgptSubCallback(callbackUrl);
+            if (result?.success) {
+                _chatgptSubState = {
+                    connected: true,
+                    email: result.email || '',
+                    accessToken: result.accessToken || '',
+                    accountId: result.accountId || '',
+                };
+                saveChatGPTSubState();
+                renderChatGPTSubState();
+                updateSidebarFooterStatus();
+                populateTaskModelSelector();
+            }
+        }
+        if (input) input.value = '';
+    });
+
+    // ChatGPT Subscription - Disconnect
+    document.getElementById('chatgpt-sub-disconnect-btn')?.addEventListener('click', () => {
+        _chatgptSubState = { connected: false, email: '', accessToken: '', accountId: '' };
+        saveChatGPTSubState();
+        renderChatGPTSubState();
+        updateSidebarFooterStatus();
+        populateTaskModelSelector();
+    });
+
+    // Settings workspace browse — persist to localStorage
+    document.getElementById('settings-select-workspace-btn')?.addEventListener('click', async () => {
+        if (window.electronAPI?.selectWorkspaceDir) {
+            const dir = await window.electronAPI.selectWorkspaceDir();
+            if (dir) {
+                localStorage.setItem('smc_default_workspace', dir);
+                const lbl = document.getElementById('settings-default-workspace-path');
+                if (lbl) lbl.textContent = dir;
+                // Update current task session if active
+                if (_currentTaskSession) {
+                    _currentTaskSession.taskConfig.workspaceDir = dir;
+                    const dirLabel = document.getElementById('task-workspace-dir-label');
+                    if (dirLabel) dirLabel.textContent = dir;
+                }
+            }
+        }
+    });
+
+    // Load saved workspace on init
+    const savedWorkspace = localStorage.getItem('smc_default_workspace');
+    if (savedWorkspace) {
+        const wsLabel = document.getElementById('settings-default-workspace-path');
+        if (wsLabel) wsLabel.textContent = savedWorkspace;
+    }
+
+    // Settings default execution mode — persist to localStorage
+    document.getElementById('settings-default-mode')?.addEventListener('change', (e) => {
+        localStorage.setItem('smc_default_exec_mode', e.target.value);
+    });
+
+    // Load saved execution mode on init
+    const savedMode = localStorage.getItem('smc_default_exec_mode');
+    if (savedMode) {
+        const modeSelect = document.getElementById('settings-default-mode');
+        if (modeSelect) modeSelect.value = savedMode;
+    }
+
+    // Refresh codex status
+    document.getElementById('settings-refresh-codex-btn')?.addEventListener('click', () => checkCodexCliStatus());
+
+    // Auto-callback listener: when the local HTTP server receives OAuth callback
+    if (window.electronAPI?.onChatgptSubAuthComplete) {
+        window.electronAPI.onChatgptSubAuthComplete((data) => {
+            if (data.success) {
+                _chatgptSubState = {
+                    connected: true,
+                    email: data.email || '',
+                    accessToken: data.accessToken || '',
+                    accountId: data.accountId || '',
+                };
+                saveChatGPTSubState();
+                renderChatGPTSubState();
+                updateSidebarFooterStatus();
+                populateTaskModelSelector();
+            }
+        });
+    }
+})();
+
+async function checkCodexCliStatus() {
+    const dot = document.getElementById('settings-codex-status-dot');
+    const lbl = document.getElementById('settings-codex-status-label');
+    if (!dot || !lbl) return;
+    lbl.textContent = 'Checking...';
+
+    if (window.electronAPI?.checkCodexCli) {
+        const result = await window.electronAPI.checkCodexCli();
+        if (result.codexInstalled) {
+            dot.className = 'sidebar-status-dot sidebar-status-online';
+            lbl.textContent = `Codex CLI found: ${result.codexPath}`;
+        } else if (result.openaiInstalled) {
+            dot.className = 'sidebar-status-dot sidebar-status-online';
+            lbl.textContent = 'OpenAI CLI available';
+        } else {
+            dot.className = 'sidebar-status-dot sidebar-status-offline';
+            lbl.textContent = 'Not installed (npm install -g @openai/codex)';
+        }
+    } else {
+        dot.className = 'sidebar-status-dot sidebar-status-offline';
+        lbl.textContent = 'IPC not available';
+    }
+}
+
+/* ─── Dynamic Model Selector ─── */
+
+async function populateTaskModelSelector() {
+    const sel = document.getElementById('task-model-selector');
+    if (!sel) return;
+
+    const currentVal = sel.value;
+    sel.innerHTML = '<option value="">Select model...</option>';
+
+    // ChatGPT Subscription models (if connected) — curated list matching OpenYak
+    loadChatGPTSubState();
+    if (_chatgptSubState.connected) {
+        const fallbackModels = [
+            { id: 'gpt-5.4', name: 'GPT-5.4' },
+            { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini' },
+            { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex' },
+            { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex' },
+            { id: 'gpt-5.2', name: 'GPT-5.2' },
+            { id: 'gpt-5.1-codex-max', name: 'GPT-5.1 Codex Max' },
+            { id: 'gpt-5.1-codex-mini', name: 'GPT-5.1 Codex Mini' },
+        ];
+        let models = fallbackModels;
+        if (window.electronAPI?.chatgptSubGetModels) {
+            try {
+                const apiModels = await window.electronAPI.chatgptSubGetModels();
+                if (apiModels && apiModels.length > 0 && typeof apiModels[0] === 'object') {
+                    models = apiModels;
+                }
+            } catch { /* use fallback */ }
+        }
+        const grp = document.createElement('optgroup');
+        grp.label = 'ChatGPT Subscription';
+        models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = `chatgpt-sub/${m.id}`;
+            opt.textContent = `${m.name}`;
+            grp.appendChild(opt);
+        });
+        sel.appendChild(grp);
+    }
+
+    // BYOK provider models - try API first, fallback to defaults
+    for (const prov of BYOK_PROVIDERS) {
+        const hasKey = await checkProviderApiKey(prov.id);
+        if (!hasKey) continue;
+
+        let models = prov.defaultModels || [];
+
+        // Try fetching actual models from API via main process
+        if (window.electronAPI?.byokGetModels) {
+            try {
+                const apiModels = await window.electronAPI.byokGetModels(prov.id);
+                if (apiModels && apiModels.length > 0) {
+                    models = apiModels;
+                }
+            } catch { /* use defaults */ }
+        }
+
+        const grp = document.createElement('optgroup');
+        grp.label = prov.name;
+        models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = `${prov.id}/${m}`;
+            opt.textContent = m;
+            grp.appendChild(opt);
+        });
+        sel.appendChild(grp);
+    }
+
+    // Restore previous selection if still available
+    if (currentVal) {
+        for (const opt of sel.options) {
+            if (opt.value === currentVal) { sel.value = currentVal; break; }
+        }
+    }
+
+    updateTaskSendBtnState();
+}
+
+/* ─── Sidebar Footer Wiring ─── */
+
+async function updateSidebarFooterStatus() {
+    const dot = document.getElementById('sidebar-status-dot');
+    const label = document.getElementById('sidebar-status-label');
+    const accountLabel = document.getElementById('sidebar-account-label');
+    if (!dot || !label) return;
+
+    const connectedProviders = [];
+
+    // Check ChatGPT Subscription
+    loadChatGPTSubState();
+    if (_chatgptSubState.connected) {
+        connectedProviders.push({ name: 'ChatGPT', detail: _chatgptSubState.email || '' });
+    }
+
+    // Check all BYOK providers
+    for (const prov of BYOK_PROVIDERS) {
+        const hasKey = await checkProviderApiKey(prov.id);
+        if (hasKey) connectedProviders.push({ name: prov.name, detail: 'API Key' });
+    }
+
+    if (connectedProviders.length > 0) {
+        dot.className = 'sidebar-status-dot sidebar-status-online';
+        // Show primary provider name in status label
+        label.textContent = connectedProviders[0].name;
+
+        // Show all providers in account label
+        if (accountLabel) {
+            if (connectedProviders.length === 1) {
+                const p = connectedProviders[0];
+                accountLabel.textContent = p.detail || p.name;
+            } else {
+                // Show first provider + count of others
+                const first = connectedProviders[0];
+                accountLabel.textContent = `${first.detail || first.name} +${connectedProviders.length - 1}`;
+            }
+            accountLabel.title = connectedProviders.map(p => `${p.name}${p.detail ? ': ' + p.detail : ''}`).join('\n');
+        }
+    } else {
+        dot.className = 'sidebar-status-dot sidebar-status-offline';
+        label.textContent = 'Offline';
+        if (accountLabel) { accountLabel.textContent = 'Not configured'; accountLabel.title = ''; }
+    }
+}
+
+// Wire sidebar settings gear button
+document.getElementById('sidebar-settings-btn')?.addEventListener('click', () => {
+    openSmcFullPanel('settings');
+    renderSettingsProviders();
+});
+
+// Initial status + model population
+updateSidebarFooterStatus();
+populateTaskModelSelector();
+setInterval(updateSidebarFooterStatus, 60000);
 

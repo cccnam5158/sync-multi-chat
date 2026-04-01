@@ -1,4 +1,4 @@
-const { app, BrowserWindow, WebContentsView, ipcMain, session, clipboard, shell, screen } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, session, clipboard, shell, screen, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -4774,7 +4774,1388 @@ ipcMain.handle('app-close-ready', async () => {
     return { ok: true };
 });
 
+/* ─── BYOK Task System (Main Process) ─── */
+
+const BYOK_STORE_KEY = 'byokApiKeys';
+const runningTasks = new Map(); // sessionId -> { abortController, result }
+
+/** Encrypt and store an API key */
+ipcMain.handle('byok-save-api-key', async (event, providerId, apiKey) => {
+    try {
+        const keys = store.get(BYOK_STORE_KEY, {});
+        if (!apiKey || apiKey.trim() === '') {
+            delete keys[providerId];
+        } else {
+            if (safeStorage.isEncryptionAvailable()) {
+                keys[providerId] = safeStorage.encryptString(apiKey).toString('base64');
+            } else {
+                keys[providerId] = Buffer.from(apiKey).toString('base64');
+            }
+        }
+        store.set(BYOK_STORE_KEY, keys);
+        return true;
+    } catch (err) {
+        console.error('byok-save-api-key error:', err);
+        return false;
+    }
+});
+
+/** Check if an API key exists for a provider */
+ipcMain.handle('byok-has-api-key', async (event, providerId) => {
+    // ChatGPT Subscription uses OAuth token stored separately
+    if (providerId === 'chatgpt-sub') {
+        return !!store.get('chatgptSubAccessToken');
+    }
+    const keys = store.get(BYOK_STORE_KEY, {});
+    return !!keys[providerId];
+});
+
+/** Decrypt and return an API key (internal use only) */
+function getDecryptedApiKey(providerId) {
+    const keys = store.get(BYOK_STORE_KEY, {});
+    const encrypted = keys[providerId];
+    if (!encrypted) return null;
+    try {
+        if (safeStorage.isEncryptionAvailable()) {
+            return safeStorage.decryptString(Buffer.from(encrypted, 'base64'));
+        }
+        return Buffer.from(encrypted, 'base64').toString('utf8');
+    } catch {
+        return null;
+    }
+}
+
+/** Validate an API key by attempting a lightweight call */
+ipcMain.handle('byok-validate-key', async (event, providerId, apiKey) => {
+    try {
+        const endpoints = {
+            openai: { url: 'https://api.openai.com/v1/models', headers: { 'Authorization': `Bearer ${apiKey}` } },
+            anthropic: { url: 'https://api.anthropic.com/v1/models', headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } },
+            xai: { url: 'https://api.x.ai/v1/models', headers: { 'Authorization': `Bearer ${apiKey}` } },
+            deepseek: { url: 'https://api.deepseek.com/v1/models', headers: { 'Authorization': `Bearer ${apiKey}` } },
+            openrouter: { url: 'https://openrouter.ai/api/v1/models', headers: { 'Authorization': `Bearer ${apiKey}` } },
+        };
+        const cfg = endpoints[providerId];
+        if (!cfg) return true; // Cannot validate, assume valid
+
+        const resp = await fetch(cfg.url, { headers: cfg.headers, signal: AbortSignal.timeout(10000) });
+        return resp.ok;
+    } catch {
+        return false;
+    }
+});
+
+/** Get available models for a provider */
+ipcMain.handle('byok-get-models', async (event, providerId) => {
+    const apiKey = getDecryptedApiKey(providerId);
+    if (!apiKey) return [];
+
+    try {
+        const endpoints = {
+            openai: { url: 'https://api.openai.com/v1/models', headers: { 'Authorization': `Bearer ${apiKey}` } },
+            xai: { url: 'https://api.x.ai/v1/models', headers: { 'Authorization': `Bearer ${apiKey}` } },
+            deepseek: { url: 'https://api.deepseek.com/v1/models', headers: { 'Authorization': `Bearer ${apiKey}` } },
+            openrouter: { url: 'https://openrouter.ai/api/v1/models', headers: { 'Authorization': `Bearer ${apiKey}` } },
+        };
+        const cfg = endpoints[providerId];
+        if (!cfg) return [];
+
+        const resp = await fetch(cfg.url, { headers: cfg.headers, signal: AbortSignal.timeout(10000) });
+        if (!resp.ok) return [];
+        const data = await resp.json();
+        let ids = (data.data || []).map((m) => m.id);
+
+        // Filter chat-capable models for OpenAI (exclude embedding, whisper, tts, dall-e, etc.)
+        if (providerId === 'openai') {
+            ids = ids
+                .filter(id => /^(gpt-|o[0-9]|chatgpt-)/.test(id) && !/(embed|whisper|tts|dall-e|audio|realtime|search)/.test(id))
+                .sort((a, b) => {
+                    const score = (v) => v.includes('5.4') ? 100 : v.includes('5.3') ? 95 : v.includes('5.2') ? 90 : v.includes('5.1') ? 85 : v.includes('5.') ? 80 : v.includes('4o') ? 70 : v.includes('o3') ? 60 : v.includes('o1') ? 50 : 0;
+                    return score(b) - score(a) || a.localeCompare(b);
+                });
+        }
+
+        // OpenRouter: filter to popular/known providers, sort by name
+        if (providerId === 'openrouter') {
+            const models = (data.data || []);
+            const topProviders = ['openai', 'anthropic', 'google', 'meta-llama', 'deepseek', 'mistralai', 'cohere', 'qwen', 'x-ai'];
+            ids = models
+                .filter(m => {
+                    const id = m.id || '';
+                    return topProviders.some(p => id.startsWith(p + '/')) && !/(embed|whisper|tts|dall-e|audio|vision-preview|instruct$)/.test(id);
+                })
+                .sort((a, b) => {
+                    // Sort by provider then by name (newest first)
+                    const pa = (a.id || '').split('/')[0];
+                    const pb = (b.id || '').split('/')[0];
+                    if (pa !== pb) return topProviders.indexOf(pa) - topProviders.indexOf(pb);
+                    return (b.id || '').localeCompare(a.id || '');
+                })
+                .map(m => m.id)
+                .slice(0, 80);
+        }
+
+        return ids.slice(0, 50);
+    } catch {
+        return [];
+    }
+});
+
+/** Fallback subscription models — used when Codex CLI models_cache.json is unavailable.
+ *  IDs MUST match actual Codex CLI model slugs exactly. */
+const FALLBACK_SUBSCRIPTION_MODELS = [
+    { id: 'gpt-5.4', name: 'GPT-5.4' },
+    { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini' },
+    { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex' },
+    { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex' },
+    { id: 'gpt-5.2', name: 'GPT-5.2' },
+    { id: 'gpt-5.1-codex-max', name: 'GPT-5.1 Codex Max' },
+    { id: 'gpt-5.1-codex-mini', name: 'GPT-5.1 Codex Mini' },
+];
+
+/** Generate display name from model slug: gpt-5.2-codex → GPT-5.2 Codex */
+function formatModelDisplayName(slug) {
+    return slug
+        .replace(/^gpt-/, 'GPT-')
+        .replace(/(GPT-[\d.]+)-(.+)/, (_, prefix, rest) =>
+            `${prefix} ${rest.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`
+        );
+}
+
+/** Read models from Codex CLI's models_cache.json (dynamic discovery) */
+function readCodexModelsCache() {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const codexDir = path.join(require('os').homedir(), '.codex');
+        const cacheFile = path.join(codexDir, 'models_cache.json');
+        if (!fs.existsSync(cacheFile)) return null;
+
+        const data = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+        if (!data.models || !Array.isArray(data.models)) return null;
+
+        return data.models
+            .filter(m => m.visibility === 'list')
+            .sort((a, b) => (a.priority || 999) - (b.priority || 999))
+            .map(m => ({ id: m.slug, name: formatModelDisplayName(m.slug) }));
+    } catch { return null; }
+}
+
+/** Get models available via ChatGPT Subscription — dynamic from Codex CLI or fallback */
+ipcMain.handle('chatgpt-sub-get-models', async () => {
+    const encrypted = store.get('chatgptSubAccessToken');
+    if (!encrypted) return [];
+    let token;
+    try {
+        token = safeStorage.isEncryptionAvailable()
+            ? safeStorage.decryptString(Buffer.from(encrypted, 'base64'))
+            : Buffer.from(encrypted, 'base64').toString('utf8');
+    } catch { return []; }
+    if (!token) return [];
+
+    // Try Codex CLI models_cache.json first (dynamic), fall back to hardcoded
+    const codexModels = readCodexModelsCache();
+    return codexModels || FALLBACK_SUBSCRIPTION_MODELS;
+});
+
+/** Start a task execution (streaming from BYOK API) */
+/** Select workspace directory dialog */
+ipcMain.handle('select-workspace-dir', async (event) => {
+    const { dialog } = require('electron');
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(win, {
+        properties: ['openDirectory'],
+        title: 'Select Workspace Directory',
+    });
+    if (!result.canceled && result.filePaths.length > 0) return result.filePaths[0];
+    return null;
+});
+
+/** Check if Codex CLI or OpenAI CLI is installed */
+ipcMain.handle('check-codex-cli', async () => {
+    const { execSync } = require('child_process');
+    const check = (cmd) => {
+        try {
+            const result = execSync(cmd, { encoding: 'utf8', timeout: 5000 }).trim();
+            return result || null;
+        } catch { return null; }
+    };
+    const isWin = process.platform === 'win32';
+    const codexPath = check(isWin ? 'where codex 2>nul' : 'which codex 2>/dev/null');
+    const openaiPath = check(isWin ? 'where openai 2>nul' : 'which openai 2>/dev/null');
+    return {
+        codexInstalled: !!codexPath,
+        openaiInstalled: !!openaiPath,
+        codexPath: codexPath?.split('\n')[0] || openaiPath?.split('\n')[0] || null,
+    };
+});
+
+/* ─── Skills & Connectors IPC ─── */
+ipcMain.handle('skills-list', async (event, workspaceDir) => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const skills = [];
+        const disabled = store.get('skillsDisabled') || [];
+        const scanDir = (d, source) => {
+            if (!fs.existsSync(d)) return;
+            try {
+                const entries = fs.readdirSync(d, { withFileTypes: true });
+                for (const entry of entries) {
+                    if (!entry.isDirectory()) continue;
+                    const sf = path.join(d, entry.name, 'SKILL.md');
+                    if (!fs.existsSync(sf)) continue;
+                    try {
+                        const content = fs.readFileSync(sf, 'utf8');
+                        const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+                        let name = entry.name, description = '';
+                        if (fmMatch) {
+                            const fm = fmMatch[1];
+                            const nm = fm.match(/^name:\s*["']?(.+?)["']?\s*$/m);
+                            const dm = fm.match(/^description:\s*["']?(.+?)["']?\s*$/m);
+                            if (nm) name = nm[1];
+                            if (dm) description = dm[1];
+                        }
+                        skills.push({ name, description, location: sf, source, enabled: !disabled.includes(name) });
+                    } catch {}
+                }
+            } catch {}
+        };
+        // Bundled skills (shipped with app)
+        const appPath = app.isPackaged ? path.join(process.resourcesPath, 'app') : app.getAppPath();
+        scanDir(path.join(appPath, 'src', 'data', 'skills'), 'bundled');
+        // Global user skills
+        scanDir(path.join(require('os').homedir(), '.openyak', 'skills'), 'global');
+        // Project-specific skills
+        const dir = workspaceDir || process.cwd();
+        if (dir) scanDir(path.join(dir, '.openyak', 'skills'), 'project');
+        return skills;
+    } catch { return []; }
+});
+
+ipcMain.handle('skills-list-files', async (event, skillLocation) => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const skillDir = path.dirname(skillLocation);
+        if (!fs.existsSync(skillDir)) return [];
+        const result = [];
+        const walk = (dir, prefix) => {
+            try {
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+                    const fullPath = path.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        result.push({ name: entry.name, path: relPath, fullPath, type: 'directory' });
+                        walk(fullPath, relPath);
+                    } else {
+                        const stat = fs.statSync(fullPath);
+                        result.push({ name: entry.name, path: relPath, fullPath, type: 'file', size: stat.size, ext: path.extname(entry.name).toLowerCase() });
+                    }
+                }
+            } catch {}
+        };
+        walk(skillDir, '');
+        return result;
+    } catch { return []; }
+});
+
+ipcMain.handle('skills-read-file', async (event, filePath) => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        if (!fs.existsSync(filePath)) return { error: 'File not found' };
+        const ext = path.extname(filePath).toLowerCase();
+        const stat = fs.statSync(filePath);
+        const binaryExts = ['.ttf', '.otf', '.woff', '.woff2', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.pdf', '.zip', '.tar', '.gz', '.tgz', '.exe', '.dll', '.so', '.dylib'];
+        if (binaryExts.includes(ext) || (ext === '.gz' && filePath.endsWith('.tar.gz')) || stat.size > 512 * 1024) {
+            return { binary: true, name: path.basename(filePath), size: stat.size, ext };
+        }
+        return { binary: false, content: fs.readFileSync(filePath, 'utf8'), ext, name: path.basename(filePath) };
+    } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('skills-toggle', async (event, name, enabled) => {
+    const disabled = store.get('skillsDisabled') || [];
+    if (enabled) {
+        store.set('skillsDisabled', disabled.filter(n => n !== name));
+    } else {
+        if (!disabled.includes(name)) store.set('skillsDisabled', [...disabled, name]);
+    }
+    return { success: true };
+});
+
+ipcMain.handle('connectors-list', async () => {
+    const catalog = [
+        { id: 'slack', name: 'Slack', description: 'Send messages, search conversations, and manage channels', category: 'Communication' },
+        { id: 'notion', name: 'Notion', description: 'Search pages, create databases, and manage workspace content', category: 'Productivity' },
+        { id: 'ms365', name: 'Microsoft 365', description: 'Outlook, Teams, OneDrive, and Office apps access', category: 'Productivity' },
+        { id: 'google-workspace', name: 'Google Workspace', description: 'Gmail, Google Calendar, Drive, and Docs access', category: 'Productivity' },
+        { id: 'linear', name: 'Linear', description: 'Track issues, manage projects, and plan sprints', category: 'Productivity' },
+        { id: 'asana', name: 'Asana', description: 'Manage tasks, projects, and team workflows', category: 'Productivity' },
+        { id: 'github', name: 'GitHub', description: 'Manage repos, issues, pull requests, and code search', category: 'Developer Tools' },
+        { id: 'atlassian', name: 'Atlassian', description: 'Access Jira issues, Confluence pages, and Bitbucket repos', category: 'Developer Tools' },
+        { id: 'pagerduty', name: 'PagerDuty', description: 'Manage incidents, on-call schedules, and alerts', category: 'Developer Tools' },
+        { id: 'datadog', name: 'Datadog', description: 'Query metrics, logs, and monitor infrastructure', category: 'Developer Tools' },
+        { id: 'figma', name: 'Figma', description: 'Read designs, inspect components, and access design tokens', category: 'Design' },
+        { id: 'canva', name: 'Canva', description: 'Create and manage designs, templates, and brand assets', category: 'Design' },
+        { id: 'intercom', name: 'Intercom', description: 'Manage conversations, contacts, and help articles', category: 'CRM' },
+        { id: 'hubspot', name: 'HubSpot', description: 'Access CRM contacts, deals, and marketing data', category: 'CRM' },
+        { id: 'amplitude', name: 'Amplitude', description: 'Query product analytics, user behavior, and funnels', category: 'Analytics' },
+        { id: 'similarweb', name: 'SimilarWeb', description: 'Access website traffic, competitor analysis, and market data', category: 'Analytics' },
+    ];
+    const enabled = store.get('connectorsEnabled') || [];
+    return catalog.map(c => ({ ...c, enabled: enabled.includes(c.id) }));
+});
+
+ipcMain.handle('connectors-toggle', async (event, id, enabled) => {
+    const list = store.get('connectorsEnabled') || [];
+    if (enabled && !list.includes(id)) {
+        store.set('connectorsEnabled', [...list, id]);
+    } else if (!enabled) {
+        store.set('connectorsEnabled', list.filter(c => c !== id));
+    }
+    return { success: true };
+});
+
+/* ─── ChatGPT Subscription OAuth PKCE ─── */
+const http = require('http');
+const OAUTH_CALLBACK_PORT = 1455;
+
+const CHATGPT_OAUTH = {
+    CLIENT_ID: 'app_EMoamEEZ73f0CkXaXp7hrann',
+    AUTH_URL: 'https://auth.openai.com/oauth/authorize',
+    TOKEN_URL: 'https://auth.openai.com/oauth/token',
+    SCOPES: 'openid profile email offline_access',
+    REDIRECT_URI: `http://localhost:${OAUTH_CALLBACK_PORT}/auth/callback`,
+};
+
+let _pendingOAuthFlow = null;
+let _oauthCallbackServer = null;
+
+function generatePKCE() {
+    const crypto = require('crypto');
+    const codeVerifier = crypto.randomBytes(32).toString('base64url');
+    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+    return { codeVerifier, codeChallenge };
+}
+
+/** Exchange authorization code for tokens and store them */
+async function completeOAuthTokenExchange(code, codeVerifier) {
+    const tokenResp = await fetch(CHATGPT_OAUTH.TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            grant_type: 'authorization_code',
+            client_id: CHATGPT_OAUTH.CLIENT_ID,
+            code,
+            redirect_uri: CHATGPT_OAUTH.REDIRECT_URI,
+            code_verifier: codeVerifier,
+        }),
+    });
+
+    if (!tokenResp.ok) {
+        const errText = await tokenResp.text();
+        throw new Error(`Token exchange failed: ${tokenResp.status} ${errText}`);
+    }
+
+    const tokens = await tokenResp.json();
+    const accessToken = tokens.access_token;
+    const idToken = tokens.id_token;
+
+    let email = '';
+    let accountId = '';
+    if (idToken) {
+        try {
+            const parts = idToken.split('.');
+            let b64 = parts[1];
+            b64 += '='.repeat((4 - b64.length % 4) % 4);
+            const payload = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+            email = payload.email || '';
+            // Extract chatgpt_account_id with 4-tier fallback (matches OpenYak)
+            const authClaim = payload['https://api.openai.com/auth'] || {};
+            accountId = authClaim.chatgpt_account_id
+                || (authClaim.organizations?.[0]?.chatgpt_account_id)
+                || (authClaim.organizations?.[0]?.id)
+                || payload.chatgpt_account_id
+                || authClaim.user_id
+                || payload.sub
+                || '';
+        } catch {}
+    }
+
+    // Store tokens securely
+    const encrypt = (str) => {
+        if (safeStorage.isEncryptionAvailable()) return safeStorage.encryptString(str).toString('base64');
+        return Buffer.from(str).toString('base64');
+    };
+    store.set('chatgptSubAccessToken', encrypt(accessToken));
+    if (tokens.refresh_token) store.set('chatgptSubRefreshToken', encrypt(tokens.refresh_token));
+    store.set('chatgptSubAccountId', accountId);
+    store.set('chatgptSubEmail', email);
+
+    return { email, accessToken, accountId };
+}
+
+/** Stop the OAuth callback HTTP server if running */
+function stopOAuthCallbackServer() {
+    if (_oauthCallbackServer) {
+        _oauthCallbackServer.close();
+        _oauthCallbackServer = null;
+    }
+}
+
+/** Start a one-shot HTTP server on port 1455 for OAuth callback (like OpenYak) */
+function startOAuthCallbackServer() {
+    return new Promise((resolve) => {
+        stopOAuthCallbackServer();
+
+        const server = http.createServer(async (req, res) => {
+            const reqUrl = new URL(req.url, `http://localhost:${OAUTH_CALLBACK_PORT}`);
+
+            if (reqUrl.pathname === '/auth/callback') {
+                const code = reqUrl.searchParams.get('code');
+                const state = reqUrl.searchParams.get('state');
+
+                if (!code || !_pendingOAuthFlow) {
+                    res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end('<html><body><h2>Authentication failed</h2><p>No authorization code received. Please try again.</p></body></html>');
+                    return;
+                }
+
+                if (state && state !== _pendingOAuthFlow.state) {
+                    res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end('<html><body><h2>Authentication failed</h2><p>State mismatch. Please try again.</p></body></html>');
+                    return;
+                }
+
+                try {
+                    const result = await completeOAuthTokenExchange(code, _pendingOAuthFlow.codeVerifier);
+                    _pendingOAuthFlow = null;
+
+                    // Notify renderer of success
+                    const wins = BrowserWindow.getAllWindows();
+                    wins.forEach(w => w.webContents.send('chatgpt-sub-auth-complete', { success: true, ...result }));
+
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end(`<html><body style="font-family:system-ui;text-align:center;padding:60px;">
+                        <h2 style="color:#10a37f;">Authentication successful!</h2>
+                        <p>Signed in as <strong>${result.email}</strong></p>
+                        <p>You can close this tab and return to Sync Multi Chat.</p>
+                        <script>setTimeout(()=>window.close(),3000)</script>
+                    </body></html>`);
+                } catch (err) {
+                    res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end(`<html><body><h2>Authentication failed</h2><p>${err.message}</p></body></html>`);
+                }
+
+                // Close server after handling (one-shot)
+                setTimeout(() => stopOAuthCallbackServer(), 1000);
+            } else {
+                res.writeHead(404);
+                res.end('Not found');
+            }
+        });
+
+        server.on('error', (err) => {
+            console.error('OAuth callback server error:', err.message);
+            resolve(false);
+        });
+
+        server.listen(OAUTH_CALLBACK_PORT, '127.0.0.1', () => {
+            console.log(`OAuth callback server listening on port ${OAUTH_CALLBACK_PORT}`);
+            _oauthCallbackServer = server;
+            resolve(true);
+        });
+
+        // Auto-close after 5 minutes
+        setTimeout(() => stopOAuthCallbackServer(), 300000);
+    });
+}
+
+ipcMain.handle('chatgpt-sub-login', async () => {
+    const { codeVerifier, codeChallenge } = generatePKCE();
+    const state = require('crypto').randomBytes(16).toString('hex');
+
+    // Start callback server BEFORE opening auth URL
+    const serverStarted = await startOAuthCallbackServer();
+
+    const params = new URLSearchParams({
+        client_id: CHATGPT_OAUTH.CLIENT_ID,
+        redirect_uri: CHATGPT_OAUTH.REDIRECT_URI,
+        response_type: 'code',
+        scope: CHATGPT_OAUTH.SCOPES,
+        state,
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256',
+        id_token_add_organizations: 'true',
+        codex_cli_simplified_flow: 'true',
+        originator: 'codex',
+    });
+
+    const authUrl = `${CHATGPT_OAUTH.AUTH_URL}?${params.toString()}`;
+    _pendingOAuthFlow = { codeVerifier, state };
+
+    return { authUrl, callbackServerRunning: serverStarted };
+});
+
+/** Manual callback fallback (user pastes redirect URL) */
+ipcMain.handle('chatgpt-sub-callback', async (event, callbackUrl) => {
+    if (!_pendingOAuthFlow) return { success: false, error: 'No pending OAuth flow' };
+
+    try {
+        const url = new URL(callbackUrl);
+        const code = url.searchParams.get('code');
+        if (!code) return { success: false, error: 'No authorization code in URL' };
+
+        const state = url.searchParams.get('state');
+        if (state && state !== _pendingOAuthFlow.state) {
+            return { success: false, error: 'State mismatch' };
+        }
+
+        const result = await completeOAuthTokenExchange(code, _pendingOAuthFlow.codeVerifier);
+        _pendingOAuthFlow = null;
+        stopOAuthCallbackServer();
+        return { success: true, ...result };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+/** Start a task execution (multi-turn messages) */
+ipcMain.on('task-start', async (event, params) => {
+    const { sessionId, providerId, modelId, messages, executionMode, workspaceDir, activeSkills } = params;
+    llmLog('START', `session=${sessionId}`, `provider=${providerId}`, `model=${modelId}`, `mode=${executionMode}`, `cwd=${workspaceDir || '(default)'}`, `msgs=${messages?.length || 0}`, `skills=${(activeSkills || []).join(',')}`);
+
+    // Handle ChatGPT Subscription provider
+    let apiKey;
+    if (providerId === 'chatgpt-sub') {
+        const encrypted = store.get('chatgptSubAccessToken');
+        if (encrypted) {
+            try {
+                apiKey = safeStorage.isEncryptionAvailable()
+                    ? safeStorage.decryptString(Buffer.from(encrypted, 'base64'))
+                    : Buffer.from(encrypted, 'base64').toString('utf8');
+            } catch { apiKey = null; }
+        }
+    } else {
+        apiKey = getDecryptedApiKey(providerId);
+    }
+
+    const win = BrowserWindow.fromWebContents(event.sender);
+
+    if (!apiKey) {
+        win?.webContents.send('task-stream-error', { sessionId, error: 'No API key configured for this provider.' });
+        return;
+    }
+
+    const abortController = new AbortController();
+    runningTasks.set(sessionId, { abortController, result: '' });
+
+    // Build system prompt based on execution mode + environment context
+    const modeInstructions = {
+        plan: 'You are in plan mode. Explore and analyze only. Do not make any file changes. Describe what you would do.',
+        ask: 'You are in ask-before-edits mode. Propose changes clearly and wait for user approval before making modifications.',
+        auto: 'You are in auto-edit mode. You may make changes directly. Describe what you changed.',
+    };
+    const modeText = modeInstructions[executionMode] || modeInstructions.ask;
+    const cwd = workspaceDir || process.cwd();
+    const now = new Date();
+    const envContext = [
+        `Platform: ${process.platform} (${require('os').release()})`,
+        `Working directory: ${cwd}`,
+        `Current date: ${now.toISOString().split('T')[0]}`,
+        `Current time: ${now.toTimeString().split(' ')[0]}`,
+    ].join('\n');
+
+    // Inject active skill content directly into system prompt
+    let activeSkillSection = '';
+    if (activeSkills && activeSkills.length > 0) {
+        for (const name of activeSkills) {
+            const skill = getSkillContent(name);
+            if (skill) {
+                activeSkillSection += `\n\n# Active Skill: ${skill.name}\n${skill.description ? `> ${skill.description}\n\n` : ''}${skill.content}`;
+            }
+        }
+    }
+
+    // List remaining available skills (not already active) for on-demand loading
+    const allSkillNames = getActiveSkillNames(cwd);
+    const remainingSkills = allSkillNames.filter(n => !(activeSkills || []).includes(n));
+    const onDemandSection = remainingSkills.length > 0 ? `\n\n# Available Skills (on-demand)\nUse the 'skill' tool to load: ${remainingSkills.join(', ')}` : '';
+
+    const systemPrompt = `You are a capable AI coding assistant. Act first, talk later. Be concise.\n\n${modeText}\n\n# Environment\n${envContext}${activeSkillSection}${onDemandSection}`;
+
+    // Build API messages with system prompt
+    const apiMessages = [
+        { role: 'system', content: systemPrompt },
+        ...(messages || []),
+    ];
+
+    try {
+        if (providerId === 'chatgpt-sub') {
+            // ChatGPT Subscription — uses WHAM Responses API, not standard OpenAI API
+            const accountId = store.get('chatgptSubAccountId') || '';
+            await streamWhamInMain(win, sessionId, apiKey, accountId, modelId, apiMessages, abortController.signal, executionMode);
+        } else if (providerId === 'anthropic') {
+            await streamAnthropicInMain(win, sessionId, apiKey, modelId, apiMessages, abortController.signal);
+        } else if (providerId === 'google') {
+            await streamGoogleInMain(win, sessionId, apiKey, modelId, apiMessages, abortController.signal);
+        } else {
+            const baseUrls = {
+                openai: 'https://api.openai.com/v1/chat/completions',
+                xai: 'https://api.x.ai/v1/chat/completions',
+                deepseek: 'https://api.deepseek.com/v1/chat/completions',
+                openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+            };
+            const endpoint = baseUrls[providerId] || baseUrls.openai;
+            await streamOpenAICompatInMain(win, sessionId, endpoint, apiKey, modelId, apiMessages, abortController.signal);
+        }
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            win?.webContents.send('task-stream-error', { sessionId, error: err.message });
+        }
+    } finally {
+        runningTasks.delete(sessionId);
+    }
+});
+
+/** Stop a running task */
+ipcMain.on('task-stop', (event, sessionId) => {
+    const task = runningTasks.get(sessionId);
+    if (task?.abortController) {
+        task.abortController.abort();
+    }
+});
+
+/** Get state of a running task */
+ipcMain.handle('task-get-state', (event, sessionId) => {
+    const task = runningTasks.get(sessionId);
+    if (task) return { state: 'running', result: task.result };
+    return { state: 'done', result: '' };
+});
+
+async function streamOpenAICompatInMain(win, sessionId, endpoint, apiKey, modelId, messages, signal) {
+    const reqHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` };
+    const reqBody = { model: modelId, messages: messages, stream: true };
+    llmLog('REQ', 'POST', endpoint);
+    llmLog('REQ-H', JSON.stringify(_maskHeaders(reqHeaders)));
+    llmLog('REQ-B', JSON.stringify({ ...reqBody, messages: `[${messages.length} msgs]` }));
+
+    const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: reqHeaders,
+        body: JSON.stringify(reqBody),
+        signal,
+    });
+    llmLog('RES', resp.status, resp.statusText);
+    llmLog('RES-H', JSON.stringify(Object.fromEntries(resp.headers.entries())));
+    if (!resp.ok) throw new Error(`API error: ${resp.status} ${resp.statusText}`);
+
+    const task = runningTasks.get(sessionId);
+    for await (const chunk of resp.body) {
+        if (signal.aborted) break;
+        const text = (chunk instanceof Uint8Array || Buffer.isBuffer(chunk)) ? Buffer.from(chunk).toString('utf8') : String(chunk);
+        const lines = text.split('\n');
+        for (const line of lines) {
+            if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
+                try {
+                    const parsed = JSON.parse(data);
+                    const content = parsed.choices?.[0]?.delta?.content;
+                    if (content) {
+                        if (task) task.result += content;
+                        win?.webContents.send('task-stream-chunk', { sessionId, chunk: content });
+                    }
+                } catch { /* skip malformed SSE */ }
+            }
+        }
+    }
+    win?.webContents.send('task-stream-done', { sessionId });
+}
+
+/** Refresh ChatGPT subscription OAuth token using refresh_token */
+async function refreshChatGPTSubToken() {
+    const encrypted = store.get('chatgptSubRefreshToken');
+    if (!encrypted) throw new Error('No refresh token available');
+
+    let refreshToken;
+    try {
+        refreshToken = safeStorage.isEncryptionAvailable()
+            ? safeStorage.decryptString(Buffer.from(encrypted, 'base64'))
+            : Buffer.from(encrypted, 'base64').toString('utf8');
+    } catch { throw new Error('Failed to decrypt refresh token'); }
+    if (!refreshToken) throw new Error('Empty refresh token');
+
+    const resp = await fetch(CHATGPT_OAUTH.TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            client_id: CHATGPT_OAUTH.CLIENT_ID,
+            refresh_token: refreshToken,
+        }),
+        signal: AbortSignal.timeout(15000),
+    });
+    if (!resp.ok) throw new Error(`Token refresh failed: HTTP ${resp.status}`);
+    const tokens = await resp.json();
+
+    // Persist refreshed tokens
+    const encrypt = (str) => {
+        if (safeStorage.isEncryptionAvailable()) return safeStorage.encryptString(str).toString('base64');
+        return Buffer.from(str).toString('base64');
+    };
+    store.set('chatgptSubAccessToken', encrypt(tokens.access_token));
+    if (tokens.refresh_token) store.set('chatgptSubRefreshToken', encrypt(tokens.refresh_token));
+
+    return tokens.access_token;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LLM Session Debug Logging (SMC_LLM_SESSION_DEBUG=1)
+   ═══════════════════════════════════════════════════════════════ */
+
+const _llmDebug = process.env.SMC_LLM_SESSION_DEBUG === '1';
+
+function _maskSecret(val) {
+    if (!val || typeof val !== 'string') return val;
+    if (val.length <= 12) return '***';
+    return val.slice(0, 5) + '...' + val.slice(-4);
+}
+
+function _maskHeaders(headers) {
+    const safe = { ...headers };
+    if (safe['Authorization']) safe['Authorization'] = 'Bearer ' + _maskSecret(safe['Authorization'].replace('Bearer ', ''));
+    if (safe['ChatGPT-Account-Id']) safe['ChatGPT-Account-Id'] = _maskSecret(safe['ChatGPT-Account-Id']);
+    return safe;
+}
+
+function llmLog(tag, ...args) {
+    if (!_llmDebug) return;
+    const ts = new Date().toISOString().slice(11, 23);
+    console.log(`[SMC-LLM ${ts}] [${tag}]`, ...args);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Permission Engine, Tool Registry, Skill System, Workspace Guard
+   ═══════════════════════════════════════════════════════════════ */
+
+/** Permission evaluation — last-match-wins algorithm (matches OpenYak permission.py) */
+const PERMISSION_DEFAULTS = [
+    { action: 'allow', permission: '*', pattern: '*' },
+    { action: 'ask', permission: 'bash', pattern: '*' },
+    { action: 'ask', permission: 'code_execute', pattern: '*' },
+    { action: 'ask', permission: 'write', pattern: '*' },
+    { action: 'ask', permission: 'edit', pattern: '*' },
+];
+
+const MODE_PERMISSION_PRESETS = {
+    plan: [
+        { action: 'deny', permission: 'bash', pattern: '*' },
+        { action: 'deny', permission: 'code_execute', pattern: '*' },
+        { action: 'deny', permission: 'write', pattern: '*' },
+        { action: 'deny', permission: 'edit', pattern: '*' },
+    ],
+    ask: [
+        { action: 'ask', permission: 'bash', pattern: '*' },
+        { action: 'ask', permission: 'code_execute', pattern: '*' },
+        { action: 'ask', permission: 'write', pattern: '*' },
+        { action: 'ask', permission: 'edit', pattern: '*' },
+    ],
+    auto: [
+        { action: 'allow', permission: 'bash', pattern: '*' },
+        { action: 'allow', permission: 'code_execute', pattern: '*' },
+        { action: 'allow', permission: 'write', pattern: '*' },
+        { action: 'allow', permission: 'edit', pattern: '*' },
+    ],
+};
+
+function _globMatch(value, pattern) {
+    if (pattern === '*') return true;
+    return value === pattern;
+}
+
+function evaluatePermission(toolName, executionMode, sessionOverrides) {
+    const rules = [
+        ...PERMISSION_DEFAULTS,
+        ...(MODE_PERMISSION_PRESETS[executionMode] || MODE_PERMISSION_PRESETS.ask),
+        ...(sessionOverrides || []),
+    ];
+    let result = 'deny';
+    for (const rule of rules) {
+        if (_globMatch(toolName, rule.permission) && _globMatch('*', rule.pattern)) {
+            result = rule.action;
+        }
+    }
+    return result;
+}
+
+/** Pending permission requests (IPC round-trip with renderer) */
+const _pendingPermissions = new Map();
+
+ipcMain.on('permission-respond', (event, reqId, decision) => {
+    const pending = _pendingPermissions.get(reqId);
+    if (pending) {
+        clearTimeout(pending.timer);
+        _pendingPermissions.delete(reqId);
+        pending.resolve(decision === 'allow');
+    }
+});
+
+function askPermission(win, sessionId, toolName, args) {
+    return new Promise((resolve) => {
+        const reqId = require('crypto').randomBytes(8).toString('hex');
+        const timer = setTimeout(() => {
+            _pendingPermissions.delete(reqId);
+            resolve(false); // auto-deny after 5 min
+        }, 300000);
+        _pendingPermissions.set(reqId, { resolve, timer });
+        const preview = toolName === 'bash' ? (args.command || '').slice(0, 500)
+            : toolName === 'code_execute' ? (args.code || '').slice(0, 500)
+            : toolName === 'write' ? `Write to: ${args.file_path || '?'}`
+            : toolName === 'edit' ? `Edit: ${args.file_path || '?'}`
+            : JSON.stringify(args).slice(0, 300);
+        win?.webContents.send('permission-request', { reqId, sessionId, toolName, preview });
+    });
+}
+
+/** Workspace path validation */
+function validateWorkspacePath(filePath, workspaceDir) {
+    if (!workspaceDir) return true;
+    const path = require('path');
+    const resolved = path.resolve(workspaceDir, filePath);
+    return resolved.startsWith(path.resolve(workspaceDir));
+}
+
+/** ─── Skill Registry ─── */
+let _skillCache = null;
+
+function scanSkills(workspaceDir) {
+    const fs = require('fs');
+    const path = require('path');
+    const skills = [];
+    const disabled = store.get('skillsDisabled') || [];
+
+    const scanDir = (dir, source) => {
+        if (!fs.existsSync(dir)) return;
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            const skillFile = path.join(dir, entry.name, 'SKILL.md');
+            if (!fs.existsSync(skillFile)) continue;
+            try {
+                const content = fs.readFileSync(skillFile, 'utf8');
+                const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+                let name = entry.name;
+                let description = '';
+                if (fmMatch) {
+                    const fm = fmMatch[1];
+                    const nameMatch = fm.match(/^name:\s*["']?(.+?)["']?\s*$/m);
+                    const descMatch = fm.match(/^description:\s*["']?(.+?)["']?\s*$/m);
+                    if (nameMatch) name = nameMatch[1];
+                    if (descMatch) description = descMatch[1];
+                }
+                const body = fmMatch ? content.slice(fmMatch[0].length).trim() : content;
+                skills.push({ name, description, location: skillFile, source, content: body, enabled: !disabled.includes(name) });
+            } catch { /* skip unreadable skills */ }
+        }
+    };
+
+    // Scan in priority order
+    const appPath = app.isPackaged ? path.join(process.resourcesPath, 'app') : app.getAppPath();
+    scanDir(path.join(appPath, 'src', 'data', 'skills'), 'bundled');
+    scanDir(path.join(require('os').homedir(), '.openyak', 'skills'), 'global');
+    if (workspaceDir) {
+        scanDir(path.join(workspaceDir, '.openyak', 'skills'), 'project');
+    }
+
+    _skillCache = skills;
+    return skills;
+}
+
+function getActiveSkillNames(workspaceDir) {
+    const skills = _skillCache || scanSkills(workspaceDir);
+    return skills.filter(s => s.enabled).map(s => s.name);
+}
+
+function getSkillContent(name) {
+    if (!_skillCache) return null;
+    return _skillCache.find(s => s.name === name && s.enabled);
+}
+
+/** ─── Dynamic Tool Registry ─── */
+const BUILTIN_TOOL_DEFS = [
+    {
+        type: 'function', name: 'bash',
+        description: 'Execute a shell command locally and return stdout/stderr. Use for file system operations, git commands, installing packages, running scripts.',
+        parameters: { type: 'object', properties: { command: { type: 'string', description: 'Shell command to execute' } }, required: ['command'] },
+    },
+    {
+        type: 'function', name: 'code_execute',
+        description: 'Execute Python code locally and return the output. Use for computations, data processing, file operations, and scripting tasks.',
+        parameters: { type: 'object', properties: { code: { type: 'string', description: 'Python code to execute' } }, required: ['code'] },
+    },
+    {
+        type: 'function', name: 'read',
+        description: 'Read a file from the local filesystem. Returns file content with line numbers. Use offset and limit for large files.',
+        parameters: { type: 'object', properties: { file_path: { type: 'string', description: 'Absolute or relative path to read' }, offset: { type: 'integer', description: 'Line number to start from (1-based)' }, limit: { type: 'integer', description: 'Max lines to read' } }, required: ['file_path'] },
+    },
+    {
+        type: 'function', name: 'write',
+        description: 'Write content to a file. Creates the file if it does not exist, overwrites if it does.',
+        parameters: { type: 'object', properties: { file_path: { type: 'string', description: 'Path to write' }, content: { type: 'string', description: 'Content to write' } }, required: ['file_path', 'content'] },
+    },
+    {
+        type: 'function', name: 'edit',
+        description: 'Replace a specific string in a file. The old_string must match exactly.',
+        parameters: { type: 'object', properties: { file_path: { type: 'string', description: 'Path to the file' }, old_string: { type: 'string', description: 'Text to find (exact match)' }, new_string: { type: 'string', description: 'Replacement text' } }, required: ['file_path', 'old_string', 'new_string'] },
+    },
+    {
+        type: 'function', name: 'glob',
+        description: 'Find files matching a glob pattern (e.g., "**/*.js"). Returns file paths.',
+        parameters: { type: 'object', properties: { pattern: { type: 'string', description: 'Glob pattern' }, path: { type: 'string', description: 'Directory to search in' } }, required: ['pattern'] },
+    },
+    {
+        type: 'function', name: 'grep',
+        description: 'Search file contents for a regex pattern. Returns matching lines with file paths and line numbers.',
+        parameters: { type: 'object', properties: { pattern: { type: 'string', description: 'Regex pattern to search' }, path: { type: 'string', description: 'Directory to search' }, glob: { type: 'string', description: 'Filter files by glob (e.g., "*.js")' } }, required: ['pattern'] },
+    },
+];
+
+function getActiveToolDefinitions(workspaceDir) {
+    const skillNames = getActiveSkillNames(workspaceDir);
+    const tools = [...BUILTIN_TOOL_DEFS];
+    if (skillNames.length > 0) {
+        tools.push({
+            type: 'function', name: 'skill',
+            description: `Load a skill's detailed instructions by name. Available skills: ${skillNames.join(', ')}`,
+            parameters: { type: 'object', properties: { name: { type: 'string', description: 'Skill name to load' } }, required: ['name'] },
+        });
+    }
+    tools.push({ type: 'web_search' });
+    return tools;
+}
+
+/** Execute a local tool call and return the output string */
+async function executeLocalTool(name, args, workingDir) {
+    const { execSync } = require('child_process');
+    const fs = require('fs');
+    const path = require('path');
+    const cwd = workingDir || process.cwd();
+    const timeout = 30000;
+    const maxOutput = 50000;
+
+    // On Windows, force UTF-8 codepage for proper Korean/CJK output
+    const isWin = process.platform === 'win32';
+    const execOpts = { cwd, timeout, maxBuffer: 2 * 1024 * 1024, encoding: 'buffer' };
+
+    const decodeOutput = (buf) => {
+        if (!buf || buf.length === 0) return '(no output)';
+        // Try UTF-8 first, fall back to system encoding
+        return buf.toString('utf8').slice(0, maxOutput);
+    };
+
+    try {
+        if (name === 'bash') {
+            const cmd = args.command || '';
+            const prefix = isWin ? 'chcp 65001 >nul && ' : '';
+            const buf = execSync(`${prefix}${cmd}`, { ...execOpts, stdio: ['pipe', 'pipe', 'pipe'] });
+            return decodeOutput(buf);
+        } else if (name === 'code_execute') {
+            const code = args.code || '';
+            const pyCmd = isWin ? 'python' : 'python3';
+            const prefix = isWin ? 'chcp 65001 >nul && ' : '';
+            const buf = execSync(`${prefix}${pyCmd} -c ${JSON.stringify(code)}`, execOpts);
+            return decodeOutput(buf);
+        } else if (name === 'read') {
+            const filePath = path.resolve(cwd, args.file_path || '');
+            if (!validateWorkspacePath(filePath, workingDir)) return 'Error: Path outside workspace';
+            const content = fs.readFileSync(filePath, 'utf8');
+            const lines = content.split('\n');
+            const offset = Math.max(0, (args.offset || 1) - 1);
+            const limit = args.limit || 200;
+            return lines.slice(offset, offset + limit).map((l, i) => `${offset + i + 1}\t${l}`).join('\n').slice(0, maxOutput);
+        } else if (name === 'write') {
+            const filePath = path.resolve(cwd, args.file_path || '');
+            if (!validateWorkspacePath(filePath, workingDir)) return 'Error: Path outside workspace';
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
+            fs.writeFileSync(filePath, args.content || '', 'utf8');
+            return `File written: ${filePath}`;
+        } else if (name === 'edit') {
+            const filePath = path.resolve(cwd, args.file_path || '');
+            if (!validateWorkspacePath(filePath, workingDir)) return 'Error: Path outside workspace';
+            const content = fs.readFileSync(filePath, 'utf8');
+            if (!content.includes(args.old_string)) return 'Error: old_string not found in file';
+            fs.writeFileSync(filePath, content.replace(args.old_string, args.new_string), 'utf8');
+            return `File edited: ${filePath}`;
+        } else if (name === 'glob') {
+            const { globSync } = require('fs');
+            const searchPath = args.path ? path.resolve(cwd, args.path) : cwd;
+            // Use simple recursive readdir as globSync may not be available
+            const results = [];
+            const walk = (dir, depth) => {
+                if (depth > 8 || results.length > 500) return;
+                try {
+                    const entries = fs.readdirSync(dir, { withFileTypes: true });
+                    for (const e of entries) {
+                        if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+                        const full = path.join(dir, e.name);
+                        if (e.isDirectory()) walk(full, depth + 1);
+                        else if (_simpleGlobMatch(e.name, args.pattern)) results.push(path.relative(cwd, full));
+                    }
+                } catch {}
+            };
+            walk(searchPath, 0);
+            return results.join('\n').slice(0, maxOutput) || '(no matches)';
+        } else if (name === 'grep') {
+            const searchPath = args.path ? path.resolve(cwd, args.path) : cwd;
+            const regex = new RegExp(args.pattern, 'gi');
+            const fileGlob = args.glob || '*';
+            const results = [];
+            const walk = (dir, depth) => {
+                if (depth > 6 || results.length > 200) return;
+                try {
+                    const entries = fs.readdirSync(dir, { withFileTypes: true });
+                    for (const e of entries) {
+                        if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+                        const full = path.join(dir, e.name);
+                        if (e.isDirectory()) walk(full, depth + 1);
+                        else if (_simpleGlobMatch(e.name, fileGlob)) {
+                            try {
+                                const lines = fs.readFileSync(full, 'utf8').split('\n');
+                                lines.forEach((line, i) => {
+                                    if (regex.test(line) && results.length < 200) {
+                                        results.push(`${path.relative(cwd, full)}:${i + 1}: ${line.trim()}`);
+                                    }
+                                    regex.lastIndex = 0;
+                                });
+                            } catch {}
+                        }
+                    }
+                } catch {}
+            };
+            walk(searchPath, 0);
+            return results.join('\n').slice(0, maxOutput) || '(no matches)';
+        } else if (name === 'skill') {
+            const skill = getSkillContent(args.name);
+            if (!skill) return `Skill '${args.name}' not found or disabled. Available: ${getActiveSkillNames(cwd).join(', ')}`;
+            return `# Skill: ${skill.name}\n${skill.description ? `> ${skill.description}\n\n` : ''}${skill.content}`;
+        }
+        return `Unknown tool: ${name}`;
+    } catch (err) {
+        return `Error: ${err.message || err}`.slice(0, maxOutput);
+    }
+}
+
+function _simpleGlobMatch(filename, pattern) {
+    if (pattern === '*') return true;
+    // Simple *.ext matching
+    if (pattern.startsWith('*.')) return filename.endsWith(pattern.slice(1));
+    if (pattern.startsWith('**/*.')) return filename.endsWith(pattern.slice(3));
+    return filename.includes(pattern.replace(/\*/g, ''));
+}
+
+/** Parse WHAM SSE stream — returns { toolCalls[], error } */
+async function parseWhamStream(resp, win, sessionId, signal) {
+    const task = runningTasks.get(sessionId);
+    // item_id -> { id (fc_xxx), call_id (call_xxx), name, arguments }
+    const toolCallAccumulators = {};
+    const pendingToolCalls = [];
+    let lineBuf = '';
+
+    for await (const chunk of resp.body) {
+        if (signal?.aborted) return { toolCalls: [], error: true };
+        const text = (chunk instanceof Uint8Array || Buffer.isBuffer(chunk)) ? Buffer.from(chunk).toString('utf8') : String(chunk);
+        lineBuf += text;
+        const lines = lineBuf.split('\n');
+        lineBuf = lines.pop() || '';
+
+        for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+                const event = JSON.parse(data);
+                const eventType = event.type || '';
+
+                llmLog('SSE', eventType, eventType.includes('delta') ? `[${(event.delta || '').length} chars]` : '');
+
+                // Reasoning / thinking events
+                if (eventType === 'response.created' || eventType === 'response.in_progress') {
+                    win?.webContents.send('task-stream-thinking', { sessionId, chunk: '', event: 'start' });
+                } else if (eventType === 'response.reasoning_summary_text.delta'
+                    || eventType === 'response.reasoning_summary_part.delta'
+                    || eventType === 'response.reasoning.delta') {
+                    const delta = event.delta || '';
+                    if (delta) {
+                        win?.webContents.send('task-stream-thinking', { sessionId, chunk: delta });
+                    }
+                } else if (eventType === 'response.output_text.delta') {
+                    const delta = event.delta || '';
+                    if (delta) {
+                        if (task) task.result += delta;
+                        win?.webContents.send('task-stream-chunk', { sessionId, chunk: delta });
+                    }
+                } else if (eventType === 'response.output_item.added') {
+                    const item = event.item || {};
+                    if (item.type === 'function_call') {
+                        win?.webContents.send('task-stream-thinking', { sessionId, chunk: `\nTool: ${item.name || 'unknown'}...\n` });
+                        toolCallAccumulators[item.id] = {
+                            id: item.id,
+                            call_id: item.call_id || item.id,
+                            name: item.name || '',
+                            arguments: '',
+                        };
+                    }
+                } else if (eventType === 'response.function_call_arguments.delta') {
+                    const acc = toolCallAccumulators[event.item_id];
+                    if (acc) acc.arguments += (event.delta || '');
+                } else if (eventType === 'response.function_call_arguments.done') {
+                    const acc = toolCallAccumulators[event.item_id];
+                    if (acc) {
+                        pendingToolCalls.push({ id: acc.id, call_id: acc.call_id, name: acc.name, arguments: acc.arguments });
+                        delete toolCallAccumulators[event.item_id];
+                    }
+                } else if (eventType === 'response.completed') {
+                    const output = event.response?.output || [];
+                    for (const item of output) {
+                        if (item.type === 'function_call' && !pendingToolCalls.find(tc => tc.id === item.id)) {
+                            pendingToolCalls.push({ id: item.id, call_id: item.call_id || item.id, name: item.name, arguments: item.arguments || '{}' });
+                        }
+                    }
+                } else if (eventType === 'error') {
+                    const errMsg = event.error?.message || event.error || 'Unknown WHAM error';
+                    win?.webContents.send('task-stream-error', { sessionId, error: errMsg });
+                    return { toolCalls: [], error: true };
+                }
+            } catch { /* skip malformed SSE */ }
+        }
+    }
+    return { toolCalls: pendingToolCalls, error: false };
+}
+
+/** Stream from ChatGPT WHAM Responses API with tool-call loop */
+async function streamWhamInMain(win, sessionId, accessToken, accountId, modelId, messages, signal, executionMode) {
+    const WHAM_URL = 'https://chatgpt.com/backend-api/codex/responses';
+    const MAX_TOOL_ROUNDS = 10;
+
+    // Build WHAM request body — separate system instructions from input messages
+    const systemParts = [];
+    const inputMessages = [];
+    for (const msg of messages) {
+        if (msg.role === 'system') {
+            systemParts.push(msg.content);
+        } else {
+            inputMessages.push({ role: msg.role, content: msg.content });
+        }
+    }
+
+    const headers = {
+        'Authorization': `Bearer ${accessToken}`,
+        'ChatGPT-Account-Id': accountId,
+        'Content-Type': 'application/json',
+    };
+
+    // Initial request
+    let whamInput = [...inputMessages];
+    const instructions = systemParts.length > 0 ? systemParts.join('\n\n') : undefined;
+    // Extract workspaceDir from system prompt for tool execution context
+    const cwdMatch = systemParts.join('\n').match(/Working directory:\s*(.+)/);
+    const workingDir = cwdMatch ? cwdMatch[1].trim() : process.cwd();
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        const whamBody = {
+            model: modelId,
+            store: false,
+            stream: true,
+            ...(instructions && { instructions }),
+            input: whamInput,
+            reasoning: { effort: 'medium', summary: 'auto' },
+            tools: getActiveToolDefinitions(workingDir),
+            include: ['web_search_call.action.sources'],
+        };
+
+        // Signal new thinking round to renderer
+        if (round > 0) {
+            win?.webContents.send('task-stream-thinking', { sessionId, chunk: '', event: 'new-round' });
+        }
+
+        llmLog('WHAM-REQ', `Round ${round}`, 'POST', WHAM_URL);
+        llmLog('WHAM-REQ-H', JSON.stringify(_maskHeaders(headers)));
+        llmLog('WHAM-REQ-B', JSON.stringify({ ...whamBody, input: `[${whamInput.length} items]`, tools: `[${whamBody.tools?.length || 0} tools]`, instructions: instructions ? `[${instructions.length} chars]` : 'none' }));
+
+        let resp = await fetch(WHAM_URL, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(whamBody),
+            signal,
+        });
+
+        llmLog('WHAM-RES', `Round ${round}`, resp.status, resp.statusText);
+        llmLog('WHAM-RES-H', JSON.stringify(Object.fromEntries(resp.headers.entries())));
+
+        // Handle 401 — refresh token and retry once
+        if (resp.status === 401 && round === 0) {
+            try {
+                const newToken = await refreshChatGPTSubToken();
+                headers['Authorization'] = `Bearer ${newToken}`;
+                resp = await fetch(WHAM_URL, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(whamBody),
+                    signal,
+                });
+            } catch {
+                throw new Error('Authentication failed. Please re-authorize your ChatGPT subscription in Settings.');
+            }
+        }
+
+        if (!resp.ok) {
+            const errText = await resp.text().catch(() => '');
+            throw new Error(`WHAM API error: ${resp.status} — ${errText.slice(0, 200)}`);
+        }
+
+        const { toolCalls, error } = await parseWhamStream(resp, win, sessionId, signal);
+        if (error) return;
+
+        // If no tool calls, we're done
+        if (toolCalls.length === 0) break;
+
+        // Check abort before executing tool calls
+        if (signal.aborted) return;
+
+        // Execute tool calls locally with permission checks
+        llmLog('TOOLS', `${toolCalls.length} tool call(s):`, toolCalls.map(tc => tc.name).join(', '));
+        const sessionOverrides = runningTasks.get(sessionId)?.permissionOverrides || [];
+        for (const tc of toolCalls) {
+            let parsedArgs = {};
+            try { parsedArgs = JSON.parse(tc.arguments); } catch {}
+            llmLog('TOOL-CALL', tc.name, `id=${tc.id}`, JSON.stringify(parsedArgs).slice(0, 300));
+
+            // Permission check
+            const perm = evaluatePermission(tc.name, executionMode || 'ask', sessionOverrides);
+            let output;
+            if (perm === 'deny') {
+                output = `Permission denied: '${tc.name}' is not allowed in ${executionMode || 'ask'} mode.`;
+                win?.webContents.send('task-stream-chunk', { sessionId, chunk: `\n> Permission denied for \`${tc.name}\`\n` });
+            } else if (perm === 'ask') {
+                const allowed = await askPermission(win, sessionId, tc.name, parsedArgs);
+                if (!allowed) {
+                    output = `Permission denied by user for '${tc.name}'.`;
+                    win?.webContents.send('task-stream-chunk', { sessionId, chunk: `\n> User denied \`${tc.name}\`\n` });
+                } else {
+                    const preview = tc.name === 'bash' ? (parsedArgs.command || '') : tc.name === 'code_execute' ? (parsedArgs.code || '') : `${tc.name}(${JSON.stringify(parsedArgs).slice(0, 200)})`;
+                    win?.webContents.send('task-stream-tool', { sessionId, tool: tc.name, preview, phase: 'start' });
+                    output = await executeLocalTool(tc.name, parsedArgs, workingDir);
+                    win?.webContents.send('task-stream-tool', { sessionId, tool: tc.name, output: output.slice(0, 3000), phase: 'done' });
+                }
+            } else {
+                const preview = tc.name === 'bash' ? (parsedArgs.command || '') : tc.name === 'code_execute' ? (parsedArgs.code || '') : `${tc.name}(${JSON.stringify(parsedArgs).slice(0, 200)})`;
+                win?.webContents.send('task-stream-tool', { sessionId, tool: tc.name, preview, phase: 'start' });
+                output = await executeLocalTool(tc.name, parsedArgs, workingDir);
+                win?.webContents.send('task-stream-tool', { sessionId, tool: tc.name, output: output.slice(0, 3000), phase: 'done' });
+            }
+
+            // Append function_call + function_call_output to input for next WHAM round
+            // id must be fc_xxx (WHAM item ID), call_id is call_xxx (model call ID)
+            whamInput.push({ type: 'function_call', id: tc.id, call_id: tc.call_id, name: tc.name, arguments: tc.arguments });
+            whamInput.push({ type: 'function_call_output', call_id: tc.call_id, output });
+            llmLog('TOOL-OUT', tc.name, `[${(output || '').length} chars]`, (output || '').slice(0, 200));
+        }
+    }
+
+    win?.webContents.send('task-stream-done', { sessionId });
+}
+
+async function streamAnthropicInMain(win, sessionId, apiKey, modelId, messages, signal) {
+    // Anthropic needs messages without system role in the messages array; system goes to top-level
+    const systemMsg = messages.find(m => m.role === 'system');
+    const chatMsgs = messages.filter(m => m.role !== 'system');
+    const body = { model: modelId, max_tokens: 8192, messages: chatMsgs, stream: true };
+    if (systemMsg) body.system = systemMsg.content;
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(body),
+        signal,
+    });
+    if (!resp.ok) throw new Error(`API error: ${resp.status} ${resp.statusText}`);
+
+    const task = runningTasks.get(sessionId);
+    for await (const chunk of resp.body) {
+        if (signal.aborted) break;
+        const text = (chunk instanceof Uint8Array || Buffer.isBuffer(chunk)) ? Buffer.from(chunk).toString('utf8') : String(chunk);
+        const lines = text.split('\n');
+        for (const line of lines) {
+            if (line.startsWith('data: ')) {
+                try {
+                    const parsed = JSON.parse(line.slice(6));
+                    if (parsed.type === 'content_block_delta') {
+                        const content = parsed.delta?.text;
+                        if (content) {
+                            if (task) task.result += content;
+                            win?.webContents.send('task-stream-chunk', { sessionId, chunk: content });
+                        }
+                    }
+                } catch { /* skip */ }
+            }
+        }
+    }
+    win?.webContents.send('task-stream-done', { sessionId });
+}
+
+async function streamGoogleInMain(win, sessionId, apiKey, modelId, messages, signal) {
+    // Convert messages to Google format
+    const contents = messages.filter(m => m.role !== 'system').map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+    }));
+    const systemInstruction = messages.find(m => m.role === 'system');
+    const body = { contents };
+    if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:streamGenerateContent?alt=sse&key=${apiKey}`;
+    const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal,
+    });
+    if (!resp.ok) throw new Error(`API error: ${resp.status} ${resp.statusText}`);
+
+    const task = runningTasks.get(sessionId);
+    for await (const chunk of resp.body) {
+        if (signal.aborted) break;
+        const text = (chunk instanceof Uint8Array || Buffer.isBuffer(chunk)) ? Buffer.from(chunk).toString('utf8') : String(chunk);
+        const lines = text.split('\n');
+        for (const line of lines) {
+            if (line.startsWith('data: ')) {
+                try {
+                    const parsed = JSON.parse(line.slice(6));
+                    const content = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (content) {
+                        if (task) task.result += content;
+                        win?.webContents.send('task-stream-chunk', { sessionId, chunk: content });
+                    }
+                } catch { /* skip */ }
+            }
+        }
+    }
+    win?.webContents.send('task-stream-done', { sessionId });
+}
+
 app.on('window-all-closed', () => {
+    // Abort all running tasks on app close
+    for (const [, task] of runningTasks) {
+        task.abortController?.abort();
+    }
+    runningTasks.clear();
     if (process.platform !== 'darwin') {
         app.quit();
     }

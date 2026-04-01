@@ -24,6 +24,11 @@
                     <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>
                     <span class="rail-btn-label">New Chat</span>
                 </button>
+                <button type="button" class="sidebar-rail-btn sidebar-rail-new-task" data-sidebar-panel="new-task" title="New Task">
+                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg></span>
+                    <span class="rail-btn-label">New Task</span>
+                </button>
+                <div class="sidebar-rail-separator" aria-hidden="true"></div>
                 <button type="button" class="sidebar-rail-btn" data-sidebar-panel="dashboard" title="Dashboard">
                     <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span>
                     <span class="rail-btn-label">Dashboard</span>
@@ -32,11 +37,41 @@
                     <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span>
                     <span class="rail-btn-label">Prompt Hub</span>
                 </button>
+                <button type="button" class="sidebar-rail-btn" data-sidebar-panel="automations" title="Automations">
+                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></span>
+                    <span class="rail-btn-label">Automations</span>
+                </button>
+                <button type="button" class="sidebar-rail-btn" data-sidebar-panel="customize" title="Customize">
+                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span>
+                    <span class="rail-btn-label">Customize</span>
+                </button>
+                <button type="button" class="sidebar-rail-btn" data-sidebar-panel="remote" title="Remote">
+                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></span>
+                    <span class="rail-btn-label">Remote</span>
+                </button>
+                <div class="sidebar-rail-separator" aria-hidden="true"></div>
                 <button type="button" class="sidebar-rail-btn" data-sidebar-panel="history" title="Chat History">
                     <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></span>
                     <span class="rail-btn-label">Chat History</span>
                 </button>
+                <div class="sidebar-rail-spacer"></div>
             </nav>
+            <div id="sidebar-footer" class="sidebar-footer">
+                <div class="sidebar-footer-row sidebar-footer-status" id="sidebar-chatgpt-status" title="ChatGPT connection status">
+                    <span class="rail-btn-icon" aria-hidden="true"><span class="sidebar-status-dot sidebar-status-offline" id="sidebar-status-dot"></span></span>
+                    <span class="sidebar-footer-label" id="sidebar-status-label">Offline</span>
+                </div>
+                <div class="sidebar-footer-row sidebar-footer-account-row" id="sidebar-account" title="Account">
+                    <div class="sidebar-footer-account-info">
+                        <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
+                        <span class="sidebar-footer-label" id="sidebar-account-label">Not configured</span>
+                    </div>
+                </div>
+                <button type="button" class="sidebar-footer-gear" id="sidebar-settings-btn" title="Settings">
+                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span>
+                    <span class="footer-gear-label">Settings</span>
+                </button>
+            </div>
         </div>
 
         <div id="main-content">
@@ -127,8 +162,8 @@
                         <div class="history-toolbar">
                             <input type="search" id="history-title-search" class="history-toolbar-search" placeholder="Search title…" autocomplete="off" />
                             <select id="history-sort-select" class="history-toolbar-sort" title="Sort">
-                                <option value="updatedDesc">Last updated</option>
                                 <option value="createdDesc">Created</option>
+                                <option value="updatedDesc">Last updated</option>
                                 <option value="titleAsc">Title A–Z</option>
                             </select>
                         </div>
@@ -145,6 +180,241 @@
                             <div id="history-list"></div>
                         </div>
                     </div>
+                </div>
+                <!-- Automations placeholder panel -->
+                <div id="smc-overlay-automations" class="smc-full-panel" role="dialog" aria-modal="true" aria-labelledby="smc-bc-automations" aria-hidden="true">
+                    <header class="smc-panel-chrome">
+                        <h2 id="smc-bc-automations" class="smc-panel-title">Automations</h2>
+                        <button type="button" class="smc-panel-close icon-btn" data-smc-close-panel aria-label="Close panel">&times;</button>
+                    </header>
+                    <div class="smc-panel-body smc-panel-body-scroll smc-panel-body-center">
+                        <div class="smc-placeholder-panel">
+                            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="smc-placeholder-icon"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                            <h3 class="smc-placeholder-title">Automations</h3>
+                            <p class="smc-placeholder-desc">Schedule cross-verification tasks and automate recurring AI workflows. Coming soon.</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Customize panel (3-panel layout) -->
+                <div id="smc-overlay-customize" class="smc-full-panel" role="dialog" aria-modal="true" aria-labelledby="smc-bc-customize" aria-hidden="true">
+                    <header class="smc-panel-chrome">
+                        <h2 id="smc-bc-customize" class="smc-panel-title">Customize</h2>
+                        <button type="button" class="smc-panel-close icon-btn" data-smc-close-panel aria-label="Close panel">&times;</button>
+                    </header>
+                    <div class="smc-panel-body customize-body">
+                        <!-- Panel 1: Left nav -->
+                        <nav class="customize-nav" aria-label="Customize sections">
+                            <button type="button" class="customize-nav-item active" data-customize-section="skills">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                                Skills
+                            </button>
+                            <button type="button" class="customize-nav-item" data-customize-section="connectors">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                Connectors
+                            </button>
+                        </nav>
+                        <!-- Panel 2: Middle list -->
+                        <div class="customize-list-panel">
+                            <div class="customize-list-header">
+                                <span class="customize-list-title" id="customize-list-title">Skills</span>
+                                <div class="customize-search-row">
+                                    <input type="search" id="customize-search" class="customize-search" placeholder="Search..." autocomplete="off" />
+                                    <button type="button" id="cust-expand-all" class="cust-tree-toggle-btn" title="Expand All"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/><path d="M4 2l4 4 4-4"/></svg></button>
+                                    <button type="button" id="cust-collapse-all" class="cust-tree-toggle-btn" title="Collapse All"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 10l4-4 4 4"/><path d="M4 14l4-4 4 4"/></svg></button>
+                                </div>
+                            </div>
+                            <div id="customize-list-content" class="customize-list-content"></div>
+                        </div>
+                        <!-- Panel 3: Right detail -->
+                        <div class="customize-detail-panel" id="customize-detail-panel">
+                            <div class="customize-detail-empty">Select an item to view details</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Remote placeholder panel -->
+                <div id="smc-overlay-remote" class="smc-full-panel" role="dialog" aria-modal="true" aria-labelledby="smc-bc-remote" aria-hidden="true">
+                    <header class="smc-panel-chrome">
+                        <h2 id="smc-bc-remote" class="smc-panel-title">Remote Access</h2>
+                        <button type="button" class="smc-panel-close icon-btn" data-smc-close-panel aria-label="Close panel">&times;</button>
+                    </header>
+                    <div class="smc-panel-body smc-panel-body-scroll smc-panel-body-center">
+                        <div class="smc-placeholder-panel">
+                            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="smc-placeholder-icon"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                            <h3 class="smc-placeholder-title">Remote Access</h3>
+                            <p class="smc-placeholder-desc">Control tasks from your mobile device via secure tunnel. Coming soon.</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Settings panel -->
+                <div id="smc-overlay-settings" class="smc-full-panel" role="dialog" aria-modal="true" aria-labelledby="smc-bc-settings" aria-hidden="true">
+                    <header class="smc-panel-chrome">
+                        <h2 id="smc-bc-settings" class="smc-panel-title">Settings</h2>
+                        <button type="button" class="smc-panel-close icon-btn" data-smc-close-panel aria-label="Close panel">&times;</button>
+                    </header>
+                    <div class="smc-panel-body smc-panel-body-scroll">
+                        <div class="settings-root">
+                            <nav class="settings-nav">
+                                <button class="settings-nav-btn active" data-settings-tab="providers">Providers</button>
+                                <button class="settings-nav-btn" data-settings-tab="workspace">Workspace</button>
+                                <button class="settings-nav-btn" data-settings-tab="general">General</button>
+                            </nav>
+                            <div id="settings-tab-providers" class="settings-tab-content">
+                                <p class="settings-hint">Connect multiple providers and select which one to use.</p>
+                                <!-- ChatGPT Subscription section -->
+                                <div class="settings-section">
+                                    <h3 class="settings-section-title">ChatGPT Subscription</h3>
+                                    <p class="settings-section-desc">Sign in with your ChatGPT Plus/Pro/Team subscription to access OpenAI models at no extra API cost.</p>
+                                    <div id="settings-chatgpt-sub" class="settings-chatgpt-sub">
+                                        <div id="chatgpt-sub-disconnected" class="settings-chatgpt-state">
+                                            <button type="button" id="chatgpt-sub-signin-btn" class="btn-primary settings-chatgpt-signin">Sign in with ChatGPT</button>
+                                        </div>
+                                        <div id="chatgpt-sub-waiting" class="settings-chatgpt-state hidden">
+                                            <div class="settings-chatgpt-waiting-row">
+                                                <span class="settings-chatgpt-spinner"></span>
+                                                <span>Waiting for authentication...</span>
+                                            </div>
+                                            <p class="settings-section-desc">After logging in, copy the full URL from your browser and paste it here:</p>
+                                            <div class="settings-chatgpt-callback-row">
+                                                <input type="text" id="chatgpt-sub-callback-input" class="settings-chatgpt-callback-input" placeholder="Paste callback URL here..." autocomplete="off" />
+                                                <button type="button" id="chatgpt-sub-callback-submit" class="btn-primary settings-chatgpt-submit">Submit</button>
+                                            </div>
+                                        </div>
+                                        <div id="chatgpt-sub-connected" class="settings-chatgpt-state hidden">
+                                            <div class="settings-chatgpt-connected-row">
+                                                <span class="settings-chatgpt-check">&#10003;</span>
+                                                <span id="chatgpt-sub-email" class="settings-chatgpt-email"></span>
+                                                <span class="settings-chatgpt-active-badge">Active</span>
+                                            </div>
+                                            <button type="button" id="chatgpt-sub-disconnect-btn" class="settings-chatgpt-disconnect">Disconnect</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Own API Key (BYOK) section -->
+                                <div class="settings-section">
+                                    <h3 class="settings-section-title">Your Own API Key</h3>
+                                    <p class="settings-section-desc">Enter API keys for direct access to each provider's models.</p>
+                                    <div id="settings-provider-list" class="settings-provider-grid"></div>
+                                </div>
+                            </div>
+                            <div id="settings-tab-workspace" class="settings-tab-content hidden">
+                                <p class="settings-hint">Default workspace directory for task execution.</p>
+                                <div class="settings-field-row">
+                                    <label>Default workspace</label>
+                                    <div class="settings-dir-selector">
+                                        <span id="settings-default-workspace-path">Not set</span>
+                                        <button type="button" id="settings-select-workspace-btn" class="btn-primary settings-browse-btn">Browse...</button>
+                                    </div>
+                                </div>
+                                <div class="settings-field-row">
+                                    <label>Codex CLI status</label>
+                                    <div class="settings-cli-status">
+                                        <span id="settings-codex-status-dot" class="sidebar-status-dot sidebar-status-offline"></span>
+                                        <span id="settings-codex-status-label">Checking...</span>
+                                        <button type="button" id="settings-refresh-codex-btn" class="settings-refresh-btn" title="Refresh">&#x21bb;</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="settings-tab-general" class="settings-tab-content hidden">
+                                <div class="settings-field-row">
+                                    <label>Default execution mode</label>
+                                    <select id="settings-default-mode" class="settings-select">
+                                        <option value="plan">Plan mode</option>
+                                        <option value="ask" selected>Ask before edits</option>
+                                        <option value="auto">Edit automatically</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task Workspace - Chat-based UI (replaces webview area when active) -->
+            <div id="task-workspace" class="task-workspace hidden" aria-label="Task workspace">
+                <!-- Top bar: model + mode + controls -->
+                <header class="task-chat-topbar">
+                    <div class="task-chat-topbar-left">
+                        <select id="task-model-selector" class="task-chat-model-select" title="Select model">
+                            <option value="">Select model...</option>
+                            <!-- Populated dynamically from configured providers -->
+                        </select>
+                    </div>
+                    <div class="task-chat-topbar-right">
+                        <span id="task-ws-state-badge" class="task-state-badge task-state-idle hidden"></span>
+                        <button type="button" id="task-ws-stop-btn" class="btn-danger task-ws-stop hidden" title="Stop">Stop</button>
+                        <button type="button" id="task-ws-close-btn" class="icon-btn" title="Close">&times;</button>
+                    </div>
+                </header>
+                <!-- Chat messages area -->
+                <div class="task-chat-messages" id="task-chat-messages">
+                    <div class="task-chat-empty" id="task-chat-empty">
+                        <h2 class="task-chat-empty-title">Start a new task</h2>
+                        <p class="task-chat-empty-subtitle">Describe your goal and let AI handle the rest</p>
+                    </div>
+                </div>
+                <!-- Bottom input area -->
+                <div class="task-chat-input-area">
+                    <div id="task-chat-chips" class="task-chat-chips" style="display:none;"></div>
+                    <div class="task-chat-input-row">
+                        <textarea id="task-chat-input" class="task-chat-textarea" placeholder="Describe the outcome you want" rows="1"></textarea>
+                        <button type="button" id="task-chat-send-btn" class="task-chat-send-btn" disabled title="Send (Enter)">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
+                    </div>
+                    <div class="task-chat-input-toolbar">
+                        <button type="button" id="task-attach-btn" class="task-chat-toolbar-btn" title="Attach context from clipboard">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </button>
+                        <button type="button" id="task-workspace-dir-btn" class="task-chat-toolbar-btn" title="Select workspace directory">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            <span id="task-workspace-dir-label">Entire computer</span>
+                        </button>
+                        <div class="task-chat-mode-wrap">
+                            <button type="button" id="task-mode-btn" class="task-chat-toolbar-btn task-chat-mode-btn" title="Execution mode">
+                                <span id="task-mode-label">Ask before edits</span>
+                                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                            </button>
+                            <div id="task-mode-menu" class="task-chat-mode-menu hidden">
+                                <button type="button" class="task-mode-option" data-mode="plan">
+                                    <strong>Plan mode</strong>
+                                    <span>AI will explore and analyze, no file changes</span>
+                                </button>
+                                <button type="button" class="task-mode-option active" data-mode="ask">
+                                    <strong>Ask before edits</strong>
+                                    <span>AI will ask before making each change</span>
+                                </button>
+                                <button type="button" class="task-mode-option" data-mode="auto">
+                                    <strong>Edit automatically</strong>
+                                    <span>AI will make changes automatically</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="task-chat-input-hint">Enter to send, Shift+Enter for newline. Verify important outputs before sharing.</div>
+                </div>
+                <!-- Permission dialog (shown when tool needs user approval) -->
+                <div id="task-permission-dialog" class="task-permission-dialog hidden">
+                    <div class="task-permission-card">
+                        <div class="task-permission-header">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            <strong>Permission Required</strong>
+                        </div>
+                        <p class="task-permission-tool">The assistant wants to use <code id="task-perm-tool-name"></code></p>
+                        <pre class="task-permission-preview" id="task-perm-preview"></pre>
+                        <div class="task-permission-actions">
+                            <button type="button" class="task-perm-btn task-perm-deny" id="task-perm-deny-btn">Deny (N)</button>
+                            <button type="button" class="task-perm-btn task-perm-allow" id="task-perm-allow-btn">Allow (Y)</button>
+                        </div>
+                        <label class="task-permission-remember"><input type="checkbox" id="task-perm-remember" /> Remember this choice for this session</label>
+                    </div>
+                </div>
+                <!-- API key banner (shown when no key for selected provider) -->
+                <div id="task-api-key-banner" class="task-api-key-banner hidden">
+                    <span>API key required for <strong id="task-api-key-provider-name"></strong></span>
+                    <input type="password" id="task-api-key-input" class="task-api-key-input" placeholder="Paste API key..." autocomplete="off" />
+                    <button type="button" id="task-api-key-save-btn" class="btn-primary task-api-key-save">Save Key</button>
+                    <span id="task-api-key-status" class="task-api-key-status"></span>
+                    <button type="button" id="task-api-key-dismiss" class="icon-btn task-api-key-dismiss">&times;</button>
                 </div>
             </div>
 
@@ -1037,6 +1307,7 @@
         <script src="../../node_modules/gridjs/dist/gridjs.umd.js"></script>
         <script src="../../node_modules/marked/lib/marked.umd.js"></script>
         <script src="../../node_modules/mermaid/dist/mermaid.min.js"></script>
+        <script src="../../node_modules/@mermaid-js/mermaid-zenuml/dist/mermaid-zenuml.min.js"></script>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" crossorigin="anonymous">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js" crossorigin="anonymous"></script>
         <script src="../../node_modules/katex/dist/katex.min.js"></script>

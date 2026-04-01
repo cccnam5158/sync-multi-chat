@@ -1,7 +1,7 @@
 # Multi-AI Chat Service - Unified Software Requirements Specification (SRS)
 
 ## 1. Introduction
-This document defines the unified software requirements for the Multi-AI Chat application. It consolidates requirements from initial concepts through recent feature additions including Conversation History, Session Persistence, Advanced Cross Check, File Uploads, Chat Mode (Single AI / Multi AI), Custom Prompt Builder, **left-sidebar Dashboard and Prompt Hub**, **prompt categories/tags/favorites**, and comprehensive UI enhancements.
+This document defines the unified software requirements for the Multi-AI Chat application. It consolidates requirements from initial concepts through recent feature additions including Conversation History, Session Persistence, Advanced Cross Check, File Uploads, Chat Mode (Single AI / Multi AI), Custom Prompt Builder, **left-sidebar Dashboard and Prompt Hub**, **prompt categories/tags/favorites**, **Task System with BYOK API execution**, and comprehensive UI enhancements.
 The requirements are written using **EARS** (Easy Approach to Requirements Syntax) to ensure clarity and testability.
 
 ## 2. Terminology
@@ -24,17 +24,26 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **Uncategorized**: The system-reserved grouping for prompts with no assigned category; all legacy prompts without category metadata shall be treated as Uncategorized after migration.
 - **Prompt Hub**: The sidebar view for browsing, filtering, bulk-assigning categories, and acting on saved custom prompts (table or preview layout).
 - **Dashboard**: The sidebar view summarizing Chat Mode, prompt library statistics, and conversation history counts/charts.
+- **Task**: An agent-driven work session that uses a BYOK API provider to execute instructions based on cross-verified context (Chat Thread or Last Response) from webviews. Tasks run independently of webview chat sessions and support background execution.
+- **Task Workspace**: The dedicated view for creating, monitoring, and reviewing task execution, including context input, provider/model selection, instruction entry, and streamed result display.
+- **BYOK (Bring Your Own Key)**: A mode where the user provides their own API key to directly call an AI provider's API, bypassing the webview-based interaction.
+- **Task State**: The execution status of a task: **running** (actively streaming from API) or **done** (execution completed or stopped).
 
 ## 3. Functional Requirements
 
 ### 3.0 Left Sidebar Navigation, Dashboard & Prompt Hub
 
 #### 3.0.1 Navigation Structure
-- **REQ-NAV-001 (Sidebar Sections)**: The system shall provide a left sidebar with a primary navigation list containing, in order: **+ New Chat**, **Dashboard**, **Prompt Hub**, and **Chat History**.
+- **REQ-NAV-001 (Sidebar Sections)**: The system shall provide a left sidebar with a primary navigation list containing, in order: **+ New Chat**, **+ New Task**, **Dashboard**, **Prompt Hub**, **Automations**, **Plugins**, **Remote**, and **Chat History**.
 - **REQ-NAV-002 (New Chat Parity)**: When **+ New Chat** is activated from the sidebar, the system shall perform the same session creation, history persistence, and webview reset behavior as the main toolbar **New Chat** control (REQ-HIST-011, REQ-MODE-039 where applicable).
 - **REQ-NAV-003 (Panel Switching)**: When the user selects a navigation item, the system shall show the corresponding panel content and hide other primary panels while keeping the sidebar shell visible.
 - **REQ-NAV-004 (Prompt Hub Width)**: While **Prompt Hub** is the active panel, the system shall widen the sidebar beyond the default history width to accommodate filters and the prompt list (implementation-defined minimum width, user-resize optional).
-- **REQ-NAV-005 (Collapsed Sidebar)**: While the sidebar is collapsed to the narrow dock width, the system shall still expose controls to open **Dashboard**, **Prompt Hub**, and **Chat History** (icon-only affordances), and expanding the sidebar shall reveal the full navigation labels.
+- **REQ-NAV-005 (Collapsed Sidebar)**: While the sidebar is collapsed to the narrow dock width, the system shall still expose controls to open **Dashboard**, **Prompt Hub**, **Automations**, **Plugins**, **Remote**, and **Chat History** (icon-only affordances), and expanding the sidebar shall reveal the full navigation labels.
+- **REQ-NAV-006 (New Task Button)**: When **+ New Task** is activated from the sidebar, the system shall create a new task session (REQ-TASK-001), close any open sidebar panel, and display the Task Workspace view in the main content area.
+- **REQ-NAV-007 (Automations Panel)**: When **Automations** is selected, the system shall display a placeholder panel for future automation scheduling features (see ideation BYOK Feature 4).
+- **REQ-NAV-008 (Plugins Panel)**: When **Plugins** is selected, the system shall display a placeholder panel for future plugin/skill/connector management (see ideation BYOK Feature 3).
+- **REQ-NAV-009 (Remote Panel)**: When **Remote** is selected, the system shall display a placeholder panel for future remote access features (see ideation BYOK Feature 6).
+- **REQ-NAV-010 (Sidebar Footer)**: The system shall display a footer section at the bottom of the sidebar containing: (1) a ChatGPT connection status indicator showing online/offline state, (2) the logged-in account display name or email, and (3) a settings gear icon that opens the application settings.
 
 #### 3.0.2 Dashboard
 - **REQ-DASH-001 (Mode Summary)**: The Dashboard shall display the current **Chat Mode** (Multi AI or Single AI) and a summary of the active AI service selection (active multi-service set or single-service plus active instance count).
@@ -313,20 +322,77 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **REQ-SESSION-001 (Gemini Idle Refresh)**: When one or more Gemini webviews are present and the application has been **idle** (no prompt sent to any service for a configurable period, default 10 minutes), the system shall periodically refresh those Gemini webviews (e.g., via `webContents.reload()`) to help maintain the Gemini login session, without interrupting an in-progress chat.
 - **REQ-SESSION-002 (Idle Definition)**: For the purpose of REQ-SESSION-001, **idle** is defined as: the time since the last prompt was sent (to any active service, including Gemini) exceeds the configured idle threshold; the system shall update the "last prompt sent" timestamp when `send-prompt` or `send-prompt-to-instances` is invoked with Gemini among the targets.
 
+### 3.9 Task System (BYOK Agent Execution)
+
+#### 3.9.1 Task Creation & Workspace
+
+- **REQ-TASK-001 (Task Session Creation)**: When the user activates **+ New Task**, the system shall generate a new session with `sessionType: "task"`, assign a unique ID, persist it to the history database, and display the Task Workspace view.
+- **REQ-TASK-002 (Task Workspace Layout)**: The Task Workspace shall occupy the main content area (replacing the webview grid) and shall contain: (1) a **Context Area** displaying the imported Chat Thread or Last Response, (2) a **Provider Selector** for choosing BYOK API provider and model, (3) an **Instruction Input** for the user to describe the desired task, and (4) a **Result Area** for streaming the task execution output.
+- **REQ-TASK-003 (Context from Webview)**: The Task Workspace shall accept context populated from the most recently copied **Chat Thread** (`{{chat_thread}}`) or **Last Response** (`{{last_response}}`) captured from active webviews. When no context has been copied, the Context Area shall display a placeholder instructing the user to copy content from a webview first or to proceed without context.
+- **REQ-TASK-004 (Context Manual Edit)**: While the Task Workspace is displayed, the system shall allow the user to manually edit, append to, or clear the imported context before starting execution.
+
+#### 3.9.2 BYOK Provider Configuration
+
+- **REQ-TASK-005 (Provider Selection)**: The Task Workspace shall provide a dropdown to select from configured BYOK API providers (OpenAI, Anthropic, Google AI, and OpenAI-compatible providers).
+- **REQ-TASK-006 (API Key Entry)**: When no API key is configured for the selected provider, the system shall display an inline API key input field. When submitted, the system shall encrypt the key using `electron.safeStorage` and persist it in `electron-store`.
+- **REQ-TASK-007 (Model Selection)**: When a provider with a valid API key is selected, the system shall display a model dropdown populated with available models for that provider.
+- **REQ-TASK-008 (Provider Validation)**: When an API key is entered or changed, the system shall validate the key by making a lightweight API call (e.g., list models) and shall display the validation result (valid/invalid) to the user.
+
+#### 3.9.3 Task Execution
+
+- **REQ-TASK-009 (Start Execution)**: When the user clicks **Run Task** and a provider, model, and instruction are present, the system shall construct a prompt combining the context and instruction, send it to the selected BYOK API via streaming, and display the streamed response in the Result Area in real time.
+- **REQ-TASK-010 (Streaming Display)**: While a task is executing, the system shall render the streamed response incrementally using Markdown formatting (reusing the existing Marked + Highlight.js + KaTeX rendering pipeline).
+- **REQ-TASK-011 (Background Execution)**: While a task is in **running** state and the user navigates away (e.g., switches to a webview chat session or opens another task), the system shall continue the API streaming in the Electron Main Process and buffer the response.
+- **REQ-TASK-012 (Task Resumption)**: When the user returns to a running task (via Chat History selection), the system shall display the full buffered response accumulated so far and continue appending streamed content in real time.
+- **REQ-TASK-013 (Stop Task)**: While a task is in **running** state, the system shall display a **Stop** button. When the user clicks **Stop**, the system shall abort the API stream, mark the task state as **done**, and preserve all content received up to the point of cancellation.
+- **REQ-TASK-014 (Completion)**: When the API stream ends naturally, the system shall mark the task state as **done** and update the session's `updatedAt` timestamp.
+- **REQ-TASK-015 (Error Handling)**: When a task execution encounters an API error (authentication failure, rate limit, network error), the system shall display the error message in the Result Area, mark the task state as **done**, and allow the user to retry by clicking **Run Task** again.
+
+#### 3.9.4 Task History Integration
+
+- **REQ-TASK-016 (History Persistence)**: Task sessions shall be stored in the same history database (`conversations` IndexedDB store) as chat sessions, with the additional field `sessionType: "task"` to distinguish them.
+- **REQ-TASK-017 (History Type Indicator)**: Each task session in the Chat History list shall display a distinct **Task** badge or icon to differentiate it from regular chat sessions (which display "Multi" or "Single" per REQ-MODE-066).
+- **REQ-TASK-018 (History State Indicator)**: Each task session in the Chat History list shall display its current execution state: a **running** indicator (e.g., animated spinner or pulsing dot) while the task is actively streaming, or a **done** indicator (e.g., checkmark) when execution is complete.
+- **REQ-TASK-019 (History Stop Action)**: While a task is in **running** state, the Chat History item for that task shall provide a **Stop** control that triggers the same abort behavior as REQ-TASK-013.
+- **REQ-TASK-020 (Task Restoration)**: When a task history item is selected, the system shall switch the main content area to the Task Workspace view, restore the task's context, instruction, provider/model selection, result content, and current execution state.
+- **REQ-TASK-021 (Legacy Compatibility)**: When a history session does not contain a `sessionType` field, the system shall treat it as a regular chat session (backward compatible with existing sessions).
+
+#### 3.9.5 Task Data Model
+
+- **REQ-TASK-022 (Task Schema)**: Task sessions shall extend the existing session schema with the following additional fields:
+  - `sessionType`: `"task"` (string, required for task sessions)
+  - `taskState`: `"running"` | `"done"` (string)
+  - `taskConfig`: `{ providerId, modelId, apiKeyRef }` (object, provider configuration snapshot)
+  - `taskContext`: (string, the imported Chat Thread or Last Response text)
+  - `taskInstruction`: (string, the user's task instruction)
+  - `taskResult`: (string, the accumulated streamed response)
+  - `taskError`: (string | null, error message if execution failed)
+
 ## 4. Technical Architecture
 
 ### 4.1 Data Persistence
-- **Session Store**: `electron-store` for lightweight configuration (toggles, window bounds, last active session ID, chat mode settings, custom prompts, global variables).
+- **Session Store**: `electron-store` for lightweight configuration (toggles, window bounds, last active session ID, chat mode settings, custom prompts, global variables, BYOK API keys).
 - **History Database**: `IndexedDB` (via **idb** or similar wrapper) for storing robust conversation records.
   - **Store Name**: `conversations`
-  - **Schema (v2)**: Includes:
+  - **Schema (v3)**: Includes:
     - `id` (UUID), `title`, `createdAt`, `updatedAt`
     - `chatMode` ("multi" | "single")
+    - `sessionType` ("chat" | "task", default "chat" for backward compat)
     - `multiAiConfig`: { `activeServices` (array), `urls` (object) }
     - `singleAiConfig`: { `service` (string), `activeInstances` (boolean[4]), `urls` (object) }
     - `layout` (string)
     - `controls`: { `anonymousMode` (boolean), `scrollSync` (boolean) }
     - `promptState` (text, files, options)
+    - `taskState` ("running" | "done", only for task sessions)
+    - `taskConfig`: { `providerId` (string), `modelId` (string), `apiKeyRef` (string) }
+    - `taskContext` (string, imported Chat Thread or Last Response)
+    - `taskInstruction` (string, user task instruction)
+    - `taskResult` (string, accumulated streamed response)
+    - `taskError` (string | null)
+- **BYOK Provider Store** (`electron-store` keys):
+  - `byokProviders`: Array of `{ id, name, kind, baseUrl?, enabled }` configured providers
+  - `byokApiKeys`: Object `{ [providerId]: encryptedKeyBuffer }` encrypted API keys via `safeStorage`
+  - `byokLastProvider`: `{ providerId, modelId }` last selected provider/model for task workspace
 - **Custom Prompt Builder Storage**:
   - **electron-store keys**:
     - `customPrompts`: Array of prompt objects `{ id, title, content, localVars: [{name, value}], createdAt, updatedAt, lastUsedAt, categoryId?, tags?, summary?, favorite? }`
@@ -350,9 +416,20 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
     - `get-custom-prompt-global-vars`: Retrieve global variables from electron-store.
     - `save-custom-prompt-global-vars`: Persist global variables to electron-store.
     - `cross-check-with-custom-prompt`: Send a fully-resolved custom prompt to all active webviews (with variable substitution performed in renderer, system variables resolved via main process).
+  - **Task System IPCs**:
+    - `task-start`: Start task execution with `{ sessionId, providerId, modelId, context, instruction }`.
+    - `task-stop`: Abort a running task by `sessionId`.
+    - `task-get-state`: Retrieve current state and buffered result of a task by `sessionId`.
+    - `byok-get-providers`: Retrieve configured BYOK provider list.
+    - `byok-save-api-key`: Encrypt and persist an API key for a provider `{ providerId, apiKey }`.
+    - `byok-validate-key`: Test an API key against a provider `{ providerId, apiKey }` and return validity.
+    - `byok-get-models`: Retrieve available models for a provider `{ providerId }`.
 - **Main-to-Renderer**:
   - `file-upload-complete`, `url-changed`, `chat-mode-changed`, `single-ai-instance-url-changed`.
   - `custom-prompt-system-vars`: Response containing runtime system variable values (chat_thread, last_response, current_time, active_services) for variable substitution.
+  - `task-stream-chunk`: Streamed text chunk from running task `{ sessionId, chunk }`.
+  - `task-stream-done`: Task execution completed `{ sessionId }`.
+  - `task-stream-error`: Task execution error `{ sessionId, error }`.
 
 ### 4.3 External Login Implementation
 - Uses **Puppeteer** with `puppeteer-extra-plugin-stealth` for resilient external login flows.
@@ -375,6 +452,9 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 - **NFR-007 (Mode Clarity)**: The UI shall clearly indicate the current Chat Mode (Multi AI or Single AI) to prevent user confusion.
 - **NFR-008 (Custom Prompt Builder Performance)**: The Custom Prompt Builder shall respond to user interactions (search, sort, variable substitution, autocomplete) within 200ms to ensure fluid editing experience.
 - **NFR-009 (Variable Substitution Safety)**: System and Global variable values shall not be injected into the main Prompt Input area via "Copy Prompt to Input" to prevent excessively long text from triggering unintended file-attachment conversion and degrading AI response quality.
+- **NFR-010 (Task Background Stability)**: Task API streaming shall execute in the Electron Main Process to ensure streams survive renderer navigation and panel switches without interruption.
+- **NFR-011 (API Key Security)**: BYOK API keys shall be encrypted at rest using `electron.safeStorage` (OS keychain integration) and shall never be exposed to renderer process memory in plaintext.
+- **NFR-012 (Task Result Buffering)**: The system shall buffer task streaming results in the Main Process so that returning to a task displays all accumulated content without re-requesting from the API.
 
 ## 6. Revision History
 
@@ -387,5 +467,6 @@ The requirements are written using **EARS** (Easy Approach to Requirements Synta
 | 3.1 | 2026-03-11 | Added Webview Session Maintenance (Gemini): REQ-SESSION-001 (Gemini idle refresh), REQ-SESSION-002 (idle definition). See ideation_20260311_120000_gemini_idle_webview_refresh.md. |
 | 3.2 | 2026-03-12 | Added Mermaid diagram preview: REQ-INPUT-020 (main prompt preview), REQ-CPB-026 (Custom Prompt Builder and Session Prompt Builder preview). See ideation_20260312_120000_mermaid_preview.md. |
 | 3.3 | 2026-03-12 | Added preview code block section UI: REQ-INPUT-021 (distinct section blocks), REQ-INPUT-022 (Mermaid block Text/Preview/Copy and zoom at block top-right), REQ-INPUT-023 (code block syntax highlight and Copy), REQ-INPUT-024 (LaTeX block render, export/copy). Main prompt eye icon and pane-level zoom retained. See ideation_20260312_160000_code_block_section_ui.md. |
+| 4.0 | 2026-03-30 | Added Task System (BYOK Agent Execution): REQ-TASK-001~022 (task creation, workspace, BYOK provider, execution, history integration, data model). Updated sidebar navigation: REQ-NAV-006~010 (+ New Task, Automations, Plugins, Remote, sidebar footer). Updated history: task type/state indicators (REQ-TASK-017~019). Added BYOK persistence schema (v3), task IPC channels. Added NFR-010~012 (background stability, API key security, result buffering). See ideation_20260330_120000_byok_and_codex_integration.md. |
 | 3.4 | 2026-03-23 | Left sidebar: REQ-NAV-001~005 (New Chat, Dashboard, Prompt Hub, Chat History panels; Prompt Hub width). Dashboard: REQ-DASH-001~004. Prompt Hub: REQ-PHUB-001~010. Favorites: REQ-FAV-001~003. Slash UX: REQ-INPUT-025~027 (menu search field, title highlight, favorite ordering). History: REQ-HIST-019~021 (title search, sort, date groups). CPB: REQ-CPB-086~089 (category, tags, summary, favorite). Persistence: `smc_categories_v1`, `smc_favorite_category_ids_v1`. See ideation_20260323_120000_left_menu_dashboard_prompt_hub.md. |
 | 3.5 | 2026-03-23 | Dashboard chart: REQ-DASH-004 clarified (Hi-DPI, width, labels). Session Slash parity: REQ-INPUT-025~027 scoped to main + Session builder; REQ-INPUT-028. Export/import v3: REQ-CPB-060/061 extended (`exportVersion`, `categories`, `favoriteCategoryIds`, merge vs full overwrite). Implementation: `drawDashboardChart` DPR + axes + `ResizeObserver` on dashboard root; session `.msm-filter-input` / `.msm-mark` styles. |

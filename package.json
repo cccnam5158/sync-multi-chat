@@ -9,6 +9,8 @@
   },
   "scripts": {
     "start": "electron .",
+    "start:debug": "cross-env SMC_LLM_SESSION_DEBUG=1 electron .",
+    "start:debug:win": "set SMC_LLM_SESSION_DEBUG=1 && electron .",
     "generate:icons": "node scripts/generate-icons.js",
     "build": "node scripts/generate-icons.js && electron-builder",
     "build:win": "node scripts/generate-icons.js && electron-builder --win",
@@ -37,6 +39,7 @@
     "to-ico": "^1.1.5"
   },
   "dependencies": {
+    "@mermaid-js/mermaid-zenuml": "^0.2.2",
     "axios": "^1.13.2",
     "chrome-launcher": "^1.2.1",
     "easymde": "^2.20.0",
