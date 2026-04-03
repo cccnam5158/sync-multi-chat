@@ -1,5 +1,18 @@
 # Release Notes
 
+## v0.10.0 (2026-04-03)
+
+### ✨ New Features
+*   **macOS distribution**: Native builds for **Apple Silicon (arm64)** and **Intel (x64)** — DMG/ZIP via `electron-builder` (`npm run build:mac`). Install the build that matches your Mac.
+*   **In-app login (webview-first)**: Google sign-in and OAuth flows that used to push users toward an external Chrome/Edge window can now complete inside the app where supported — including a **dedicated modal window** for `accounts.google.com` / `id.google.com` on the **same session partition** as the service webview, reducing “browser not secure” / embedded-webview friction.
+*   **ChatGPT subscription workspace (Skills)**: Sign in with your **ChatGPT Plus / Pro / Team** subscription (OpenAI OAuth / Codex-oriented flow) to use **OpenAI-hosted models without bringing your own API key**, and run **Task** workflows with **Skills** support (bundled skill packs under `src/data/skills`, unpacked from the ASAR for tool-style use).
+
+### ⬆️ Improvements
+*   **Platform polish**: macOS menu/window behavior, updater-related messaging, and **robotjs** optional/native build notes for cross-platform keyboard automation where applicable.
+*   **Documentation & site**: Public docs and READMEs updated for **Windows + macOS** downloads and v0.10.0 feature highlights.
+
+---
+
 ## v0.9.1 (2026-03-30)
 
 ### 🔧 Bug Fixes

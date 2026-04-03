@@ -1,6 +1,6 @@
 {
   "name": "sync-multi-chat",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "Multi AI Chat Broadcaster - Broadcast prompts to multiple AI services simultaneously",
   "main": "src/main/main.js",
   "repository": {
@@ -14,6 +14,9 @@
     "generate:icons": "node scripts/generate-icons.js",
     "build": "node scripts/generate-icons.js && electron-builder",
     "build:win": "node scripts/generate-icons.js && electron-builder --win",
+    "build:mac": "node scripts/generate-icons.js && electron-builder --mac --x64 && electron-builder --mac --arm64",
+    "build:mac:x64": "node scripts/generate-icons.js && electron-builder --mac --x64",
+    "build:mac:arm64": "node scripts/generate-icons.js && electron-builder --mac --arm64",
     "build:portable": "node scripts/generate-icons.js && electron-packager . \"Sync Multi Chat\" --platform=win32 --arch=x64 --out=dist-packager --overwrite --icon=build/icon.ico",
     "publish": "node scripts/generate-icons.js && electron-builder --win --publish always",
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -66,7 +69,33 @@
     "directories": {
       "output": "dist"
     },
-    "artifactName": "Sync-Multi-Chat-Setup-${version}.${ext}",
+    "artifactName": "Sync-Multi-Chat-Setup-${version}-${arch}.${ext}",
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "category": "public.app-category.productivity"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
     "win": {
       "target": [
         {
@@ -99,6 +128,9 @@
       "src/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "src/data/skills/**/*"
+    ],
     "extraResources": [
       {
         "from": "build/icon.ico",
@@ -111,6 +143,10 @@
       {
         "from": "build/icon-512.png",
         "to": "icon-512.png"
+      },
+      {
+        "from": "build/icon.icns",
+        "to": "icon.icns"
       }
     ]
   }

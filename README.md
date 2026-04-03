@@ -25,6 +25,9 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 -   **Multi-Pane Interface**: View and interact with up to 4 AI services (ChatGPT, Claude, Gemini, Grok, Perplexity) simultaneously in a grid layout.
 -   **Single AI Mode** *(New in v0.6.0)*: For users who subscribe to only one AI service—open up to 4 instances of the same provider and compare responses from different models.
 -   **Custom Prompt Builder** *(New in v0.7.0)*: Create, save, and manage custom prompts with System/Global/Local variables; use Slash Command (`/`) in the main input to insert saved prompts and inline variable editing. *(v0.8.0)* Live preview for **Mermaid** diagrams, **code blocks** (syntax highlighting), and **LaTeX** formulas in the prompt builder and main prompt preview. *(v0.9.0)* Added category management workflow (create/reorder/assign) and tighter Prompt Hub integration. *(v0.9.1)* Fixed category tree editing and drag-and-drop (rename vs filter, Grid.js row DnD, category reorder/reparent edge cases).
+-   **macOS builds** *(New in v0.10.0)*: Native **Intel (x64)** and **Apple Silicon (arm64)** installers (DMG/ZIP). Build locally with `npm run build:mac` and install the artifact that matches your CPU architecture.
+-   **In-app login flows** *(v0.10.0)*: Google and OAuth sign-in for supported services can complete **inside the app** (including a **modal login window** that shares the webview session partition), so you are not forced to open an external Chrome window for every login step.
+-   **ChatGPT subscription + Skills (Task UI)** *(v0.10.0)*: Connect your **ChatGPT Plus / Pro / Team** subscription (OpenAI OAuth / Codex-oriented sign-in) to chat with OpenAI-hosted models **without BYOK**, and use **Skills** in **Task** workflows (bundled packs shipped under `src/data/skills`).
 -   **Simultaneous Prompting**: Send a message from a central "Master Input" to all active AI services instantly.
 -   **Broad Service Support**: Supports ChatGPT, Claude, Gemini, Grok (xAI), Perplexity, and **Genspark**. *(v0.8.1)* **Perplexity** login-state detection in the panel is improved (fewer false “logged in” / “logged out” mismatches).
 -   **Chat History Management**: Save and restore entire chat sessions including active services, layouts, and URLs.
@@ -41,15 +44,25 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 ## Version
 
--   **Current Version**: v0.9.1
+-   **Current Version**: v0.10.0
 
 ## Installation
 
-This application is distributed as a **Windows Installer** with **automatic update support**.
+### Windows
 
-1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.9.1.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.9.1/Sync-Multi-Chat-Setup-0.9.1.exe)
+The Windows build is distributed as an **installer** with **automatic update support** (GitHub Releases).
+
+1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.10.0-x64.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.0/Sync-Multi-Chat-Setup-0.10.0-x64.exe)
 2.  Run the installer and follow the installation wizard.
 3.  The app will automatically check for updates on startup.
+
+### macOS
+
+1.  Download the **DMG** for your Mac:
+    - **Apple Silicon (M1/M2/M3…)** — [Sync-Multi-Chat-Setup-0.10.0-arm64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.0/Sync-Multi-Chat-Setup-0.10.0-arm64.dmg)
+    - **Intel (x64)** — [Sync-Multi-Chat-Setup-0.10.0-x64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.0/Sync-Multi-Chat-Setup-0.10.0-x64.dmg)
+2.  Open the DMG and drag **Sync Multi Chat** into **Applications**.
+3.  On first launch, if Gatekeeper prompts, allow the app under **System Settings → Privacy & Security** (or right-click → Open once).
 
 ### Development Setup (For Contributors)
 
@@ -67,12 +80,14 @@ This application is distributed as a **Windows Installer** with **automatic upda
 -   **File Upload**: Attach images or text files to your prompt and broadcast them to all supported services. Supports **Drag & Drop** and **Clipboard Paste**.
 
 -   **Sandboxed Environment**: Each service runs in an isolated `BrowserView` with context isolation.
--   **No Credential Storage**: Your passwords are never stored by the app; you log in directly via the official service websites.
--   **External browser login** *(v0.8.1)*: Optional flow opens **Google Chrome** or, if Chrome is unavailable, **Microsoft Edge** so cookie sync works on Edge-only setups.
+-   **No Credential Storage**: Your passwords are never stored by the app; you log in directly via the official service websites (or in-app OAuth where implemented for subscription flows).
+-   **In-app Google / OAuth** *(v0.10.0)*: For supported flows, Google and OpenAI auth can run in a **modal BrowserWindow** tied to the same Chromium partition as the service webview, avoiding unnecessary round-trips through an external browser.
+-   **External browser login** *(v0.8.1)*: When an external profile is still required, the optional flow opens **Google Chrome** or, if Chrome is unavailable, **Microsoft Edge** so cookie sync works on Edge-only setups.
 -   **Gemini session stability** *(v0.8.2)*: Idle refresh reloads the current conversation in-place (no redirect to new chat), pauses automatically while you type, and restores scroll position after reload.
 -   **Navigation & Prompt workflow polish** *(v0.9.0)*: Left Panel gets Dashboard + Prompt Hub entries, Chat History visibility is improved, and custom prompt category management is now directly available in the builder.
 -   **Mermaid live preview improvements** *(v0.9.0)*: Better fullscreen/fit behavior and more reliable re-rendering for Mermaid blocks in custom prompt previews.
 -   **Prompt Hub / Custom Prompt category UX** *(v0.9.1)*: Category **double-click rename** no longer races with single-click filter; **prompt-to-category** drag-and-drop stays reliable after Grid.js updates; **category** drag-and-drop covers reorder, reparent, and safe no-ops; **drop highlight** while assigning prompts.
+-   **ChatGPT subscription & Skills** *(v0.10.0)*: Settings-driven **OpenAI OAuth** for subscription-backed models in the **Task** experience, with **Skills** directories shipped in the app bundle (`asarUnpack`) for agent-style tooling.
 -   **Bot Detection Evasion**: Uses User-Agent spoofing and human-like input event triggering to ensure compatibility.
 
 ---

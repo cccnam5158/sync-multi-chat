@@ -30,81 +30,8 @@ function getServiceResetUrl(service) {
     return SERVICE_RESET_URLS[service] || '';
 }
 
-// Gemini idle refresh timer (shown in header left of reload button)
-const GEMINI_IDLE_TIMER_SECONDS = 5 * 60; // 5 min (matches main GEMINI_IDLE_THRESHOLD_MS)
-const geminiIdleTimerState = {}; // slotKey -> { remainingSeconds, isPaused }
-
 function isGeminiSlot(slotKey) {
     return slotKey === 'gemini' || (typeof slotKey === 'string' && slotKey.startsWith('gemini-'));
-}
-
-function ensureGeminiTimerState(slotKey) {
-    if (!isGeminiSlot(slotKey)) return;
-    if (!geminiIdleTimerState[slotKey]) {
-        geminiIdleTimerState[slotKey] = { remainingSeconds: GEMINI_IDLE_TIMER_SECONDS, isPaused: false, isTypingPaused: false };
-    }
-}
-
-function formatGeminiIdleTimerLabel(remainingSeconds, isPaused) {
-    if (isPaused) return 'Responding';
-    const m = Math.floor(remainingSeconds / 60);
-    const s = remainingSeconds % 60;
-    return `Refresh in ${m}:${String(s).padStart(2, '0')}`;
-}
-
-function updateGeminiIdleTimerDisplay(slotKey) {
-    const state = geminiIdleTimerState[slotKey];
-    const el = document.getElementById(`gemini-idle-timer-${slotKey}`);
-    if (!state || !el) return;
-    el.textContent = formatGeminiIdleTimerLabel(state.remainingSeconds, state.isPaused);
-    el.classList.toggle('typing-paused', !!state.isTypingPaused && !state.isPaused);
-    el.title = state.isPaused
-        ? 'Response in progress — refresh timer paused'
-        : state.isTypingPaused
-            ? 'Typing detected — refresh timer paused'
-            : 'Auto-refresh after this time when idle';
-}
-
-function setAllGeminiTimersTypingPause(paused) {
-    Object.keys(geminiIdleTimerState).forEach(slotKey => {
-        geminiIdleTimerState[slotKey].isTypingPaused = paused;
-        updateGeminiIdleTimerDisplay(slotKey);
-    });
-}
-
-function tickGeminiIdleTimers() {
-    Object.keys(geminiIdleTimerState).forEach(slotKey => {
-        const state = geminiIdleTimerState[slotKey];
-        if (!state.isPaused && !state.isTypingPaused && state.remainingSeconds > 0) {
-            state.remainingSeconds -= 1;
-            updateGeminiIdleTimerDisplay(slotKey);
-        }
-    });
-}
-
-let geminiIdleTimerTickId = null;
-function startGeminiIdleTimerTick() {
-    if (geminiIdleTimerTickId != null) return;
-    geminiIdleTimerTickId = setInterval(tickGeminiIdleTimers, 1000);
-}
-
-/** Reset idle timer for one Gemini slot (e.g. after reload or per-slot new chat). */
-function resetGeminiIdleTimerForSlot(slotKey) {
-    if (!isGeminiSlot(slotKey)) return;
-    ensureGeminiTimerState(slotKey);
-    const state = geminiIdleTimerState[slotKey];
-    state.remainingSeconds = GEMINI_IDLE_TIMER_SECONDS;
-    state.isPaused = false;
-    updateGeminiIdleTimerDisplay(slotKey);
-}
-
-/** Reset idle timer for all Gemini slots (e.g. after global new chat or history load). */
-function resetAllGeminiIdleTimers() {
-    Object.keys(geminiIdleTimerState).forEach(slotKey => {
-        geminiIdleTimerState[slotKey].remainingSeconds = GEMINI_IDLE_TIMER_SECONDS;
-        geminiIdleTimerState[slotKey].isPaused = false;
-        updateGeminiIdleTimerDisplay(slotKey);
-    });
 }
 
 function getResetUrlsForCurrentMode(onlySlotKey = null) {
@@ -175,12 +102,11 @@ async function resetCurrentSessionViews({ onlySlotKey = null } = {}) {
         } else {
             window.electronAPI.newChatForService(onlySlotKey);
         }
-        if (isGeminiSlot(onlySlotKey)) resetGeminiIdleTimerForSlot(onlySlotKey);
         return;
     }
 
     window.electronAPI.newChat();
-    resetAllGeminiIdleTimers();
+
 }
 
 async function triggerNewChatWorkflow() {
@@ -232,7 +158,7 @@ async function triggerNewChatWorkflow() {
     localStorage.setItem(currentSessionIdKey, currentSessionId);
     loadHistoryList();
     window.electronAPI.newChat();
-    resetAllGeminiIdleTimers();
+
 }
 
 newChatBtn.addEventListener('click', () => triggerNewChatWorkflow());
@@ -1006,7 +932,7 @@ if (window.electronAPI.onChatModeChanged) {
             singleAiActiveInstances = data.activeInstances;
         }
         updateToggleUI();
-        resetAllGeminiIdleTimers();
+    
     });
 }
 
@@ -1708,18 +1634,6 @@ function createSlot(container, slotKey) {
     const headerBtns = document.createElement('div');
     headerBtns.className = 'header-buttons';
 
-    // Gemini idle refresh timer (left of reload) — only for Gemini slots
-    if (isGeminiSlot(slotKey)) {
-        ensureGeminiTimerState(slotKey);
-        const timerEl = document.createElement('span');
-        timerEl.id = `gemini-idle-timer-${slotKey}`;
-        timerEl.className = 'gemini-idle-timer';
-        timerEl.textContent = formatGeminiIdleTimerLabel(GEMINI_IDLE_TIMER_SECONDS, false);
-        timerEl.title = 'Auto-refresh after this time when idle';
-        headerBtns.appendChild(timerEl);
-        startGeminiIdleTimerTick();
-    }
-
     // Clear cookies & site data for this service partition (clean slate before Sign in with Chrome/Edge)
     const clearSiteBtn = document.createElement('button');
     clearSiteBtn.className = 'header-btn header-btn-clear-site';
@@ -1742,7 +1656,7 @@ function createSlot(container, slotKey) {
         } catch (e) {
             console.warn('clearServicePartitionStorage failed', e);
         }
-        if (isGeminiSlot(slotKey)) resetGeminiIdleTimerForSlot(slotKey);
+
     });
 
     // Reload button - moved from URL bar to header (left of maximize button)
@@ -1760,7 +1674,7 @@ function createSlot(container, slotKey) {
         } else {
             window.electronAPI.reloadService(slotKey);
         }
-        if (isGeminiSlot(slotKey)) resetGeminiIdleTimerForSlot(slotKey);
+
     });
 
     // Maximize/Restore Button
@@ -2146,79 +2060,6 @@ for (const [service, toggle] of Object.entries(toggles)) {
 // Also save session on URL changes for history persistence
 let urlChangeDebounceTimer = null;
 let isSessionLoading = false; // Flag to prevent URL saves during session loading
-
-if (window.electronAPI.onGeminiIdleTimer) {
-    window.electronAPI.onGeminiIdleTimer(({ slotKey, action }) => {
-        if (!slotKey || !isGeminiSlot(slotKey)) return;
-        ensureGeminiTimerState(slotKey);
-        const state = geminiIdleTimerState[slotKey];
-        if (action === 'reset') {
-            state.remainingSeconds = GEMINI_IDLE_TIMER_SECONDS;
-            state.isPaused = false;
-        } else if (action === 'pause') {
-            state.isPaused = true;
-        }
-        updateGeminiIdleTimerDisplay(slotKey);
-    });
-}
-
-// Pause Gemini idle refresh while user is actively typing in master input (3s debounce)
-const TYPING_PAUSE_DEBOUNCE_MS = 3000;
-let _typingPauseDebounceId = null;
-let _typingPauseActive = false;
-
-if (masterInput && window.electronAPI.setGeminiTypingPause) {
-    masterInput.addEventListener('input', () => {
-        if (!_typingPauseActive) {
-            _typingPauseActive = true;
-            setAllGeminiTimersTypingPause(true);
-            window.electronAPI.setGeminiTypingPause(true);
-        }
-        if (_typingPauseDebounceId != null) clearTimeout(_typingPauseDebounceId);
-        _typingPauseDebounceId = setTimeout(() => {
-            _typingPauseActive = false;
-            _typingPauseDebounceId = null;
-            setAllGeminiTimersTypingPause(false);
-            window.electronAPI.setGeminiTypingPause(false);
-        }, TYPING_PAUSE_DEBOUNCE_MS);
-    });
-}
-
-// Preserve caret/selection state across Gemini idle refresh reload
-let _savedMasterInputState = null;
-
-if (window.electronAPI.onGeminiIdleRefreshStarting && masterInput) {
-    window.electronAPI.onGeminiIdleRefreshStarting(() => {
-        if (document.activeElement === masterInput) {
-            _savedMasterInputState = {
-                selectionStart: masterInput.selectionStart,
-                selectionEnd: masterInput.selectionEnd,
-                scrollTop: masterInput.scrollTop,
-            };
-        } else {
-            _savedMasterInputState = null;
-        }
-    });
-}
-
-if (window.electronAPI.onGeminiIdleRefreshDone && masterInput) {
-    window.electronAPI.onGeminiIdleRefreshDone(() => {
-        setTimeout(() => {
-            if (!masterInput || masterInput.disabled) return;
-            masterInput.focus();
-            if (_savedMasterInputState) {
-                try {
-                    masterInput.setSelectionRange(
-                        _savedMasterInputState.selectionStart,
-                        _savedMasterInputState.selectionEnd
-                    );
-                    masterInput.scrollTop = _savedMasterInputState.scrollTop;
-                } catch (_) { /* ignore */ }
-                _savedMasterInputState = null;
-            }
-        }, 50);
-    });
-}
 
 if (window.electronAPI.onWebviewUrlChanged) {
     window.electronAPI.onWebviewUrlChanged(({ service, url }) => {
@@ -3765,7 +3606,7 @@ async function resetToNewSessionAfterDelete() {
     localStorage.setItem(currentSessionIdKey, currentSessionId);
 
     window.electronAPI.newChat();
-    resetAllGeminiIdleTimers();
+
 }
 
 async function performHistoryBulkDelete(ids) {
@@ -4071,7 +3912,7 @@ async function loadHistoryList(options = {}) {
                 </label>
                 <div class="history-item-content" title="${tooltip.replace(/"/g, '&quot;')}">
                     <div class="history-title">${escapeHtml(title)}${badgesHtml}</div>
-                    <div class="history-date">${escapeHtml(dateLine)}</div>
+                    <div class="history-date"><span class="history-date-label">C</span> ${escapeHtml(createdAtStr)}  <span class="history-date-sep">|</span>  <span class="history-date-label">U</span> ${escapeHtml(updatedAtStr)}</div>
                 </div>
                 <div class="history-item-actions" role="group" aria-label="Session actions">
                     <button type="button" class="history-icon-btn history-open-session-btn" title="Open session" aria-label="Open session">
@@ -4348,7 +4189,7 @@ async function performHistoryDelete(session) {
 
             // Reset webviews
             window.electronAPI.newChat();
-            resetAllGeminiIdleTimers();
+        
         }
 
         loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
@@ -4401,7 +4242,7 @@ async function performClearAll() {
 
         // Reset webviews
         window.electronAPI.newChat();
-        resetAllGeminiIdleTimers();
+    
 
         loadHistoryList();
     } catch (err) {
@@ -4782,7 +4623,7 @@ async function loadSession(session) {
         }
     }
 
-    resetAllGeminiIdleTimers();
+
 
     // Refresh history list to show updated active state (preserve scroll/loaded pages)
     loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
@@ -5196,22 +5037,24 @@ async function triggerNewTaskWorkflow() {
         updatedAt: now,
     };
 
-    await historyManager.saveSession(taskSession);
+    // Defer saving to history until first message is sent
     _currentTaskSession = taskSession;
+    _currentTaskSession._unsaved = true;
     activeTaskSessionId = taskId;
     currentSessionId = taskId;
     localStorage.setItem(currentSessionIdKey, taskId);
 
     renderTaskChatUI(taskSession);
     showTaskWorkspace();
+    // Hide title field until first message
+    const titleWrap = document.getElementById('task-title-wrap');
+    if (titleWrap) titleWrap.classList.add('hidden');
 
     // Auto-attach pending context from webview copy
     if (_pendingTaskContext) {
         attachContextToTask(_pendingTaskContext.type, _pendingTaskContext.content, _pendingTaskContext.source);
         _pendingTaskContext = null;
     }
-
-    loadHistoryList();
 }
 
 /* ─── Chat UI Rendering ─── */
@@ -5254,11 +5097,20 @@ function renderTaskChatUI(session) {
     const wsEl = document.getElementById('task-workspace');
     if (wsEl) wsEl.classList.toggle('task-ws-empty', messages.length === 0);
 
-    messages.forEach(msg => appendTaskMessageBubble(msg, false));
+    messages.forEach(msg => {
+        if (msg.role === 'stopped') _appendStoppedBubble(msg);
+        else appendTaskMessageBubble(msg, false);
+    });
 
     // Show AI action buttons for all assistant messages when session is done
     if (session.taskState === 'done' || !session.taskState || session.taskState === 'idle') {
         messagesEl?.querySelectorAll('.task-msg-actions-ai.hidden').forEach(el => el.classList.remove('hidden'));
+        // Restore artifact cards from saved message metadata
+        for (const msg of messages) {
+            if (msg.role === 'assistant' && msg.metadata?.createdFiles?.length > 0) {
+                renderArtifactCards(msg.id, msg.metadata.createdFiles);
+            }
+        }
         // Re-render mermaid diagrams and markdown previews from history
         renderPendingMermaid().catch(() => {});
     }
@@ -5277,6 +5129,64 @@ function renderTaskChatUI(session) {
     if (stopBtn) stopBtn.classList.add('hidden');
 
     updateTaskSendBtnState();
+
+    // Show title if session has messages (e.g. restored from history)
+    if (messages.length > 0 && session.title) {
+        showTaskTitle(session.title);
+    }
+}
+
+/* ─── Task Title ─── */
+
+function showTaskTitle(title) {
+    const wrap = document.getElementById('task-title-wrap');
+    const display = document.getElementById('task-title-display');
+    if (!wrap || !display) return;
+    display.textContent = title;
+    wrap.classList.remove('hidden');
+}
+
+function startTaskTitleEdit() {
+    const display = document.getElementById('task-title-display');
+    const input = document.getElementById('task-title-input');
+    if (!display || !input) return;
+    input.value = display.textContent;
+    display.style.display = 'none';
+    const pencil = display.parentElement?.querySelector('.task-title-pencil');
+    if (pencil) pencil.style.display = 'none';
+    input.classList.remove('hidden');
+    input.focus();
+    input.select();
+}
+
+async function commitTaskTitleEdit() {
+    const display = document.getElementById('task-title-display');
+    const input = document.getElementById('task-title-input');
+    if (!display || !input) return;
+    const newTitle = input.value.trim();
+    if (newTitle && _currentTaskSession) {
+        _currentTaskSession.title = newTitle;
+        _currentTaskSession.updatedAt = new Date().toISOString();
+        display.textContent = newTitle;
+        if (!_currentTaskSession._unsaved) {
+            await historyManager.saveSession(_currentTaskSession);
+            loadHistoryList();
+        }
+    }
+    input.classList.add('hidden');
+    display.style.display = '';
+    const pencil = display.parentElement?.querySelector('.task-title-pencil');
+    if (pencil) pencil.style.display = '';
+}
+
+function cancelTaskTitleEdit() {
+    const display = document.getElementById('task-title-display');
+    const input = document.getElementById('task-title-input');
+    if (!display || !input) return;
+    input.classList.add('hidden');
+    display.style.display = '';
+    const pencil = display.parentElement?.querySelector('.task-title-pencil');
+    if (pencil) pencil.style.display = '';
 }
 
 function appendTaskMessageBubble(msg, animate = true) {
@@ -5300,7 +5210,9 @@ function appendTaskMessageBubble(msg, animate = true) {
             '</div>';
     }
 
-    const contentHtml = msg.content ? renderMarkdownToHtml(msg.content) : '<span class="task-typing-indicator"><span></span><span></span><span></span></span>';
+    const contentHtml = msg.content
+        ? renderMarkdownToHtml(msg.content)
+        : (msg.role === 'assistant' ? '<span class="task-typing-indicator"><span></span><span></span><span></span></span>' : '');
 
     const userActions = `<div class="task-msg-actions task-msg-actions-user" data-msg-id="${msg.id}">
             <button class="task-msg-action-btn" data-action="copy" title="Copy"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
@@ -5327,6 +5239,50 @@ function appendTaskMessageBubble(msg, animate = true) {
     return div;
 }
 
+/** Render a stopped/interrupted notice with Retry button */
+function _appendStoppedBubble(msg) {
+    const messagesEl = document.getElementById('task-chat-messages');
+    if (!messagesEl) return;
+    const div = document.createElement('div');
+    div.className = 'task-chat-message task-chat-message-stopped';
+    div.setAttribute('data-message-id', msg.id);
+    div.style.animation = 'none';
+    div.innerHTML = `
+        <div class="task-stopped-notice">
+            <svg class="task-stopped-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span class="task-stopped-text">${escapeHtml(msg.content)}</span>
+            <button class="task-stopped-retry-btn" data-stopped-msg-id="${msg.id}">Retry</button>
+        </div>`;
+    div.querySelector('.task-stopped-retry-btn')?.addEventListener('click', () => {
+        if (!_currentTaskSession) return;
+        const msgs = _currentTaskSession.taskMessages;
+        // Walk backward to find the last user message (skip stopped/assistant)
+        let lastUserMsg = null;
+        for (let i = msgs.length - 1; i >= 0; i--) {
+            if (msgs[i].role === 'stopped' || msgs[i].role === 'assistant') continue;
+            if (msgs[i].role === 'user') { lastUserMsg = msgs[i]; break; }
+        }
+        if (!lastUserMsg) return;
+        const retryText = lastUserMsg.content || '';
+        // Remove from user message onward in data
+        const userIdx = msgs.indexOf(lastUserMsg);
+        if (userIdx >= 0) msgs.splice(userIdx);
+        // Remove DOM elements from the user message onward
+        const userEl = messagesEl.querySelector(`[data-message-id="${lastUserMsg.id}"]`);
+        if (userEl) {
+            let el = userEl;
+            while (el) { const next = el.nextElementSibling; el.remove(); el = next; }
+        }
+        // Re-send the same prompt
+        const input = document.getElementById('task-chat-input');
+        if (input) input.value = retryText;
+        updateTaskSendBtnState();
+        sendTaskMessage();
+    });
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
 function updateAssistantBubbleContent(msgId, content) {
     const bubble = document.querySelector(`[data-message-id="${msgId}"] .task-chat-bubble-content`);
     if (!bubble) return;
@@ -5350,6 +5306,147 @@ function updateAssistantBubbleContent(msgId, content) {
         const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 80;
         if (atBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
     }
+}
+
+/* ─── Artifact Cards ─── */
+
+const _ARTIFACT_SVG = {
+    code: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+    doc: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    image: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+    slide: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+    sheet: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
+    archive: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>',
+    config: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+    terminal: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
+    pdf: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    file: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>',
+};
+
+const ARTIFACT_TYPE_MAP = {
+    '.html': { label: 'HTML', icon: _ARTIFACT_SVG.code },
+    '.htm': { label: 'HTML', icon: _ARTIFACT_SVG.code },
+    '.css': { label: 'CSS', icon: _ARTIFACT_SVG.code },
+    '.js': { label: 'JavaScript', icon: _ARTIFACT_SVG.code },
+    '.mjs': { label: 'JavaScript', icon: _ARTIFACT_SVG.code },
+    '.ts': { label: 'TypeScript', icon: _ARTIFACT_SVG.code },
+    '.tsx': { label: 'TypeScript', icon: _ARTIFACT_SVG.code },
+    '.jsx': { label: 'React JSX', icon: _ARTIFACT_SVG.code },
+    '.json': { label: 'JSON', icon: _ARTIFACT_SVG.code },
+    '.xml': { label: 'XML', icon: _ARTIFACT_SVG.code },
+    '.yaml': { label: 'YAML', icon: _ARTIFACT_SVG.config },
+    '.yml': { label: 'YAML', icon: _ARTIFACT_SVG.config },
+    '.md': { label: 'Markdown', icon: _ARTIFACT_SVG.doc },
+    '.txt': { label: 'Text', icon: _ARTIFACT_SVG.doc },
+    '.py': { label: 'Python', icon: _ARTIFACT_SVG.code },
+    '.rb': { label: 'Ruby', icon: _ARTIFACT_SVG.code },
+    '.go': { label: 'Go', icon: _ARTIFACT_SVG.code },
+    '.rs': { label: 'Rust', icon: _ARTIFACT_SVG.code },
+    '.java': { label: 'Java', icon: _ARTIFACT_SVG.code },
+    '.sh': { label: 'Shell Script', icon: _ARTIFACT_SVG.terminal },
+    '.bash': { label: 'Shell Script', icon: _ARTIFACT_SVG.terminal },
+    '.zsh': { label: 'Shell Script', icon: _ARTIFACT_SVG.terminal },
+    '.svg': { label: 'SVG Image', icon: _ARTIFACT_SVG.image },
+    '.png': { label: 'PNG Image', icon: _ARTIFACT_SVG.image },
+    '.jpg': { label: 'JPEG Image', icon: _ARTIFACT_SVG.image },
+    '.jpeg': { label: 'JPEG Image', icon: _ARTIFACT_SVG.image },
+    '.gif': { label: 'GIF Image', icon: _ARTIFACT_SVG.image },
+    '.webp': { label: 'WebP Image', icon: _ARTIFACT_SVG.image },
+    '.pdf': { label: 'PDF Document', icon: _ARTIFACT_SVG.pdf },
+    '.pptx': { label: 'Presentation', icon: _ARTIFACT_SVG.slide },
+    '.ppt': { label: 'Presentation', icon: _ARTIFACT_SVG.slide },
+    '.docx': { label: 'Document', icon: _ARTIFACT_SVG.doc },
+    '.doc': { label: 'Document', icon: _ARTIFACT_SVG.doc },
+    '.xlsx': { label: 'Spreadsheet', icon: _ARTIFACT_SVG.sheet },
+    '.xls': { label: 'Spreadsheet', icon: _ARTIFACT_SVG.sheet },
+    '.csv': { label: 'CSV Data', icon: _ARTIFACT_SVG.sheet },
+    '.zip': { label: 'Archive', icon: _ARTIFACT_SVG.archive },
+    '.tar': { label: 'Archive', icon: _ARTIFACT_SVG.archive },
+    '.gz': { label: 'Archive', icon: _ARTIFACT_SVG.archive },
+    '.sql': { label: 'SQL', icon: _ARTIFACT_SVG.code },
+    '.env': { label: 'Environment', icon: _ARTIFACT_SVG.config },
+    '.toml': { label: 'TOML', icon: _ARTIFACT_SVG.config },
+    '.ini': { label: 'Config', icon: _ARTIFACT_SVG.config },
+    '.conf': { label: 'Config', icon: _ARTIFACT_SVG.config },
+};
+
+function getArtifactTypeInfo(ext) {
+    return ARTIFACT_TYPE_MAP[ext] || { label: ext ? ext.slice(1).toUpperCase() + ' File' : 'File', icon: _ARTIFACT_SVG.file };
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function isPreviewableImage(ext) {
+    return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'].includes(ext);
+}
+
+function renderArtifactCards(msgId, createdFiles) {
+    const bubbleWrap = document.querySelector(`[data-message-id="${msgId}"] .task-chat-bubble-wrap`);
+    if (!bubbleWrap || !createdFiles?.length) return;
+
+    const container = document.createElement('div');
+    container.className = 'task-artifact-cards';
+
+    for (const file of createdFiles) {
+        const typeInfo = getArtifactTypeInfo(file.ext);
+        const card = document.createElement('div');
+        card.className = 'task-artifact-card';
+        card.dataset.filePath = file.path;
+
+        const thumbnailHtml = isPreviewableImage(file.ext)
+            ? `<img class="task-artifact-thumb" src="file://${encodeURI(file.path)}?t=${Date.now()}" alt="${escapeHtml(file.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="task-artifact-icon-wrap" style="display:none"><span class="task-artifact-icon">${typeInfo.icon}</span></div>`
+            : `<div class="task-artifact-icon-wrap"><span class="task-artifact-icon">${typeInfo.icon}</span></div>`;
+
+        card.innerHTML = `
+            <div class="task-artifact-preview">${thumbnailHtml}</div>
+            <div class="task-artifact-info">
+                <div class="task-artifact-name" title="${escapeHtml(file.path)}">${escapeHtml(file.name)}</div>
+                <div class="task-artifact-meta">${typeInfo.label} &middot; ${formatFileSize(file.size)}</div>
+            </div>
+            <div class="task-artifact-actions">
+                <button class="task-artifact-btn" data-action="open" title="Open with default app">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </button>
+                <button class="task-artifact-btn" data-action="folder" title="Show in folder">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                </button>
+            </div>
+        `;
+
+        card.addEventListener('click', (e) => {
+            const btn = e.target.closest('.task-artifact-btn');
+            if (!btn) {
+                window.electronAPI?.openFileNative?.(file.path);
+                return;
+            }
+            const action = btn.dataset.action;
+            if (action === 'open') window.electronAPI?.openFileNative?.(file.path);
+            else if (action === 'folder') window.electronAPI?.openContainingFolder?.(file.path);
+        });
+
+        container.appendChild(card);
+    }
+
+    bubbleWrap.appendChild(container);
+    const messagesEl = document.getElementById('task-chat-messages');
+    if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+/* ─── Model Selector Flash ─── */
+
+function flashModelSelectorIfEmpty() {
+    const modelSel = document.getElementById('task-model-selector');
+    if (!modelSel || modelSel.value) return;
+    modelSel.classList.remove('model-select-flash');
+    void modelSel.offsetWidth;
+    modelSel.classList.add('model-select-flash');
+    modelSel.focus();
+    modelSel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    try { modelSel.showPicker(); } catch {}
 }
 
 /* ─── Send Message ─── */
@@ -5408,6 +5505,15 @@ async function sendTaskMessage() {
     _currentTaskSession.taskConfig.modelId = modelId;
     _currentTaskSession.taskConfig.executionMode = document.querySelector('.task-mode-option.active')?.getAttribute('data-mode') || 'ask';
 
+    // First message: save to history and show title
+    const isFirstMessage = _currentTaskSession._unsaved;
+    if (isFirstMessage) {
+        delete _currentTaskSession._unsaved;
+        // Generate title from first user prompt (truncated)
+        const autoTitle = content.length > 40 ? content.slice(0, 40).trim() + '...' : content;
+        _currentTaskSession.title = autoTitle || _currentTaskSession.title;
+    }
+
     // Render user bubble
     appendTaskMessageBubble(userMsg);
 
@@ -5415,6 +5521,11 @@ async function sendTaskMessage() {
     inputEl.value = '';
     autoGrowTextarea(inputEl);
     if (chipsEl) { chipsEl.innerHTML = ''; chipsEl.style.display = 'none'; }
+
+    // Show title in topbar
+    if (isFirstMessage) {
+        showTaskTitle(_currentTaskSession.title);
+    }
 
     // Create assistant message placeholder
     const assistantMsg = {
@@ -5509,6 +5620,40 @@ async function stopTask(sessionId) {
     if (activeTaskSessionId === sessionId) {
         updateTaskStateBadge('done');
         document.getElementById('task-ws-stop-btn')?.classList.add('hidden');
+
+        // Dismiss permission dialog if visible (it covers the entire workspace)
+        document.getElementById('task-permission-dialog')?.classList.add('hidden');
+
+        // Finalize assistant bubble: remove typing indicator, thinking/tool blocks
+        if (_currentTaskSession?.id === sessionId) {
+            const msgs = _currentTaskSession.taskMessages;
+            const lastMsg = msgs?.[msgs.length - 1];
+            if (lastMsg?.role === 'assistant') {
+                // Render whatever content has been accumulated so far
+                updateAssistantBubbleContent(lastMsg.id, lastMsg.content);
+                // Show AI action buttons
+                const aiActions = document.querySelector(`[data-message-id="${lastMsg.id}"] .task-msg-actions-ai`);
+                if (aiActions) aiActions.classList.remove('hidden');
+                // Remove thinking / tool blocks (only needed during streaming)
+                const lastBubble = document.querySelector(`[data-message-id="${lastMsg.id}"] .task-chat-bubble-content`);
+                if (lastBubble) {
+                    lastBubble.querySelectorAll('.task-thinking-block, .task-tool-block').forEach(el => el.remove());
+                }
+            }
+        }
+
+        // Append an interrupted notice with Retry button
+        if (_currentTaskSession?.id === sessionId) {
+            const stoppedMsg = {
+                id: generateId(), role: 'stopped', content: 'Response was interrupted',
+                timestamp: new Date().toISOString(), attachments: [], metadata: {},
+            };
+            _currentTaskSession.taskMessages.push(stoppedMsg);
+            _appendStoppedBubble(stoppedMsg);
+        }
+
+        // Focus textarea so user can immediately start typing
+        document.getElementById('task-chat-input')?.focus();
     }
 
     // Save state asynchronously
@@ -5594,6 +5739,8 @@ async function openTaskFromHistory(session) {
 
 async function saveTaskSession() {
     if (!_currentTaskSession) return;
+    // Don't save to history if no message has been sent yet
+    if (_currentTaskSession._unsaved) return;
     _currentTaskSession.updatedAt = new Date().toISOString();
     // Update config from UI
     const modelSel = document.getElementById('task-model-selector');
@@ -5642,13 +5789,16 @@ function attachContextToTask(type, content, source) {
 
 function updateTaskSendBtnState() {
     const btn = document.getElementById('task-chat-send-btn');
+    if (!btn) return;
+    // Never disable while in running/stop mode — user must be able to click stop
+    if (btn.classList.contains('is-running')) { btn.disabled = false; return; }
     const input = document.getElementById('task-chat-input');
     const modelSel = document.getElementById('task-model-selector');
     const chips = document.getElementById('task-chat-chips');
     const hasChips = chips && chips.children.length > 0;
     const hasText = input && input.value.trim().length > 0;
     const hasModel = modelSel && modelSel.value;
-    if (btn) btn.disabled = !hasModel || (!hasText && !hasChips);
+    btn.disabled = !hasModel || (!hasText && !hasChips);
 }
 
 function autoGrowTextarea(el) {
@@ -5666,16 +5816,23 @@ function renderMarkdownToHtml(md) {
     try {
         const cpb = window._cpbBlockUtils;
         if (typeof marked !== 'undefined' && marked.parse) {
+            // Escape raw HTML tags so they are displayed as text, not rendered as DOM
+            const _escHtml = (h) => h.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const customRenderer = {
+                html(token) { return _escHtml(token.raw || token.text || ''); },
+            };
             // If CPB block utils available, extract fenced blocks first and use CPB wrappers
             if (cpb) {
                 const { text: stripped, blocks } = cpb.extractAllFencedBlocks(md);
                 marked.setOptions({ breaks: true, gfm: true });
+                marked.use({ renderer: customRenderer });
                 let html = marked.parse(stripped);
                 html = cpb.injectBlockWrappersIntoHtml(html, blocks);
                 return html;
             }
             // Fallback: basic marked rendering without CPB
             marked.setOptions({ breaks: true, gfm: true });
+            marked.use({ renderer: customRenderer });
             return marked.parse(md);
         }
     } catch {
@@ -5791,6 +5948,8 @@ async function saveAndValidateApiKey(providerId, apiKey) {
             const bubbleWrap = msgEl?.querySelector('.task-chat-bubble-wrap');
             if (!bubbleWrap) return;
             const originalHtml = bubbleWrap.innerHTML;
+            // Expand message to full width during edit
+            msgEl.classList.add('task-chat-message-editing');
             bubbleWrap.innerHTML = `
                 <textarea class="task-msg-edit-area">${escapeHtml(msg.content || '')}</textarea>
                 <div class="task-msg-edit-actions">
@@ -5798,13 +5957,17 @@ async function saveAndValidateApiKey(providerId, apiKey) {
                     <button class="task-msg-edit-btn edit-send" title="Send"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
                 </div>`;
             const textarea = bubbleWrap.querySelector('.task-msg-edit-area');
+            if (textarea) { textarea.style.height = Math.max(80, textarea.scrollHeight) + 'px'; }
             textarea?.focus();
             textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
-            bubbleWrap.querySelector('.edit-cancel')?.addEventListener('click', () => { bubbleWrap.innerHTML = originalHtml; });
+            bubbleWrap.querySelector('.edit-cancel')?.addEventListener('click', () => {
+                msgEl.classList.remove('task-chat-message-editing');
+                bubbleWrap.innerHTML = originalHtml;
+            });
             bubbleWrap.querySelector('.edit-send')?.addEventListener('click', () => {
                 const newText = textarea?.value?.trim();
                 if (!newText) return;
-                // Remove this message and all subsequent messages
+                // Remove this message and all subsequent messages from data
                 const idx = _currentTaskSession.taskMessages.indexOf(msg);
                 if (idx >= 0) _currentTaskSession.taskMessages.splice(idx);
                 // Remove DOM elements from this message onward
@@ -5812,25 +5975,51 @@ async function saveAndValidateApiKey(providerId, apiKey) {
                 let found = false;
                 allMsgEls.forEach(el => { if (el === msgEl) found = true; if (found) el.remove(); });
                 document.querySelectorAll('.task-thinking-block, .task-tool-block').forEach(el => el.remove());
-                // Set input and send
+                // Set input and send directly
                 const input = document.getElementById('task-chat-input');
-                if (input) { input.value = newText; input.focus(); }
-                setTimeout(() => document.getElementById('task-chat-send-btn')?.click(), 50);
+                if (input) { input.value = newText; }
+                updateTaskSendBtnState();
+                sendTaskMessage();
+            });
+            // Allow Enter (without Shift) to submit edit
+            textarea?.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing && ev.keyCode !== 229) {
+                    ev.preventDefault();
+                    bubbleWrap.querySelector('.edit-send')?.click();
+                }
             });
         } else if (action === 'retry' && msg.role === 'user') {
-            // Remove this message's response (and any after) then re-send
+            // Remove this message's response (and any after) then re-send same prompt
             const idx = _currentTaskSession.taskMessages.indexOf(msg);
+            const retryText = msg.content || '';
             if (idx >= 0) _currentTaskSession.taskMessages.splice(idx);
             const msgEl = btn.closest('.task-chat-message');
             const allMsgEls = document.querySelectorAll('.task-chat-message');
             let found = false;
             allMsgEls.forEach(el => { if (el === msgEl) found = true; if (found) el.remove(); });
             document.querySelectorAll('.task-thinking-block, .task-tool-block').forEach(el => el.remove());
+            // Set input and send directly
             const input = document.getElementById('task-chat-input');
-            if (input) { input.value = msg.content || ''; input.focus(); }
-            setTimeout(() => document.getElementById('task-chat-send-btn')?.click(), 50);
+            if (input) { input.value = retryText; }
+            updateTaskSendBtnState();
+            sendTaskMessage();
         }
     });
+
+    // Title editing
+    document.getElementById('task-title-display')?.addEventListener('click', () => startTaskTitleEdit());
+    document.querySelector('.task-title-pencil')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startTaskTitleEdit();
+    });
+    const titleInput = document.getElementById('task-title-input');
+    if (titleInput) {
+        titleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commitTaskTitleEdit(); }
+            if (e.key === 'Escape') { e.preventDefault(); cancelTaskTitleEdit(); }
+        });
+        titleInput.addEventListener('blur', () => commitTaskTitleEdit());
+    }
 
     // Close
     document.getElementById('task-ws-close-btn')?.addEventListener('click', () => {
@@ -5891,8 +6080,10 @@ async function saveAndValidateApiKey(providerId, apiKey) {
         if (btn?.classList.contains('is-running')) {
             // Stop the running task
             if (activeTaskSessionId) stopTask(activeTaskSessionId);
-        } else {
+        } else if (btn && !btn.disabled) {
             sendTaskMessage();
+        } else {
+            flashModelSelectorIfEmpty();
         }
     });
 
@@ -5904,10 +6095,14 @@ async function saveAndValidateApiKey(providerId, apiKey) {
             updateTaskSendBtnState();
         });
         chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
                 e.preventDefault();
                 const btn = document.getElementById('task-chat-send-btn');
-                if (btn && !btn.disabled) sendTaskMessage();
+                if (btn && !btn.disabled) {
+                    sendTaskMessage();
+                } else {
+                    flashModelSelectorIfEmpty();
+                }
             }
         });
         // Paste handler: only convert to chip if >= 500 lines
@@ -6100,6 +6295,7 @@ async function saveAndValidateApiKey(providerId, apiKey) {
 
         window.electronAPI.onTaskStreamThinking?.((data) => {
             const { sessionId, chunk, event: evt } = data;
+            if (!taskSessions.has(sessionId)) return; // Ignore events for stopped sessions
             if (_currentTaskSession?.id !== sessionId) return;
 
             // For 'start' events — the block is already created in sendTaskMessage
@@ -6151,6 +6347,7 @@ async function saveAndValidateApiKey(providerId, apiKey) {
         // Tool execution events — render as collapsible blocks inside the assistant bubble
         window.electronAPI.onTaskStreamTool?.((data) => {
             const { sessionId, tool, preview, output, phase } = data;
+            if (!taskSessions.has(sessionId)) return; // Ignore events for stopped sessions
             if (_currentTaskSession?.id !== sessionId) return;
             const lastMsg = _currentTaskSession?.taskMessages?.[_currentTaskSession.taskMessages.length - 1];
             if (!lastMsg) return;
@@ -6186,7 +6383,7 @@ async function saveAndValidateApiKey(providerId, apiKey) {
         });
 
         window.electronAPI.onTaskStreamDone?.((data) => {
-            const { sessionId } = data;
+            const { sessionId, createdFiles } = data;
             taskSessions.delete(sessionId);
             if (_currentTaskSession?.id === sessionId) {
                 _currentTaskSession.taskState = 'done';
@@ -6198,6 +6395,12 @@ async function saveAndValidateApiKey(providerId, apiKey) {
                     // Show AI action buttons
                     const aiActions = document.querySelector(`[data-message-id="${lastMsg.id}"] .task-msg-actions-ai`);
                     if (aiActions) aiActions.classList.remove('hidden');
+                    // Render artifact cards for created/edited files and persist in message metadata
+                    if (createdFiles?.length > 0) {
+                        lastMsg.metadata = lastMsg.metadata || {};
+                        lastMsg.metadata.createdFiles = createdFiles;
+                        renderArtifactCards(lastMsg.id, createdFiles);
+                    }
                 }
                 updateTaskStateBadge('done');
                 document.getElementById('task-ws-stop-btn')?.classList.add('hidden');
@@ -6218,15 +6421,24 @@ async function saveAndValidateApiKey(providerId, apiKey) {
             taskSessions.delete(sessionId);
             if (_currentTaskSession?.id === sessionId) {
                 _currentTaskSession.taskState = 'done';
-                // Add error as system message
+                // Finalize assistant bubble before showing error
+                const msgs = _currentTaskSession.taskMessages;
+                const lastMsg = msgs?.[msgs.length - 1];
+                if (lastMsg?.role === 'assistant') {
+                    updateAssistantBubbleContent(lastMsg.id, lastMsg.content);
+                    const lastBubble = document.querySelector(`[data-message-id="${lastMsg.id}"] .task-chat-bubble-content`);
+                    if (lastBubble) lastBubble.querySelectorAll('.task-thinking-block, .task-tool-block').forEach(el => el.remove());
+                }
+                // Add error as stopped-style notice with Retry
                 const errMsg = {
-                    id: generateId(), role: 'system', content: `Error: ${error}`,
+                    id: generateId(), role: 'stopped', content: `Error: ${error}`,
                     timestamp: new Date().toISOString(), attachments: [], metadata: {},
                 };
                 _currentTaskSession.taskMessages.push(errMsg);
-                appendTaskMessageBubble(errMsg);
+                _appendStoppedBubble(errMsg);
                 updateTaskStateBadge('done');
                 document.getElementById('task-ws-stop-btn')?.classList.add('hidden');
+                document.getElementById('task-chat-input')?.focus();
                 saveTaskSession();
             }
             loadHistoryList();
@@ -6259,7 +6471,7 @@ async function saveAndValidateApiKey(providerId, apiKey) {
     function respondPermission(decision) {
         if (!_currentPermReqId) return;
         const remember = document.getElementById('task-perm-remember')?.checked || false;
-        window.electronAPI.permissionRespond(_currentPermReqId, decision);
+        window.electronAPI.permissionRespond(_currentPermReqId, decision, remember);
         _currentPermReqId = null;
         document.getElementById('task-permission-dialog')?.classList.add('hidden');
     }
@@ -6289,6 +6501,9 @@ async function renderCustomizePanel() {
             _cust.selectedFile = null;
             const titleEl = document.getElementById('customize-list-title');
             if (titleEl) titleEl.textContent = _cust.section === 'skills' ? 'Skills' : 'Connectors';
+            // Toggle connectors coming soon overlay
+            const connOverlay = document.getElementById('connectors-coming-soon');
+            if (connOverlay) connOverlay.classList.toggle('hidden', _cust.section !== 'connectors');
             _renderCustList();
             _renderCustDetail();
         };

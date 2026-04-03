@@ -66,10 +66,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     reloadInstance: (instanceKey) => ipcRenderer.send('reload-instance', instanceKey),
     newChatForInstance: (instanceKey) => ipcRenderer.send('new-chat-for-instance', instanceKey),
     updateSingleViewBounds: (bounds) => ipcRenderer.send('update-single-view-bounds', bounds),
-    onGeminiIdleTimer: (callback) => ipcRenderer.on('gemini-idle-timer', (event, data) => callback(data)),
-    onGeminiIdleRefreshStarting: (callback) => ipcRenderer.on('gemini-idle-refresh-starting', () => callback()),
-    onGeminiIdleRefreshDone: (callback) => ipcRenderer.on('gemini-idle-refresh-done', () => callback()),
-    setGeminiTypingPause: (active) => ipcRenderer.send('gemini-typing-pause', active),
     captureElementImage: (rect) => ipcRenderer.invoke('capture-element-image', rect),
     // BYOK Task System APIs
     taskStart: (params) => ipcRenderer.send('task-start', params),
@@ -93,8 +89,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     chatgptSubGetModels: () => ipcRenderer.invoke('chatgpt-sub-get-models'),
     onChatgptSubAuthComplete: (callback) => ipcRenderer.on('chatgpt-sub-auth-complete', (event, data) => callback(data)),
     // Permission system
-    permissionRespond: (reqId, decision) => ipcRenderer.send('permission-respond', reqId, decision),
+    permissionRespond: (reqId, decision, remember) => ipcRenderer.send('permission-respond', reqId, decision, remember),
     onPermissionRequest: (callback) => ipcRenderer.on('permission-request', (event, data) => callback(data)),
+    // Artifact file actions
+    openFileNative: (filePath) => ipcRenderer.invoke('open-file-native', filePath),
+    openContainingFolder: (filePath) => ipcRenderer.invoke('open-containing-folder', filePath),
     // Skills & Connectors
     skillsList: (workspaceDir) => ipcRenderer.invoke('skills-list', workspaceDir),
     skillsToggle: (name, enabled) => ipcRenderer.invoke('skills-toggle', name, enabled),

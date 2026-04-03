@@ -6,10 +6,12 @@
  * - build/icon.png  (256x256)
  * - build/icon-512.png (512x512)
  * - build/icon.ico  (multi-size)
+ * - build/icon.icns (macOS, only on darwin)
  */
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 async function main() {
   const sharp = require('sharp');
@@ -58,7 +60,52 @@ async function main() {
   const ico = await toIco(pngBuffers);
   fs.writeFileSync(path.join(outDir, 'icon.ico'), ico);
 
+  // Generate macOS .icns (only on macOS where iconutil is available)
+  if (process.platform === 'darwin') {
+    await generateIcns(base, outDir);
+  } else {
+    console.log('[generate-icons] Skipping .icns generation (not macOS)');
+  }
+
   console.log('[generate-icons] Done:', outDir);
+}
+
+async function generateIcns(base, outDir) {
+  const iconsetDir = path.join(outDir, 'icon.iconset');
+  fs.mkdirSync(iconsetDir, { recursive: true });
+
+  // macOS iconset requires specific sizes: 16, 32, 128, 256, 512 (1x and 2x)
+  const iconsetSizes = [
+    { name: 'icon_16x16.png', size: 16 },
+    { name: 'icon_16x16@2x.png', size: 32 },
+    { name: 'icon_32x32.png', size: 32 },
+    { name: 'icon_32x32@2x.png', size: 64 },
+    { name: 'icon_128x128.png', size: 128 },
+    { name: 'icon_128x128@2x.png', size: 256 },
+    { name: 'icon_256x256.png', size: 256 },
+    { name: 'icon_256x256@2x.png', size: 512 },
+    { name: 'icon_512x512.png', size: 512 },
+    { name: 'icon_512x512@2x.png', size: 1024 },
+  ];
+
+  await Promise.all(
+    iconsetSizes.map(({ name, size }) =>
+      base
+        .resize(size, size, {
+          fit: 'contain',
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .png()
+        .toFile(path.join(iconsetDir, name))
+    )
+  );
+
+  const icnsPath = path.join(outDir, 'icon.icns');
+  execSync(`iconutil -c icns "${iconsetDir}" -o "${icnsPath}"`);
+
+  // Clean up iconset directory
+  fs.rmSync(iconsetDir, { recursive: true, force: true });
+  console.log('[generate-icons] Generated .icns:', icnsPath);
 }
 
 main().catch((err) => {

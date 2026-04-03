@@ -70,8 +70,50 @@ workflow:
                     - quality-reviewer
                     - ux-reviewer
         require_plan_approval: true
+        role_profiles:
+            analyst:
+                description: Requirements analysis and validation
+                isolation: none
+                mode: plan
+                model: sonnet
+            architect:
+                description: Solution design and architecture decisions
+                isolation: none
+                mode: plan
+                model: sonnet
+            designer:
+                description: UI/UX design with MCP design tools
+                isolation: worktree
+                mode: acceptEdits
+                model: sonnet
+            implementer:
+                description: Code implementation (backend, frontend, full-stack)
+                isolation: worktree
+                mode: acceptEdits
+                model: sonnet
+            researcher:
+                description: Read-only codebase exploration and analysis
+                isolation: none
+                mode: plan
+                model: haiku
+            reviewer:
+                description: Code review and quality validation
+                isolation: none
+                mode: plan
+                model: haiku
+            tester:
+                description: Test creation and coverage validation
+                isolation: worktree
+                mode: acceptEdits
+                model: sonnet
         teammate_display: auto
     token_budget:
         plan: 30000
         run: 180000
         sync: 40000
+    worktree:
+        auto_cleanup: true
+        auto_create: true
+        auto_merge: true
+        session_name_pattern: moai-{ProjectName}-{SPEC-ID}
+        tmux_preferred: true

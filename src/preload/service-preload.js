@@ -507,49 +507,53 @@ async function injectPrompt(text, selectors, autoSend = false, options = {}) {
         // Clear existing content first
         inputEl.innerHTML = '';
 
-        if (useHumanTyping) {
-            // Use human-like typing
-            await humanLikeTyping(inputEl, text, isProseMirror, isContentEditable);
-            console.log('[injectPrompt] Human-like typing completed for ContentEditable');
-        } else {
-            // Multi mode: set text immediately for fast injection
-            if (isPerplexityService) {
-                // Perplexity (Lexical): Send button enables only when editor sees a proper input (e.g. insertFromPaste).
-                // Fire InputEvent with insertFromPaste + data so Lexical updates state and enables Send; avoid
-                // execCommand first so we don't get duplicate text (execCommand + Lexical applying event.data).
-                inputEl.dispatchEvent(new InputEvent('input', {
-                    bubbles: true,
-                    cancelable: true,
-                    inputType: 'insertFromPaste',
-                    data: text,
-                    view: window
-                }));
-                await new Promise(r => requestAnimationFrame(r));
-                const hasContent = (inputEl.textContent || '').trim().length > 0;
-                if (!hasContent) {
-                    // Fallback if Lexical doesn't insert from event: insert via execCommand then notify
-                    const inserted = document.execCommand('insertText', false, text);
-                    if (!inserted) inputEl.textContent = text;
-                    inputEl.dispatchEvent(new InputEvent('input', {
-                        bubbles: true,
-                        cancelable: true,
-                        inputType: 'insertText',
-                        data: text,
-                        view: window
-                    }));
-                }
-            } else {
+        if (isPerplexityService) {
+            // Perplexity (Lexical): Always use bulk insertion regardless of typing mode.
+            // Character-by-character execCommand causes race conditions with Lexical's
+            // reconciliation cycle, dropping Korean/CJK characters intermittently.
+            if (useHumanTyping) {
+                const humanDelay = 200 + Math.random() * 300;
+                await new Promise(r => setTimeout(r, humanDelay));
+            }
+            // Fire insertFromPaste so Lexical updates state and enables Send button.
+            inputEl.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                cancelable: true,
+                inputType: 'insertFromPaste',
+                data: text,
+                view: window
+            }));
+            await new Promise(r => requestAnimationFrame(r));
+            const hasContent = (inputEl.textContent || '').trim().length > 0;
+            if (!hasContent) {
+                // Fallback if Lexical doesn't insert from event
                 const inserted = document.execCommand('insertText', false, text);
                 if (!inserted) inputEl.textContent = text;
                 inputEl.dispatchEvent(new InputEvent('input', {
                     bubbles: true,
                     cancelable: true,
-                    inputType: 'insertFromPaste',
+                    inputType: 'insertText',
                     data: text,
                     view: window
                 }));
-                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
             }
+            console.log('[injectPrompt] Perplexity bulk injection completed for ContentEditable');
+        } else if (useHumanTyping) {
+            // Use human-like typing for non-Perplexity services
+            await humanLikeTyping(inputEl, text, isProseMirror, isContentEditable);
+            console.log('[injectPrompt] Human-like typing completed for ContentEditable');
+        } else {
+            // Non-Perplexity instant mode
+            const inserted = document.execCommand('insertText', false, text);
+            if (!inserted) inputEl.textContent = text;
+            inputEl.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                cancelable: true,
+                inputType: 'insertFromPaste',
+                data: text,
+                view: window
+            }));
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
             console.log('[injectPrompt] Instant injection completed for ContentEditable');
         }
     } else {
@@ -958,71 +962,14 @@ setInterval(() => {
     updateLoginStatusUI(isLoggedIn);
 }, 2000);
 
-//===========================================
-// GEMINI RESPONSE-IN-PROGRESS (for idle refresh skip)
-//===========================================
-// (1) Send button: mat-icon[data-mat-icon-name="send"] / fonticon="send"
-// (2) Stop button (response in progress): mat-icon[data-mat-icon-name="stop"] / fonticon="stop"
-//
-// If Gemini team changes DOM, alternative strategies:
-// - Fallback 1: aria-label containing "Stop"/"중단" (already used)
-// - Fallback 2: extend selectors in stopSelectors (e.g. [data-testid*="stop"], .stop-button)
-// - Fallback 3: detect "send" button disabled + loading spinner/aria-busy on chat container
-// - Fallback 4: config-driven selectors from main (e.g. selectorsConfig.gemini.responseInProgressSelector)
-// - Fallback 5: time-based guard only — skip refresh for N min after last prompt (no DOM), less accurate
-function isGeminiResponseInProgress() {
-    if (currentService !== 'gemini') return false;
-    try {
-        const host = window.location.hostname || '';
-        if (!host.includes('gemini.google.com') || window.location.pathname.indexOf('/app') !== 0) return false;
-        // Primary: stop icon visible = response in progress (user can stop)
-        const stopSelectors = [
-            'mat-icon[data-mat-icon-name="stop"]',
-            'mat-icon[fonticon="stop"]',
-            '[fonticon="stop"]',
-            'mat-icon[data-mat-icon-type="font"][data-mat-icon-name="stop"]'
-        ];
-        for (const sel of stopSelectors) {
-            const el = document.querySelector(sel);
-            if (el && el.offsetParent !== null) {
-                const rect = el.getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0) return true;
-            }
-        }
-        // Fallback: button with aria-label containing "stop" or "중단"
-        const stopBtn = document.querySelector('button[aria-label*="Stop"], button[aria-label*="stop"], button[aria-label*="중단"]');
-        if (stopBtn && stopBtn.offsetParent !== null) {
-            const rect = stopBtn.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) return true;
-        }
-        return false;
-    } catch (e) {
-        return false;
-    }
-}
-
-let lastGeminiResponseInProgress = false;
-setInterval(() => {
-    if (currentService !== 'gemini') return;
-    const inProgress = isGeminiResponseInProgress();
-    if (inProgress !== lastGeminiResponseInProgress) {
-        lastGeminiResponseInProgress = inProgress;
-        ipcRenderer.send('gemini-response-in-progress', { inProgress });
-    }
-}, 2500);
-
 function updateLoginStatusUI(isLoggedIn) {
     const badgeId = 'sync-multi-chat-login-badge';
     const badge = document.getElementById('sync-multi-chat-login-badge');
 
-    // Gemini: show login-required badge when on app URL or Google account/sign-in page
-    const hostname = typeof window.location !== 'undefined' && window.location.hostname ? window.location.hostname : '';
-    const pathname = (typeof window.location !== 'undefined' && window.location.pathname) ? window.location.pathname : '';
-    const isGeminiAppUrl = currentService === 'gemini' && hostname.includes('gemini.google.com') && pathname.indexOf('/app') === 0;
-    const isGeminiAccountsUrl = currentService === 'gemini' && hostname.includes('accounts.google.com');
-    // On accounts.google.com (account chooser/sign-in) always show badge; on app URL show when not logged in
-    const showLoginBadge = (currentService === 'gemini' && isGeminiAccountsUrl) ||
-        (!isLoggedIn && (currentService !== 'gemini' || isGeminiAppUrl || isGeminiAccountsUrl));
+    // Login badge disabled — users manage login via each service's native UI or
+    // the "Sign in with Chrome/Edge" button in the header bar (clear-site-data flow).
+    // The in-webview badge was redundant and cluttered the UI across all services.
+    const showLoginBadge = false;
 
     if (showLoginBadge) {
         if (!badge) {

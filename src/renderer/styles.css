@@ -236,9 +236,9 @@ body {
 }
 
 #history-sidebar:not(.rail-expanded) .sidebar-rail-new-chat {
-    width: 36px;
-    height: 36px;
-    min-height: 36px;
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
     align-self: center;
     padding: 0;
     justify-content: center;
@@ -246,17 +246,17 @@ body {
 
 #history-sidebar.rail-expanded .sidebar-rail-new-chat {
     justify-content: flex-start;
-    gap: 10px;
-    min-height: 36px;
+    gap: 8px;
+    min-height: 32px;
     padding: 0 8px;
     width: 100%;
     box-sizing: border-box;
 }
 
 #history-sidebar.rail-expanded .sidebar-rail-new-chat .rail-btn-icon {
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
     border-radius: 50%;
     background: hsl(var(--primary) / 0.42);
     color: hsl(var(--primary-foreground));
@@ -319,9 +319,9 @@ body {
 }
 
 #history-sidebar:not(.rail-expanded) .sidebar-rail-new-task {
-    width: 36px;
-    height: 36px;
-    min-height: 36px;
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
     align-self: center;
     padding: 0;
     justify-content: center;
@@ -329,17 +329,17 @@ body {
 
 #history-sidebar.rail-expanded .sidebar-rail-new-task {
     justify-content: flex-start;
-    gap: 10px;
-    min-height: 36px;
+    gap: 8px;
+    min-height: 32px;
     padding: 0 8px;
     width: 100%;
     box-sizing: border-box;
 }
 
 #history-sidebar.rail-expanded .sidebar-rail-new-task .rail-btn-icon {
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
     border-radius: 50%;
     background: hsl(160 60% 30% / 0.42);
     color: hsl(160 60% 85%);
@@ -562,6 +562,64 @@ body {
     min-width: 0;
 }
 
+/* Task title in topbar */
+.task-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+}
+.task-title-wrap:hover {
+    background: hsl(var(--muted) / 0.5);
+}
+.task-title-wrap.hidden { display: none; }
+.task-title-display {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+    line-height: 1.4;
+}
+.task-title-pencil {
+    display: none;
+    align-items: center;
+    color: hsl(var(--muted-foreground));
+    transition: color 0.15s ease;
+    flex-shrink: 0;
+}
+.task-title-wrap:hover .task-title-pencil {
+    display: flex;
+}
+.task-title-pencil:hover {
+    color: hsl(var(--primary));
+}
+.task-title-input {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    background: hsl(220 15% 16%);
+    border: 1px solid hsl(var(--ring));
+    border-radius: 4px;
+    padding: 2px 6px;
+    outline: none;
+    max-width: 220px;
+    font-family: inherit;
+}
+.task-title-input.hidden { display: none; }
+.task-title-wrap .task-title-separator {
+    width: 1px;
+    height: 16px;
+    background: hsl(var(--border));
+    margin-left: 4px;
+}
+
 .task-chat-topbar-right {
     display: flex;
     align-items: center;
@@ -619,7 +677,7 @@ body {
     background: hsl(0 72% 42%);
 }
 
-/* Model selector in topbar */
+/* Model selector — inside prompt box, bottom-right with send */
 .task-chat-model-select {
     padding: 5px 10px;
     border-radius: var(--radius);
@@ -627,15 +685,16 @@ body {
     background: hsl(220 15% 16%);
     color: hsl(var(--foreground));
     font-size: 0.82rem;
-    min-width: 160px;
-    max-width: 240px;
+    min-width: 100px;
+    max-width: min(200px, calc(100% - 44px));
 }
 .task-chat-model-select.model-select-flash {
-    animation: modelSelectFlash 0.6s ease;
+    animation: modelSelectFlash 1s ease;
 }
 @keyframes modelSelectFlash {
-    0%, 100% { border-color: hsl(var(--border)); box-shadow: none; }
-    30%, 70% { border-color: hsl(var(--primary)); box-shadow: 0 0 8px hsl(var(--primary) / 0.4); }
+    0%, 100% { border-color: hsl(var(--border)); box-shadow: none; transform: scale(1); }
+    15%, 45%, 75% { border-color: #f59e0b; box-shadow: 0 0 12px rgba(245, 158, 11, 0.5); transform: scale(1.03); }
+    30%, 60% { border-color: hsl(var(--border)); box-shadow: none; transform: scale(1); }
 }
 
 /* Execution mode dropdown — inside input toolbar */
@@ -734,7 +793,7 @@ body {
     flex: none;
     border-top: none;
     padding-top: 0;
-    max-width: 800px;
+    max-width: min(96vw, 1120px);
     width: 100%;
     align-self: center;
     background: transparent;
@@ -825,6 +884,52 @@ body {
     text-align: center;
 }
 
+/* Stopped / interrupted notice — neutral, Claude-like */
+.task-chat-message-stopped {
+    align-self: center;
+    max-width: 85%;
+    width: 85%;
+    animation: none;
+}
+
+.task-stopped-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: hsl(220 15% 17%);
+    border: 1px solid hsl(var(--border));
+    font-size: 0.82rem;
+    color: hsl(var(--muted-foreground));
+}
+
+.task-stopped-icon {
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+
+.task-stopped-text {
+    flex: 1;
+}
+
+.task-stopped-retry-btn {
+    flex-shrink: 0;
+    padding: 5px 16px;
+    border-radius: 6px;
+    border: 1px solid hsl(var(--border));
+    background: transparent;
+    color: hsl(var(--foreground));
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.task-stopped-retry-btn:hover {
+    background: hsl(var(--foreground) / 0.08);
+    border-color: hsl(var(--foreground) / 0.3);
+}
+
 .task-chat-bubble-content { overflow: hidden; min-width: 0; }
 .task-chat-bubble-content p:first-child { margin-top: 0; }
 .task-chat-bubble-content p:last-child { margin-bottom: 0; }
@@ -886,6 +991,12 @@ body {
 .task-msg-action-btn:hover {
     background: hsl(var(--foreground) / 0.12);
     color: hsl(var(--foreground));
+}
+
+/* Expand user message to full width during edit */
+.task-chat-message-editing {
+    max-width: 85%;
+    width: 85%;
 }
 
 /* Edit mode inline textarea */
@@ -959,6 +1070,130 @@ body {
     border: 1px solid hsl(var(--border));
 }
 
+/* ─── Artifact Cards ─── */
+.task-artifact-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    max-width: 100%;
+}
+
+.task-artifact-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: hsl(220 15% 13%);
+    border: 1px solid hsl(var(--border));
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    min-width: 220px;
+    max-width: 340px;
+    flex: 1 1 220px;
+}
+
+.task-artifact-card:hover {
+    background: hsl(220 15% 16%);
+    border-color: hsl(var(--primary) / 0.4);
+}
+
+.task-artifact-preview {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: hsl(220 15% 18%);
+}
+
+.task-artifact-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.task-artifact-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.task-artifact-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: hsl(var(--primary));
+    line-height: 1;
+}
+
+.task-artifact-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.task-artifact-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.task-artifact-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.task-artifact-meta {
+    font-size: 0.68rem;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.3;
+    margin-top: 1px;
+}
+
+.task-artifact-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.task-artifact-card:hover .task-artifact-actions {
+    opacity: 1;
+}
+
+.task-artifact-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: transparent;
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    padding: 0;
+}
+
+.task-artifact-btn:hover {
+    background: hsl(var(--primary) / 0.15);
+    color: hsl(var(--primary));
+    border-color: hsl(var(--primary) / 0.3);
+}
+
 /* Bottom input area */
 .task-chat-input-area {
     flex-shrink: 0;
@@ -1007,14 +1242,34 @@ body {
 
 .task-chat-input-row {
     display: flex;
+    position: relative;
+}
+
+.task-chat-input-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: block;
+}
+
+.task-chat-composer-actions {
+    position: absolute;
+    right: 10px;
+    bottom: 14px;
+    display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    z-index: 2;
+    max-width: calc(100% - 20px);
+    pointer-events: auto;
 }
 
 .task-chat-textarea {
-    flex: 1;
+    width: 100%;
+    box-sizing: border-box;
     resize: none;
-    padding: 14px 16px;
+    /* Room for model select + send inside the box (bottom-right); % is width of .task-chat-input-wrap */
+    padding: 14px max(100px, min(268px, calc(100% - 32px))) 14px 16px;
     border-radius: 14px;
     border: 1px solid hsl(var(--border));
     background: hsl(220 15% 16%);
@@ -1022,7 +1277,6 @@ body {
     font-size: 0.9rem;
     font-family: 'Noto Sans', 'Segoe UI', sans-serif;
     line-height: 1.5;
-    box-sizing: border-box;
     min-height: 52px;
     max-height: 50vh;
     overflow-y: auto;
@@ -1031,11 +1285,20 @@ body {
 
 .task-chat-textarea:focus {
     outline: none;
-    border-color: hsl(var(--primary) / 0.6);
-    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.12);
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
+/* New Task empty state: wider, taller composer */
+.task-workspace.task-ws-empty .task-chat-textarea {
+    min-height: 128px;
+    border-radius: 16px;
+    padding: 16px max(100px, min(268px, calc(100% - 32px))) 16px 18px;
 }
 
 .task-chat-send-btn {
+    position: relative;
+    flex-shrink: 0;
     width: 36px;
     height: 36px;
     min-width: 36px;
@@ -1048,6 +1311,7 @@ body {
     align-items: center;
     justify-content: center;
     transition: background 0.15s ease, opacity 0.15s ease;
+    z-index: 1;
 }
 
 .task-chat-send-btn:hover { background: hsl(var(--primary) / 0.85); }
@@ -1055,9 +1319,9 @@ body {
 
 /* Send button → Stop button when running */
 .task-chat-send-btn.is-running {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
     background: hsl(0 72% 50%);
     opacity: 1 !important;
     cursor: pointer;
@@ -1412,7 +1676,7 @@ body {
 }
 
 /* ─── Customize Panel (3-Panel Layout) ─── */
-.customize-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.customize-body { display: flex; flex: 1; min-height: 0; overflow: hidden; position: relative; }
 
 .customize-nav {
     width: 180px; min-width: 140px; flex-shrink: 0;
@@ -1448,12 +1712,13 @@ body {
     color: hsl(var(--foreground)); font-size: 0.8rem; box-sizing: border-box;
 }
 .cust-tree-toggle-btn {
-    flex-shrink: 0; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
-    border: 1px solid hsl(var(--border)); border-radius: var(--radius);
-    background: hsl(220 15% 16%); color: hsl(var(--muted-foreground));
-    cursor: pointer; transition: background 0.12s, color 0.12s;
+    flex-shrink: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+    border: none; border-radius: var(--radius);
+    background: transparent; color: #999;
+    cursor: pointer; transition: background 0.15s, color 0.15s;
 }
-.cust-tree-toggle-btn:hover { background: hsl(var(--primary) / 0.12); color: hsl(var(--foreground)); }
+.cust-tree-toggle-btn svg { width: 18px; height: 18px; overflow: visible; }
+.cust-tree-toggle-btn:hover { background: rgba(255,255,255,0.08); color: #ddd; }
 
 .customize-list-content { flex: 1; overflow-y: auto; padding: 0 4px 12px; }
 
@@ -1523,6 +1788,59 @@ body {
     flex: 1; color: hsl(var(--muted-foreground)); font-size: 0.84rem;
 }
 .customize-detail-loading { padding: 20px; color: hsl(var(--muted-foreground)); font-size: 0.84rem; }
+
+/* Coming Soon overlay */
+.coming-soon-section {
+    position: relative;
+}
+.coming-soon-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: hsl(220 15% 10% / 0.75);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-radius: 8px;
+    z-index: 10;
+}
+.coming-soon-overlay.hidden { display: none; }
+.coming-soon-full {
+    position: absolute;
+    top: 0;
+    left: 204px;
+    right: 0;
+    bottom: 0;
+    border-radius: 0;
+}
+.coming-soon-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 28px 36px;
+    text-align: center;
+    max-width: 340px;
+}
+.coming-soon-badge {
+    display: inline-block;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.12);
+    border: 1px solid hsl(var(--primary) / 0.3);
+    border-radius: 20px;
+    padding: 4px 16px;
+}
+.coming-soon-desc {
+    font-size: 0.82rem;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.55;
+    margin: 0;
+}
 
 .customize-code-preview {
     font-family: 'Consolas', 'Fira Code', 'Courier New', monospace;
@@ -4213,6 +4531,19 @@ button.gridjs-sort:focus { outline: none; }
 .history-date {
     font-size: var(--smc-fs-caption);
     color: hsl(var(--muted-foreground) / 0.7);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.history-date-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: hsl(var(--muted-foreground) / 0.5);
+    min-width: 10px;
+}
+.history-date-sep {
+    color: hsl(var(--muted-foreground) / 0.3);
+    margin: 0 2px;
 }
 
 .history-actions {
@@ -4400,25 +4731,6 @@ body.main-popup-layer-active .prompt-card {
     display: flex;
     gap: 6px;
     align-items: center;
-}
-
-/* Gemini idle refresh countdown (left of reload button) */
-.view-header .gemini-idle-timer {
-    font-size: 11px;
-    color: hsl(var(--muted-foreground));
-    white-space: nowrap;
-    margin-right: 2px;
-    min-width: 7.5em;
-}
-.view-header .gemini-idle-timer:hover {
-    color: hsl(var(--foreground));
-}
-.view-header .gemini-idle-timer.typing-paused {
-    animation: gemini-timer-blink 1s ease-in-out infinite;
-}
-@keyframes gemini-timer-blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
 }
 
 .view-header .header-btn {

@@ -35,6 +35,220 @@ const { gfm } = require('turndown-plugin-gfm');
 // Disable automation features to avoid detection
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 
+/**
+ * Anti-detection script injected via CDP (Page.addScriptToEvaluateOnNewDocument)
+ * before any page JavaScript runs. Mirrors ParallelChat's approach to reduce
+ * bot/automation fingerprinting that triggers Google's "browser not secure" warning.
+ */
+function getAntiDetectionScript() {
+    return `
+(() => {
+  // 1. Remove navigator.webdriver (automation fingerprint)
+  try {
+    Object.defineProperty(navigator, 'webdriver', {
+      get: () => undefined,
+      configurable: true
+    });
+  } catch {}
+
+  // 2. Mock navigator.plugins (empty array is automation signal)
+  try {
+    const mockPlugins = [
+      { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+      { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+      { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+      { name: 'Microsoft Edge PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+      { name: 'WebKit built-in PDF', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
+    ];
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => mockPlugins,
+      configurable: true
+    });
+  } catch {}
+
+  // 3. Mock navigator.languages (single language is suspicious)
+  try {
+    Object.defineProperty(navigator, 'languages', {
+      get: () => ['en-US', 'en', 'ko-KR', 'ko'],
+      configurable: true
+    });
+  } catch {}
+
+  // 4. Fix WebGL renderer fingerprint (hide SwiftShader/llvmpipe headless markers)
+  try {
+    const getParameter = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function(parameter) {
+      if (parameter === 37445) return 'Intel Inc.';        // UNMASKED_VENDOR_WEBGL
+      if (parameter === 37446) return 'Intel Iris OpenGL Engine'; // UNMASKED_RENDERER_WEBGL
+      return getParameter.apply(this, arguments);
+    };
+  } catch {}
+  try {
+    const getParameter2 = WebGL2RenderingContext.prototype.getParameter;
+    WebGL2RenderingContext.prototype.getParameter = function(parameter) {
+      if (parameter === 37445) return 'Intel Inc.';
+      if (parameter === 37446) return 'Intel Iris OpenGL Engine';
+      return getParameter2.apply(this, arguments);
+    };
+  } catch {}
+
+  // 5. Ensure window.chrome object exists (some detectors check for it)
+  try {
+    if (!window.chrome) {
+      window.chrome = { runtime: {}, loadTimes: function() {}, csi: function() {}, app: {} };
+    }
+  } catch {}
+
+  // 6. Fix permissions.query (automation environments may return anomalies)
+  try {
+    const originalQuery = window.navigator.permissions.query;
+    window.navigator.permissions.query = (parameters) => (
+      parameters.name === 'notifications'
+        ? Promise.resolve({ state: Notification.permission, onchange: null })
+        : originalQuery(parameters)
+    );
+  } catch {}
+
+  // 7. Fix outerWidth/outerHeight (headless: equal to innerWidth/innerHeight)
+  try {
+    if (window.outerWidth === 0 || window.outerHeight === 0) {
+      Object.defineProperty(window, 'outerWidth', { get: () => window.innerWidth, configurable: true });
+      Object.defineProperty(window, 'outerHeight', { get: () => window.innerHeight + 85, configurable: true });
+    }
+  } catch {}
+})();
+    `;
+}
+
+/**
+ * Inject anti-detection script via Chrome DevTools Protocol (CDP).
+ * The script runs before any page JavaScript on every new document in the session.
+ * Debugger is detached after injection — the script persists for the session lifetime.
+ */
+async function injectAntiDetection(webContents) {
+    const dbg = webContents.debugger;
+    let attached = false;
+    try {
+        if (!dbg.isAttached()) {
+            dbg.attach('1.3');
+            attached = true;
+        }
+        await dbg.sendCommand('Page.enable');
+        await dbg.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+            source: getAntiDetectionScript()
+        });
+        console.log('[anti-detection] CDP script injected successfully');
+    } catch (err) {
+        console.warn(`[anti-detection] injection failed: ${err?.message || err}`);
+    } finally {
+        if (attached && dbg.isAttached()) {
+            try { dbg.detach(); } catch {}
+        }
+    }
+}
+
+/**
+ * Open a dedicated modal BrowserWindow for Google account login.
+ * Uses the same partition so cookies are shared with the service view.
+ * This avoids Google's embedded-webview detection that triggers "browser not secure".
+ */
+function openGoogleLoginWindow(url, partition, parentView, serviceUrl) {
+    const loginWin = new BrowserWindow({
+        parent: mainWindow || undefined,
+        modal: !!mainWindow,
+        show: true,
+        width: 900,
+        height: 680,
+        autoHideMenuBar: true,
+        webPreferences: {
+            partition,
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true,
+            webSecurity: true,
+        },
+    });
+
+    // The login window loads accounts.google.com where Safari UA is needed.
+    // Session-level onBeforeSendHeaders handles per-request UA switching,
+    // but webContents.userAgent is sent as the default — set it to Safari
+    // so the initial request and any sub-resources use Safari UA.
+    loginWin.webContents.setUserAgent(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36'
+    );
+
+    // Inject anti-detection into the login window too
+    loginWin.webContents.once('did-start-loading', () => {
+        injectAntiDetection(loginWin.webContents).catch(() => {});
+    });
+
+    // Allow ESC and Cmd/Ctrl+W to close the modal (macOS modal windows may lack visible close button)
+    loginWin.webContents.on('before-input-event', (_event, input) => {
+        if (input.type !== 'keyDown') return;
+        const isClose = input.key === 'Escape' ||
+            (input.key === 'w' && (input.meta || input.control));
+        if (isClose) {
+            try { loginWin.close(); } catch {}
+        }
+    });
+
+    // Auto-close when login completes and redirects back to the service.
+    // Three-tier detection:
+    //   1. Service domain match → auth flow complete (e.g., chatgpt.com, gemini.google.com)
+    //   2. Google auth pages (accounts.google.com, id.google.com) → stay open (still in login flow)
+    //   3. OAuth intermediaries (auth0.com etc.) → stay open (mid-flow token exchange)
+    //   4. Any other domain → close (user navigated away or flow ended elsewhere)
+    const serviceBaseDomain = (() => {
+        try { return new URL(serviceUrl).hostname.replace(/^www\./, ''); } catch { return ''; }
+    })();
+    const OAUTH_INTERMEDIARIES = ['auth0.com', 'auth.openai.com'];
+
+    let closed = false;
+    const doClose = (reloadUrl) => {
+        if (closed) return;
+        closed = true;
+        try { loginWin.close(); } catch {}
+        try {
+            if (parentView && !parentView.webContents.isDestroyed()) {
+                parentView.webContents.loadURL(reloadUrl || serviceUrl);
+            }
+        } catch {}
+    };
+
+    const maybeClose = (nextUrl) => {
+        if (!nextUrl || !serviceBaseDomain || closed) return;
+        try {
+            const host = new URL(nextUrl).hostname;
+
+            // 1. Reached the service's own domain → auth complete, use actual URL (preserves session tokens)
+            if (host === serviceBaseDomain || host.endsWith('.' + serviceBaseDomain)) {
+                doClose(nextUrl);
+                return;
+            }
+
+            // 2. Still on Google auth pages → stay open
+            if (host.includes('accounts.google.com') || host.includes('id.google.com')) {
+                return;
+            }
+
+            // 3. On OAuth intermediary (e.g., auth0 processing callback) → stay open
+            if (OAUTH_INTERMEDIARIES.some(d => host === d || host.endsWith('.' + d))) {
+                return;
+            }
+
+            // 4. Any other domain (e.g., myaccount.google.com, consent pages) → close
+            doClose(serviceUrl);
+        } catch {}
+    };
+
+    // Electron 39+: will-redirect callback receives (details) object with .url
+    loginWin.webContents.on('will-redirect', (details) => maybeClose(details.url));
+    loginWin.webContents.on('did-navigate', (_e, nextUrl) => maybeClose(nextUrl));
+
+    try { loginWin.loadURL(url); } catch {}
+    return loginWin;
+}
+
 // Fix for Google CookieMismatch error (Chromium 134+ third-party cookie phase-out)
 // Disable third-party cookie deprecation and cookie partitioning (CHIPS) so that
 // Google's cross-domain auth flow (accounts.google.com ↔ gemini.google.com) works properly.
@@ -42,6 +256,14 @@ app.commandLine.appendSwitch(
     'disable-features',
     'ThirdPartyCookieDeprecationTrial,TrackingProtection3pcd,PartitionedCookies,BoundSessionCredentials'
 );
+
+// GPU tile memory optimization: prevent "tile memory limits exceeded" warning
+// on Retina (scaleFactor=2) displays. Each WebContentsView uses 4x tile memory
+// at 2x DPI; with 6 views at 1792×1120@2x the total exceeds Chromium's default
+// tile budget (~128-256MB). Raising reported GPU memory to 2048MB increases the
+// tile memory budget proportionally so 6 Retina views fit within limits.
+app.commandLine.appendSwitch('force-gpu-mem-available-mb', '2048');
+app.commandLine.appendSwitch('gpu-rasterization-msaa-sample-count', '0');
 
 // Windows taskbar grouping/icon behavior is strongly tied to AppUserModelID.
 // Setting a stable ID helps Windows associate the running process with the correct icon/shortcut.
@@ -103,25 +325,18 @@ let currentLayout = '1x4'; // Default layout
 let selectorsConfig = {};
 let currentZoomLevel = 0.9; // Default zoom level (user preference, 0.5–3.0)
 
-/** Get display scale factor for the main window (for DPI-aware webview zoom). Returns 1 if unavailable. */
-function getDisplayScaleFactor() {
-    if (!mainWindow || mainWindow.isDestroyed()) return 1;
-    try {
-        const winBounds = mainWindow.getBounds();
-        const display = screen.getDisplayMatching({ x: winBounds.x, y: winBounds.y, width: winBounds.width, height: winBounds.height });
-        return display && typeof display.scaleFactor === 'number' && display.scaleFactor > 0 ? display.scaleFactor : 1;
-    } catch (e) {
-        return 1;
-    }
-}
-
-/** Effective zoom = (1 / displayScale) * userZoom so webview content scales correctly across resolutions. */
+/**
+ * Effective zoom factor = userZoom only (no DPI compensation).
+ * Chromium internally handles DPI-aware rendering: on a 2x display, content is rendered
+ * with 2x pixel density at the same logical size. Dividing by scaleFactor was previously
+ * applied here but caused content to shrink on high-DPI displays (e.g., 0.9/2 = 0.45)
+ * and dramatic size jumps when dragging between displays with different DPIs.
+ */
 function getEffectiveZoomFactor() {
-    const scaleFactor = getDisplayScaleFactor();
-    return (1 / scaleFactor) * currentZoomLevel;
+    return currentZoomLevel;
 }
 
-/** Apply current zoom (DPI-adjusted) to all WebContentsViews (multi and single mode). */
+/** Apply current zoom to all WebContentsViews. */
 function applyZoomToAllViews() {
     const zoom = getEffectiveZoomFactor();
     services.forEach(service => {
@@ -134,6 +349,59 @@ function applyZoomToAllViews() {
         if (entry && entry.view && !entry.view.webContents.isDestroyed()) {
             entry.view.webContents.setZoomFactor(zoom);
         }
+    });
+}
+
+/**
+ * Collect non-enabled views for throttling.
+ */
+function getDisabledViews() {
+    const result = [];
+    services.forEach(service => {
+        if (views[service] && views[service].view && !views[service].view.webContents.isDestroyed()) {
+            if (!views[service].enabled) result.push(views[service].view);
+        }
+    });
+    Object.keys(singleModeViews).forEach(instanceKey => {
+        const entry = singleModeViews[instanceKey];
+        if (entry && entry.view && !entry.view.webContents.isDestroyed()) {
+            if (!entry.enabled) result.push(entry.view);
+        }
+    });
+    return result;
+}
+
+/**
+ * Throttle non-enabled views to 1 FPS to reduce simultaneous tile re-rasterization.
+ * Called during display transitions, window resize, and layout changes.
+ * Automatically restores after autoRestoreMs (default 2s) as a safety net;
+ * callers may also call restoreViewFrameRates() explicitly for earlier restore.
+ */
+let _throttleRestoreTimeout = null;
+function throttleViewsDuringTransition(autoRestoreMs = 2000) {
+    const disabledViews = getDisabledViews();
+    disabledViews.forEach(view => {
+        try { view.webContents.setFrameRate(1); } catch (e) { /* ignore */ }
+    });
+
+    // Safety net: auto-restore if caller doesn't call restoreViewFrameRates()
+    if (_throttleRestoreTimeout) clearTimeout(_throttleRestoreTimeout);
+    _throttleRestoreTimeout = setTimeout(() => {
+        _throttleRestoreTimeout = null;
+        restoreViewFrameRates();
+    }, autoRestoreMs);
+}
+
+/** Restore all non-enabled views to normal frame rate (60 FPS). */
+function restoreViewFrameRates() {
+    if (_throttleRestoreTimeout) {
+        clearTimeout(_throttleRestoreTimeout);
+        _throttleRestoreTimeout = null;
+    }
+    getDisabledViews().forEach(view => {
+        try {
+            if (!view.webContents.isDestroyed()) view.webContents.setFrameRate(60);
+        } catch (e) { /* ignore */ }
     });
 }
 
@@ -152,92 +420,74 @@ function getSpoofedUserAgent() {
     return `Mozilla/5.0 ${platformPart} AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVer} Safari/537.36`;
 }
 
-/** Google auth can reject login when UA/Client Hints reveal Chromium/Electron. Use Firefox UA + no Sec-CH-UA for Google. */
-const GOOGLE_AUTH_URLS = [
-    '*://accounts.google.com/*', '*://*.google.com/*', '*://*.googleapis.com/*', '*://*.gstatic.com/*', '*://*.youtube.com/*'
-];
+/** Services that use Google account login (ChatGPT, Gemini, Grok, Genspark). */
+const GOOGLE_LOGIN_SERVICES = ['chatgpt', 'gemini', 'grok', 'genspark'];
 
-/** Services that use Google account login; use Firefox UA to avoid "browser not secure" (no onBeforeSendHeaders so cookies stay). */
-const GOOGLE_LOGIN_SERVICES = ['gemini', 'grok', 'genspark'];
-
-/** Firefox 131 desktop UA for Google login flows (we avoid modifying request headers so Cookie is preserved). */
-function getFirefoxUserAgentForGoogle() {
-    const platformPart = process.platform === 'darwin'
-        ? '(Macintosh; Intel Mac OS X 10.15; rv:131.0)'
-        : process.platform === 'linux'
-            ? '(X11; Linux x86_64; rv:131.0)'
-            : '(Windows NT 10.0; Win64; x64; rv:131.0)';
-    return `Mozilla/5.0 ${platformPart} Gecko/20100101 Firefox/131.0`;
-}
-
-/** UA for a service: Firefox for Google-login services (to pass Google checks), Chrome for the rest. */
-function getUserAgentForService(service) {
-    return GOOGLE_LOGIN_SERVICES.includes(service) ? getFirefoxUserAgentForGoogle() : getSpoofedUserAgent();
+/**
+ * All services use Chrome-style UA uniformly. Previous approaches (Firefox UA globally,
+ * Safari UA for accounts.google.com only) caused issues:
+ *   - Firefox UA: engine mismatch (Chromium pretending to be Firefox) triggered Google flags
+ *   - Safari UA on accounts.google.com: UA switch mid-auth-flow caused CookieMismatch
+ * Now we rely on CDP anti-detection script (webdriver removal, plugins mock, WebGL spoof,
+ * window.chrome, etc.) to pass Google's bot checks with a consistent Chrome UA everywhere.
+ */
+function getUserAgentForService(_service) {
+    return getSpoofedUserAgent();
 }
 
 /** One outgoing-header hook per session (partition); avoids duplicate listeners when multiple instances share a partition. */
 const sessionsWithOutgoingHeaderHook = new WeakSet();
 
-/** Sec-CH-UA matching desktop Google Chrome branding (major = bundled Chromium). */
-function getChromeStyleSecChUa() {
-    const full = process.versions.chrome || '131.0.0.0';
-    const major = String(full.split('.')[0] || '131');
-    return `"Google Chrome";v="${major}", "Chromium";v="${major}", "Not_A Brand";v="24"`;
-}
-
-function getChromeStyleSecChUaPlatform() {
-    if (process.platform === 'darwin') return '"macOS"';
-    if (process.platform === 'linux') return '"Linux"';
-    return '"Windows"';
-}
-
 /**
- * Strip Electron-identifying request header names; align Client Hints with Chrome for services that use Chrome UA.
- * Mutates details.requestHeaders in place (avoid spreading into a new object) so internal Cookie handling is preserved.
- * Google-login partitions use Firefox UA — only strip electron keys there; do not inject Chrome Sec-CH-UA (would mismatch UA).
+ * ParallelChat-matching header normalization.
+ *
+ * Key design decisions (learned from trial & error):
+ *   1. Safari UA for accounts.google.com — Electron's TLS fingerprint (JA3/JA4) doesn't
+ *      match Chrome's. Google detects UA-vs-TLS mismatch and shows "unsafe browser".
+ *      Safari UA avoids this because Google doesn't enforce TLS fingerprint for Safari.
+ *   2. DO NOT manipulate Sec-CH-UA headers — let Chromium handle them naturally.
+ *      Explicit manipulation caused CookieMismatch in prior attempts.
+ *   3. Use spread operator (new headers object) to match ParallelChat exactly.
+ *   4. Strip Electron-revealing custom headers.
  */
 function attachOutgoingHeaderNormalization(webSession, service) {
     if (!webSession || sessionsWithOutgoingHeaderHook.has(webSession)) return;
     sessionsWithOutgoingHeaderHook.add(webSession);
 
-    const useChromeClientHintBrands = !GOOGLE_LOGIN_SERVICES.includes(service);
+    const isGoogleLoginService = GOOGLE_LOGIN_SERVICES.includes(service);
 
-    webSession.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (details, callback) => {
+    webSession.webRequest.onBeforeSendHeaders((details, callback) => {
         const rh = details.requestHeaders;
         if (!rh) {
             callback({});
             return;
         }
+        // Strip any Electron-revealing headers
         for (const key of Object.keys(rh)) {
             if (/electron/i.test(key)) {
                 delete rh[key];
             }
         }
-        if (useChromeClientHintBrands) {
+
+        // Determine UA: Safari for accounts.google.com (Google-login services), Chrome otherwise
+        let ua = getSpoofedUserAgent();
+        if (isGoogleLoginService) {
             try {
-                const u = new URL(details.url);
-                if (u.protocol === 'https:' || u.protocol === 'http:') {
-                    for (const key of Object.keys(rh)) {
-                        if (/^sec-ch-ua-/i.test(key)) {
-                            delete rh[key];
-                        }
-                    }
-                    rh['Sec-CH-UA'] = getChromeStyleSecChUa();
-                    rh['Sec-CH-UA-Mobile'] = '?0';
-                    rh['Sec-CH-UA-Platform'] = getChromeStyleSecChUaPlatform();
+                const hostname = new URL(details.url).hostname;
+                if (hostname.includes('accounts.google.com') || hostname.includes('id.google.com')) {
+                    ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36';
                 }
-            } catch {
-                // ignore
-            }
-        } else {
-            // Firefox UA for Google flows: drop Chromium-style client hints Electron would still attach.
-            for (const key of Object.keys(rh)) {
-                if (/^sec-ch-ua-/i.test(key)) {
-                    delete rh[key];
-                }
-            }
+            } catch { /* ignore */ }
         }
-        callback({ requestHeaders: rh });
+
+        // Spread original headers (preserves cookies, Sec-CH-UA, etc. untouched)
+        // Only override User-Agent and Accept-Language — matches ParallelChat exactly
+        const headers = {
+            ...rh,
+            'User-Agent': ua,
+            'Accept-Language': `${app.getLocale() || 'en-US'},en;q=0.9`,
+        };
+        callback({ cancel: false, requestHeaders: headers });
     });
 }
 
@@ -331,6 +581,10 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false
+            // Note: sandbox intentionally NOT set here — the main window loads file:// and
+            // its renderer uses IndexedDB (HistoryManager / conversations-db). Enabling
+            // sandbox changes Chromium's file-access model and causes LevelDB LOCK failures
+            // on the file__0.indexeddb.leveldb database, breaking chat history persistence.
         },
         show: false, // Wait for ready-to-show
         autoHideMenuBar: true // Hide menu bar by default
@@ -340,7 +594,10 @@ function createWindow() {
     // (we have 6 services + several system listeners)
     mainWindow.setMaxListeners(100);
 
-    // Re-apply DPI-aware zoom when display scale or window position changes
+    // Re-apply zoom on resize and force repaint on display DPI transitions.
+    // The zoom VALUE doesn't change across displays (DPI compensation removed),
+    // but re-setting the same zoom forces Chromium to re-composite all views cleanly,
+    // preventing flickering when the window moves between displays with different DPIs.
     let zoomApplyTimeout = null;
     const scheduleApplyZoom = () => {
         if (zoomApplyTimeout) clearTimeout(zoomApplyTimeout);
@@ -349,12 +606,52 @@ function createWindow() {
             if (mainWindow && !mainWindow.isDestroyed()) applyZoomToAllViews();
         }, 300);
     };
-    mainWindow.on('moved', scheduleApplyZoom);
     mainWindow.on('resized', scheduleApplyZoom);
+
+    // Throttle non-enabled views during continuous window resize to reduce tile memory pressure.
+    // 'will-resize' fires on every frame during drag-resize; we throttle once at start
+    // and restore after the resize settles (500ms debounce).
+    let resizeThrottleActive = false;
+    let resizeEndTimeout = null;
+    mainWindow.on('will-resize', () => {
+        if (!resizeThrottleActive) {
+            resizeThrottleActive = true;
+            throttleViewsDuringTransition();
+        }
+        if (resizeEndTimeout) clearTimeout(resizeEndTimeout);
+        resizeEndTimeout = setTimeout(() => {
+            resizeThrottleActive = false;
+            restoreViewFrameRates();
+        }, 500);
+    });
+
+    // Detect display change on window move and force repaint to prevent flickering.
+    // Tracks the last display ID so we only repaint when actually crossing display boundaries.
+    let lastDisplayId = null;
+    mainWindow.on('moved', () => {
+        try {
+            const winBounds = mainWindow.getBounds();
+            const display = screen.getDisplayMatching(winBounds);
+            if (display && lastDisplayId !== null && display.id !== lastDisplayId) {
+                // Window crossed to a different display — force repaint all views
+                // by re-applying the same zoom factor (triggers Chromium re-composite)
+                throttleViewsDuringTransition();
+                setTimeout(() => {
+                    if (mainWindow && !mainWindow.isDestroyed()) applyZoomToAllViews();
+                }, 150);
+            }
+            if (display) lastDisplayId = display.id;
+        } catch (e) { /* ignore */ }
+    });
+
+    // Also handle external display connect/disconnect (scaleFactor changes)
     try {
         screen.on('display-metrics-changed', (event, display, changedMetrics) => {
-            if (Array.isArray(changedMetrics) && (changedMetrics.includes('scaleFactor') || changedMetrics.includes('bounds'))) {
-                scheduleApplyZoom();
+            if (Array.isArray(changedMetrics) && changedMetrics.includes('scaleFactor')) {
+                throttleViewsDuringTransition();
+                setTimeout(() => {
+                    if (mainWindow && !mainWindow.isDestroyed()) applyZoomToAllViews();
+                }, 150);
             }
         });
     } catch (e) { /* screen API may vary by Electron version */ }
@@ -438,10 +735,6 @@ function createWindow() {
             clearTimeout(geminiKeepAliveRetryTimeoutId);
             geminiKeepAliveRetryTimeoutId = null;
         }
-        if (geminiIdleRefreshTimerId != null) {
-            clearInterval(geminiIdleRefreshTimerId);
-            geminiIdleRefreshTimerId = null;
-        }
         // Now actually close
         try {
             if (mainWindow && !mainWindow.isDestroyed()) {
@@ -499,19 +792,33 @@ function createServiceView(service) {
         }
     }
 
+    const partition = `persist:service-${service}`;
     const view = new WebContentsView({
         webPreferences: {
             preload: path.join(__dirname, '../preload/service-preload.js'),
-            partition: `persist:service-${service}`,
+            partition,
             contextIsolation: true,
             nodeIntegration: false,
-            webSecurity: true // Explicitly enable web security for proper origin context
+            webSecurity: true, // Explicitly enable web security for proper origin context
+            backgroundThrottling: true // Reduce tile memory usage for non-visible views during DPI transitions
+            // Note: sandbox intentionally NOT set — adding it to existing views causes
+            // service_worker_storage and quota_database IO errors in Chromium's storage layer.
         }
     });
 
     mainWindow.contentView.addChildView(view);
 
-    // User Agent Spoofing (SEC-002) — Firefox for Google-login services (gemini/grok/genspark), Chrome for others.
+    // CDP anti-detection: inject for ALL services before any page JS runs.
+    // With contextIsolation: true, service-preload.js anti-detection (webdriver, plugins,
+    // window.chrome) runs in an isolated context and does NOT affect the page context.
+    // CDP Page.addScriptToEvaluateOnNewDocument is the only way to modify the page context
+    // before page scripts detect automation signals (Cloudflare, Google, etc.).
+    // ParallelChat also injects on all views — "绕过 Cloudflare 等检测".
+    view.webContents.once('did-start-loading', () => {
+        injectAntiDetection(view.webContents).catch(() => {});
+    });
+
+    // User Agent Spoofing (SEC-002) — Chrome UA for all; Safari UA swap for accounts.google.com via onBeforeSendHeaders
     const userAgent = getUserAgentForService(service);
     view.webContents.session.setUserAgent(userAgent);
     view.webContents.setUserAgent(userAgent);
@@ -520,7 +827,6 @@ function createServiceView(service) {
 
     // Use saved session URL if available, otherwise use default (SESS-003)
     const urlToLoad = savedSessionUrls[service] || serviceUrls[service];
-    const partition = `persist:service-${service}`;
     console.log(`[Session] Loading ${service} with URL: ${urlToLoad}`);
     console.log(`[Session] Partition: ${partition}`);
 
@@ -642,23 +948,62 @@ function createServiceView(service) {
         }
     };
 
-    // Intercept navigation to external domains (EXTLINK-003)
+    // Intercept navigation to external domains (EXTLINK-003) and Google login redirects.
+    // For Google-login services: check Google login BEFORE domain whitelist so that
+    // accounts.google.com is intercepted even when not in serviceDomains (e.g., ChatGPT).
     view.webContents.on('will-navigate', (event, url) => {
+        // Google-login services: intercept navigation to accounts.google.com first
+        if (GOOGLE_LOGIN_SERVICES.includes(service)) {
+            try {
+                const host = new URL(url).hostname;
+                if (host.includes('accounts.google.com') || host.includes('id.google.com')) {
+                    event.preventDefault();
+                    console.log(`[${service}] Intercepting Google login redirect → modal window: ${url}`);
+                    openGoogleLoginWindow(url, partition, view, serviceUrls[service]);
+                    return;
+                }
+            } catch {}
+        }
         if (!isAllowedDomain(url)) {
             console.log(`[${service}] Blocking navigation to external URL: ${url}`);
             event.preventDefault();
             shell.openExternal(url);
+            return;
         }
     });
 
+    // Intercept server-side redirects (302) to accounts.google.com (e.g., auth0 → Google).
+    // will-navigate does NOT fire for 302 redirects mid-chain, so will-redirect is needed.
+    view.webContents.on('will-redirect', (details) => {
+        try {
+            const host = new URL(details.url).hostname;
+            if (host.includes('accounts.google.com') || host.includes('id.google.com')) {
+                details.preventDefault();
+                console.log(`[${service}] Intercepting 302 redirect to Google login → modal window: ${details.url}`);
+                openGoogleLoginWindow(details.url, partition, view, serviceUrls[service]);
+            }
+        } catch {}
+    });
+
     // Handle new window requests (EXTLINK-004)
+    // Google login URLs open in a dedicated modal BrowserWindow (same partition)
+    // to avoid embedded-webview detection that triggers "browser not secure".
     view.webContents.setWindowOpenHandler(({ url }) => {
+        // Google login: intercept before domain check so it works for all services
+        try {
+            const host = new URL(url).hostname;
+            if (host.endsWith('accounts.google.com') || host.endsWith('id.google.com')) {
+                console.log(`[${service}] Opening Google login in modal window: ${url}`);
+                openGoogleLoginWindow(url, partition, view, serviceUrls[service]);
+                return { action: 'deny' };
+            }
+        } catch {}
         if (!isAllowedDomain(url)) {
             console.log(`[${service}] Opening external URL in browser: ${url}`);
             shell.openExternal(url);
             return { action: 'deny' };
         }
-        // Allow popup for auth flows within allowed domains
+        // Allow popup for other auth flows within allowed domains
         return { action: 'allow' };
     });
 
@@ -673,7 +1018,7 @@ const GEMINI_KEEPALIVE_INTERVAL_MS = 1 * 60 * 1000; // 1 minute (shortened to he
 let geminiKeepAliveTimerId = null;
 let geminiKeepAliveRetryTimeoutId = null;
 
-/** When set (SMC_GEMINI_SESSION_DEBUG=1), log keep-alive, idle refresh, and login-state changes for session expiry analysis. */
+/** When set (SMC_GEMINI_SESSION_DEBUG=1), log keep-alive and login-state changes for session expiry analysis. */
 function isGeminiSessionDebug() {
     return process.env.SMC_GEMINI_SESSION_DEBUG === '1' || process.env.SMC_GEMINI_SESSION_DEBUG === 'true';
 }
@@ -683,13 +1028,6 @@ const GEMINI_AUTH_COOKIE_NAMES = ['SID', 'HSID', 'SSID', '__Secure-1PSID', '__Se
 /** Previous expiry snapshot for comparison; key = cookie name, value = expirationDate (Unix s) or 'session'. */
 let geminiAuthCookieExpiriesPrev = {};
 
-// REQ-SESSION-001: Idle refresh — when no prompt sent for this long, refresh Gemini webviews to help maintain session.
-const GEMINI_IDLE_REFRESH_CHECK_MS = 5 * 60 * 1000; // 5 min check interval (shortened to help maintain session)
-const GEMINI_IDLE_THRESHOLD_MS = 5 * 60 * 1000;     // 5 min idle threshold
-let lastPromptSentAt = null;
-let geminiIdleRefreshTimerId = null;
-/** Per-webContents: true when that Gemini view is generating a response (stop button visible). Skip idle refresh when true. */
-const geminiResponseInProgressByWcId = new Map();
 
 /**
  * Collect all Gemini webContents to ping (Multi + Single mode).
@@ -790,101 +1128,6 @@ function getSlotKeyForGeminiWebContents(wc) {
     return null;
 }
 
-/** When true, the user is actively typing in the main prompt input — skip idle refresh to avoid focus disruption. */
-let geminiTypingPauseActive = false;
-
-/** Script injected into Gemini webview to find the main scrollable container and read its scrollTop. */
-const GEMINI_SCROLL_READ_SCRIPT = `(function(){
-  var el = document.querySelector('.conversation-container')
-        || document.querySelector('[role="main"]')
-        || document.querySelector('main');
-  if (el && el.scrollHeight > el.clientHeight) return el.scrollTop;
-  if (document.documentElement.scrollHeight > document.documentElement.clientHeight) return document.documentElement.scrollTop;
-  return -1;
-})()`;
-
-/** Build script to restore scrollTop on Gemini webview after reload. */
-function geminiScrollRestoreScript(scrollTop) {
-    return `(function(){
-  var el = document.querySelector('.conversation-container')
-        || document.querySelector('[role="main"]')
-        || document.querySelector('main');
-  if (el && el.scrollHeight > el.clientHeight) { el.scrollTop = ${scrollTop}; return true; }
-  if (document.documentElement.scrollHeight > document.documentElement.clientHeight) { document.documentElement.scrollTop = ${scrollTop}; return true; }
-  return false;
-})()`;
-}
-
-/** REQ-SESSION-001: When idle, reload each Gemini webview in-place (same URL) to help maintain session.
- *  Preserves multi-panel conversation context; does not navigate to /app (new chat). Skip when response in progress.
- *  Saves scroll position on conversation URLs and restores after reload. Notifies renderer before/after for caret preservation. */
-async function geminiIdleRefreshTick() {
-    try {
-        const targets = getGeminiKeepAliveTargets();
-        if (targets.length === 0) return;
-        const now = Date.now();
-        const idle = lastPromptSentAt == null || (now - lastPromptSentAt) >= GEMINI_IDLE_THRESHOLD_MS;
-        if (!idle) return;
-
-        if (geminiTypingPauseActive) return; // user is typing in main prompt — defer refresh
-
-        const toReload = targets.filter(wc => !wc.isDestroyed() && !geminiResponseInProgressByWcId.get(wc.id));
-        if (toReload.length === 0) return;
-
-        // Notify renderer BEFORE reload so it can save caret/selection state
-        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
-            mainWindow.webContents.send('gemini-idle-refresh-starting');
-        }
-
-        // Save scroll positions for conversation URLs (/app/<id>)
-        const scrollByWcId = new Map();
-        for (const wc of toReload) {
-            try {
-                const url = wc.getURL() || '';
-                if (/gemini\.google\.com\/app\/[a-zA-Z0-9]/.test(url)) {
-                    const pos = await wc.executeJavaScript(GEMINI_SCROLL_READ_SCRIPT).catch(() => -1);
-                    if (pos > 0) scrollByWcId.set(wc.id, pos);
-                }
-            } catch (_) { /* ignore */ }
-        }
-
-        for (const wc of toReload) {
-            if (!wc.isDestroyed()) wc.reload();
-        }
-
-        if (isGeminiSessionDebug()) {
-            toReload.forEach(wc => { try { console.log('[gemini] Idle refresh reload URL:', wc.getURL()); } catch (e) {} });
-        }
-        console.log('[gemini] Idle refresh: reloaded', toReload.length, 'Gemini webview(s) (idle >', GEMINI_IDLE_THRESHOLD_MS / 60000, 'min)');
-
-        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
-            for (const wc of toReload) {
-                const slotKey = getSlotKeyForGeminiWebContents(wc);
-                if (slotKey) sendGeminiIdleTimerToRenderer(slotKey, 'reset');
-            }
-            mainWindow.webContents.send('gemini-idle-refresh-done');
-        }
-
-        // Restore scroll positions after each webview finishes loading
-        for (const wc of toReload) {
-            const savedScroll = scrollByWcId.get(wc.id);
-            if (savedScroll == null || savedScroll <= 0) continue;
-            const restoreOnLoad = () => {
-                let attempts = 0;
-                const tryRestore = () => {
-                    if (wc.isDestroyed()) return;
-                    wc.executeJavaScript(geminiScrollRestoreScript(savedScroll)).then(ok => {
-                        if (!ok && attempts < 10) { attempts++; setTimeout(tryRestore, 500); }
-                    }).catch(() => {});
-                };
-                setTimeout(tryRestore, 600);
-            };
-            if (!wc.isDestroyed()) wc.once('did-finish-load', restoreOnLoad);
-        }
-    } catch (e) {
-        // ignore
-    }
-}
 
 function startGeminiKeepAlive() {
     if (geminiKeepAliveTimerId != null) return;
@@ -893,11 +1136,6 @@ function startGeminiKeepAlive() {
     geminiKeepAliveTick();
     console.log('[gemini] Keep-alive started (interval:', GEMINI_KEEPALIVE_INTERVAL_MS / 1000, 's, first tick now)');
 
-    // REQ-SESSION-001: Start idle-refresh timer (refresh Gemini webviews when app has been idle)
-    if (geminiIdleRefreshTimerId == null) {
-        geminiIdleRefreshTimerId = setInterval(geminiIdleRefreshTick, GEMINI_IDLE_REFRESH_CHECK_MS);
-        console.log('[gemini] Idle refresh started (check every', GEMINI_IDLE_REFRESH_CHECK_MS / 60000, 'min, idle threshold', GEMINI_IDLE_THRESHOLD_MS / 60000, 'min)');
-    }
 }
 
 // ========================================
@@ -947,20 +1185,27 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
         delete singleModeViews[instanceKey];
     }
 
+    const singlePartition = `persist:service-${service}`;
     const view = new WebContentsView({
         webPreferences: {
             preload: path.join(__dirname, '../preload/service-preload.js'),
             // Use shared partition by default (REQ-MODE-018)
-            partition: `persist:service-${service}`,
+            partition: singlePartition,
             contextIsolation: true,
             nodeIntegration: false,
-            webSecurity: true
+            webSecurity: true,
+            backgroundThrottling: true // Reduce tile memory usage for non-visible views during DPI transitions
         }
     });
 
     mainWindow.contentView.addChildView(view);
 
-    // User Agent Spoofing (SEC-002) — same as multi: Firefox for Google-login services, Chrome for others
+    // CDP anti-detection: all services (see createServiceView for rationale)
+    view.webContents.once('did-start-loading', () => {
+        injectAntiDetection(view.webContents).catch(() => {});
+    });
+
+    // User Agent Spoofing (SEC-002) — Chrome UA for all; Safari UA swap for accounts.google.com via onBeforeSendHeaders
     const userAgentSingle = getUserAgentForService(service);
     view.webContents.session.setUserAgent(userAgentSingle);
     view.webContents.setUserAgent(userAgentSingle);
@@ -1071,17 +1316,52 @@ function createSingleModeInstanceView(service, instanceIndex, loadDelayMs = 0, s
     };
 
     view.webContents.on('will-navigate', (event, url) => {
+        // Google-login services: intercept navigation to accounts.google.com first
+        if (GOOGLE_LOGIN_SERVICES.includes(service)) {
+            try {
+                const host = new URL(url).hostname;
+                if (host.includes('accounts.google.com') || host.includes('id.google.com')) {
+                    event.preventDefault();
+                    console.log(`[SingleAI][${instanceKey}] Intercepting Google login redirect → modal window: ${url}`);
+                    openGoogleLoginWindow(url, singlePartition, view, serviceUrls[service]);
+                    return;
+                }
+            } catch {}
+        }
         if (!isAllowedDomain(url)) {
             event.preventDefault();
             shell.openExternal(url);
+            return;
         }
     });
 
+    // Intercept server-side redirects (302) to accounts.google.com (e.g., auth0 → Google)
+    view.webContents.on('will-redirect', (details) => {
+        try {
+            const host = new URL(details.url).hostname;
+            if (host.includes('accounts.google.com') || host.includes('id.google.com')) {
+                details.preventDefault();
+                console.log(`[SingleAI][${instanceKey}] Intercepting 302 redirect to Google login → modal window: ${details.url}`);
+                openGoogleLoginWindow(details.url, singlePartition, view, serviceUrls[service]);
+            }
+        } catch {}
+    });
+
     view.webContents.setWindowOpenHandler(({ url }) => {
+        // Google login: intercept before domain check
+        try {
+            const host = new URL(url).hostname;
+            if (host.endsWith('accounts.google.com') || host.endsWith('id.google.com')) {
+                console.log(`[SingleAI][${instanceKey}] Opening Google login in modal window: ${url}`);
+                openGoogleLoginWindow(url, singlePartition, view, serviceUrls[service]);
+                return { action: 'deny' };
+            }
+        } catch {}
         if (!isAllowedDomain(url)) {
             shell.openExternal(url);
             return { action: 'deny' };
         }
+        // Allow popup for other auth flows within allowed domains
         return { action: 'allow' };
     });
 
@@ -1257,33 +1537,50 @@ function getActiveViews() {
 }
 
 // Layout Management
+// Stagger setBounds to prevent simultaneous tile re-rasterization across all views.
+// Enabled views update immediately; disabled views defer by 100ms intervals.
+// This reduces peak tile memory usage during sidebar toggle, window resize, and layout changes,
+// mitigating Chromium's "tile memory limits exceeded" warning.
+let _pendingBoundsTimers = [];
 ipcMain.on('update-view-bounds', (event, boundsMap) => {
     if (!mainWindow) return;
 
-    // Apply bounds based on chat mode
+    // Cancel any pending deferred bounds updates from previous call
+    _pendingBoundsTimers.forEach(t => clearTimeout(t));
+    _pendingBoundsTimers = [];
+
     if (chatMode === 'single') {
-        // Single AI Mode: Apply bounds to instance views
+        const immediate = [];
+        const deferred = [];
         Object.entries(boundsMap).forEach(([instanceKey, rect]) => {
-            if (singleModeViews[instanceKey] && singleModeViews[instanceKey].view) {
-                singleModeViews[instanceKey].view.setBounds({
-                    x: rect.x,
-                    y: rect.y,
-                    width: rect.width,
-                    height: rect.height
-                });
+            const entry = singleModeViews[instanceKey];
+            if (entry && entry.view) {
+                if (entry.enabled) {
+                    immediate.push({ view: entry.view, rect });
+                } else {
+                    deferred.push({ view: entry.view, rect });
+                }
             }
         });
+        immediate.forEach(({ view, rect }) => view.setBounds(rect));
+        deferred.forEach(({ view, rect }, i) => {
+            _pendingBoundsTimers.push(setTimeout(() => view.setBounds(rect), 100 * (i + 1)));
+        });
     } else {
-        // Multi AI Mode: Apply bounds to service views
+        const immediate = [];
+        const deferred = [];
         Object.entries(boundsMap).forEach(([service, rect]) => {
             if (views[service] && views[service].view) {
-                views[service].view.setBounds({
-                    x: rect.x,
-                    y: rect.y,
-                    width: rect.width,
-                    height: rect.height
-                });
+                if (views[service].enabled) {
+                    immediate.push({ view: views[service].view, rect });
+                } else {
+                    deferred.push({ view: views[service].view, rect });
+                }
             }
+        });
+        immediate.forEach(({ view, rect }) => view.setBounds(rect));
+        deferred.forEach(({ view, rect }, i) => {
+            _pendingBoundsTimers.push(setTimeout(() => view.setBounds(rect), 100 * (i + 1)));
         });
     }
 });
@@ -1339,10 +1636,6 @@ ipcMain.on('restore-views-from-popup', () => {
 
 // IPC Handlers
 ipcMain.on('send-prompt', async (event, text, activeServices, filePaths = []) => {
-    if (activeServices && Object.keys(activeServices).length > 0) {
-        lastPromptSentAt = Date.now();
-        if (activeServices.gemini) resetGeminiIdleTimerForAllSlots();
-    }
     const serviceKeys = Object.keys(activeServices);
     const hasFiles = filePaths && filePaths.length > 0;
 
@@ -2004,7 +2297,6 @@ async function forceGeminiResetNavigation(wc, reason) {
     const url = getServiceResetUrl('gemini');
     const ok = await loadUrlWithWait(wc, url, reason);
     if (ok && mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
-        resetGeminiIdleTimerForAllSlots();
     }
     return ok;
 }
@@ -3639,7 +3931,7 @@ ipcMain.on('external-login', async (event, service) => {
             const electronCookies = views[service].view.webContents.session.cookies;
 
             // Each service uses its own partition, so this cleanup is scoped to that service only.
-            // For Gemini/Genspark we remove likely-conflicting old auth cookies before importing fresh ones.
+            // Remove likely-conflicting old auth cookies before importing fresh ones.
             const domainsForService = (() => {
                 if (service === 'gemini') {
                     return ['gemini.google.com', 'accounts.google.com', 'google.com', 'www.google.com'];
@@ -3647,16 +3939,26 @@ ipcMain.on('external-login', async (event, service) => {
                 if (service === 'genspark') {
                     return ['genspark.ai', 'www.genspark.ai', 'accounts.google.com', 'google.com'];
                 }
+                if (service === 'claude') {
+                    return ['claude.ai', 'a.claude.ai', 'www.claude.ai', 'anthropic.com', 'www.anthropic.com'];
+                }
                 return [];
             })();
             if (domainsForService.length === 0) return;
 
             try {
                 const existing = await electronCookies.get({});
+                let removedCfCount = 0;
                 for (const cookie of existing) {
                     const domain = (cookie.domain || '').replace(/^\./, '').toLowerCase();
                     const shouldRemove = domainsForService.some(d => domain === d || domain.endsWith(`.${d}`));
                     if (!shouldRemove) continue;
+
+                    // Always remove stale Cloudflare cookies — they are bound to the
+                    // TLS fingerprint (JA3/JA4) of the browser that passed the challenge
+                    // and will be invalid in Electron's different TLS context.
+                    const isCfCookie = cookie.name === 'cf_clearance' || cookie.name === '_cf_bm' || cookie.name === '__cf_bm';
+                    if (isCfCookie) removedCfCount++;
 
                     const cookieUrl = `${cookie.secure ? 'https' : 'http'}://${domain || 'localhost'}${cookie.path || '/'}`;
                     try {
@@ -3664,6 +3966,9 @@ ipcMain.on('external-login', async (event, service) => {
                     } catch (e) {
                         // ignore individual remove failures
                     }
+                }
+                if (removedCfCount > 0) {
+                    console.log(`[${service}] Cleared ${removedCfCount} stale Cloudflare cookie(s) before sync`);
                 }
             } catch (e) {
                 console.warn(`[${service}] Failed to clear conflicting cookies:`, e?.message || e);
@@ -3677,7 +3982,18 @@ ipcMain.on('external-login', async (event, service) => {
             // Clear old/invalid auth cookies first to avoid mixed-cookie state (important for Gemini)
             await clearConflictingAuthCookies(service);
 
-            for (const cookie of cookies) {
+            // Filter out Cloudflare cookies from Chrome — they are bound to Chrome's
+            // TLS fingerprint (JA3/JA4) and will be rejected by Cloudflare in Electron's
+            // different TLS context, causing infinite challenge loops. The webview must
+            // pass the Cloudflare challenge on its own to get a valid cf_clearance.
+            const cfCookieNames = new Set(['cf_clearance', '_cf_bm', '__cf_bm']);
+            const filteredCookies = cookies.filter(c => !cfCookieNames.has(c.name));
+            const skippedCf = cookies.length - filteredCookies.length;
+            if (skippedCf > 0) {
+                console.log(`[${service}] Skipped ${skippedCf} Cloudflare cookie(s) from Chrome (TLS fingerprint mismatch)`);
+            }
+
+            for (const cookie of filteredCookies) {
                 try {
                     // Determine URL based on cookie domain
                     let cookieUrl = serviceUrls[service];
@@ -3733,8 +4049,8 @@ ipcMain.on('external-login', async (event, service) => {
             // Ensure cookie writes are flushed to disk before reloading service URL.
             try {
                 await electronCookies.flushStore();
-                const sessionConverted = cookies.filter(c => !(typeof c.expires === 'number' && c.expires > 0)).length;
-                console.log(`[${service}] Cookie sync complete: ${cookies.length} total, ${sessionConverted} session→persistent converted, flushed to disk`);
+                const sessionConverted = filteredCookies.filter(c => !(typeof c.expires === 'number' && c.expires > 0)).length;
+                console.log(`[${service}] Cookie sync complete: ${filteredCookies.length} synced (${skippedCf} CF skipped), ${sessionConverted} session→persistent converted, flushed to disk`);
             } catch (e) {
                 console.warn(`[${service}] Cookie flush warning:`, e?.message || e);
             }
@@ -3894,7 +4210,6 @@ ipcMain.on('external-login', async (event, service) => {
                         const targetUrl = getServiceResetUrl(service);
                         if (views[service] && views[service].view) {
                             views[service].view.webContents.loadURL(targetUrl);
-                            if (service === 'gemini') resetGeminiIdleTimerForAllSlots();
                         }
                     }
                     return true;
@@ -3968,7 +4283,6 @@ ipcMain.on('external-login', async (event, service) => {
                     const targetUrl = getServiceResetUrl(service);
                     console.log(`[${service}] Login confirmed, loading: ${targetUrl}`);
                     views[service].view.webContents.loadURL(targetUrl);
-                    if (service === 'gemini') resetGeminiIdleTimerForAllSlots();
                 } else {
                     // Fallback 1: latest snapshot was on service domain with auth cookies
                     const likelyConfirmedBySnapshot =
@@ -3988,8 +4302,7 @@ ipcMain.on('external-login', async (event, service) => {
                         }
                         const targetUrl = getServiceResetUrl(service);
                         views[service].view.webContents.loadURL(targetUrl);
-                        if (service === 'gemini') resetGeminiIdleTimerForAllSlots();
-                        mainWindow?.webContents.send('external-login-closed');
+                            mainWindow?.webContents.send('external-login-closed');
                         return;
                     }
 
@@ -4011,8 +4324,7 @@ ipcMain.on('external-login', async (event, service) => {
                             console.warn(`[${service}] Sync on close failed:`, e?.message || e);
                             views[service].view.webContents.reload();
                         }
-                        if (service === 'gemini') resetGeminiIdleTimerForAllSlots();
-                        mainWindow?.webContents.send('external-login-closed');
+                            mainWindow?.webContents.send('external-login-closed');
                         return;
                     }
 
@@ -4022,7 +4334,6 @@ ipcMain.on('external-login', async (event, service) => {
                     }
                     console.log(`[${service}] No login confirmed, reloading current view...`);
                     views[service].view.webContents.reload();
-                    if (service === 'gemini') resetGeminiIdleTimerForAllSlots();
                 }
             }
 
@@ -4039,10 +4350,6 @@ ipcMain.on('external-login', async (event, service) => {
 ipcMain.on('reload-active-view', (event) => {
     // Reload only the view that requested it
     event.sender.reload();
-    const slotKey = getSlotKeyForGeminiWebContents(event.sender);
-    if (slotKey && mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
-        sendGeminiIdleTimerToRenderer(slotKey, 'reset');
-    }
 });
 
 // ===========================================
@@ -4344,10 +4651,6 @@ ipcMain.on('toggle-single-instance', (event, instanceIndex, enabled) => {
 
 // Single AI Mode: Send prompt to instances
 ipcMain.on('send-prompt-to-instances', async (event, text, instanceKeys, filePaths = []) => {
-    if (instanceKeys && instanceKeys.length > 0) {
-        lastPromptSentAt = Date.now();
-        if (singleAiService === 'gemini') resetGeminiIdleTimerForAllSlots();
-    }
     console.log(`[SingleAI] Sending prompt to instances:`, instanceKeys, 'hasFiles:', filePaths?.length > 0);
     
     const hasFiles = filePaths && filePaths.length > 0;
@@ -4509,14 +4812,32 @@ ipcMain.on('cloudflare-challenge-detected', (event, { service, instanceKey, coun
         });
     }
 
-    // Auto-reload after 20 seconds if challenge doesn't resolve on its own (one attempt only)
-    if (!cfChallengeTimers.has(wcId) && count <= 2) {
-        const timerId = setTimeout(() => {
+    // Auto-reload after 20s if challenge doesn't resolve on its own.
+    // Allow up to 3 retries per webContents; counter resets when challenge resolves.
+    if (!cfChallengeTimers.has(wcId) && count <= 3) {
+        const timerId = setTimeout(async () => {
             cfChallengeTimers.delete(wcId);
-            if (!event.sender.isDestroyed()) {
-                console.log(`[CF] Auto-reloading ${service} after challenge timeout`);
-                event.sender.reload();
+            if (event.sender.isDestroyed()) return;
+
+            // Before reloading, clear any stale cf_clearance that may be causing
+            // Cloudflare to reject us (e.g. leftover from Chrome sync with wrong TLS fingerprint).
+            try {
+                const ses = event.sender.session;
+                const allCookies = await ses.cookies.get({});
+                for (const c of allCookies) {
+                    if (c.name === 'cf_clearance' || c.name === '_cf_bm' || c.name === '__cf_bm') {
+                        const domain = (c.domain || '').replace(/^\./, '');
+                        const cookieUrl = `${c.secure ? 'https' : 'http'}://${domain}${c.path || '/'}`;
+                        await ses.cookies.remove(cookieUrl, c.name);
+                    }
+                }
+                console.log(`[CF] Cleared stale CF cookies before retry for ${service}`);
+            } catch (e) {
+                console.warn(`[CF] Failed to clear CF cookies:`, e?.message || e);
             }
+
+            console.log(`[CF] Auto-reloading ${service} after challenge timeout (attempt ${count})`);
+            event.sender.reload();
         }, 20000);
         cfChallengeTimers.set(wcId, timerId);
     }
@@ -4541,35 +4862,6 @@ ipcMain.on('cloudflare-challenge-resolved', (event, { service, instanceKey }) =>
     }
 });
 
-/** Send idle-timer action to renderer for Gemini slot(s). Used to reset timer on prompt send and pause/reset on response in progress. */
-function sendGeminiIdleTimerToRenderer(slotKey, action) {
-    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
-    mainWindow.webContents.send('gemini-idle-timer', { slotKey, action });
-}
-
-/** Notify renderer to reset idle timer for all active Gemini slots (e.g. after prompt sent). */
-function resetGeminiIdleTimerForAllSlots() {
-    if (chatMode === 'single' && singleAiService === 'gemini') {
-        for (const [key, entry] of Object.entries(singleModeViews)) {
-            if (entry.enabled && entry.view && !entry.view.webContents.isDestroyed()) sendGeminiIdleTimerToRenderer(key, 'reset');
-        }
-    } else if (views.gemini && views.gemini.enabled) {
-        sendGeminiIdleTimerToRenderer('gemini', 'reset');
-    }
-}
-
-ipcMain.on('gemini-typing-pause', (event, active) => {
-    geminiTypingPauseActive = !!active;
-});
-
-ipcMain.on('gemini-response-in-progress', (event, { inProgress }) => {
-    const wc = event.sender;
-    geminiResponseInProgressByWcId.set(wc.id, inProgress);
-    const slotKey = getSlotKeyForGeminiWebContents(wc);
-    if (slotKey && mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
-        mainWindow.webContents.send('gemini-idle-timer', { slotKey, action: inProgress ? 'pause' : 'reset' });
-    }
-});
 
 ipcMain.on('set-service-visibility', (event, isVisible) => {
     console.log(`Setting service visibility to: ${isVisible}, chatMode: ${chatMode}`);
@@ -4971,6 +5263,19 @@ ipcMain.handle('select-workspace-dir', async (event) => {
     return null;
 });
 
+/** Open a file with the native default application */
+ipcMain.handle('open-file-native', async (event, filePath) => {
+    const { shell } = require('electron');
+    try { await shell.openPath(filePath); return true; } catch { return false; }
+});
+
+/** Open the folder containing a file in Finder/Explorer */
+ipcMain.handle('open-containing-folder', async (event, filePath) => {
+    const { shell } = require('electron');
+    shell.showItemInFolder(filePath);
+    return true;
+});
+
 /** Check if Codex CLI or OpenAI CLI is installed */
 ipcMain.handle('check-codex-cli', async () => {
     const { execSync } = require('child_process');
@@ -5022,7 +5327,7 @@ ipcMain.handle('skills-list', async (event, workspaceDir) => {
             } catch {}
         };
         // Bundled skills (shipped with app)
-        const appPath = app.isPackaged ? path.join(process.resourcesPath, 'app') : app.getAppPath();
+        const appPath = app.getAppPath();
         scanDir(path.join(appPath, 'src', 'data', 'skills'), 'bundled');
         // Global user skills
         scanDir(path.join(require('os').homedir(), '.openyak', 'skills'), 'global');
@@ -5351,7 +5656,7 @@ ipcMain.on('task-start', async (event, params) => {
     }
 
     const abortController = new AbortController();
-    runningTasks.set(sessionId, { abortController, result: '' });
+    runningTasks.set(sessionId, { abortController, result: '', createdFiles: [] });
 
     // Build system prompt based on execution mode + environment context
     const modeInstructions = {
@@ -5595,12 +5900,25 @@ function evaluatePermission(toolName, executionMode, sessionOverrides) {
 /** Pending permission requests (IPC round-trip with renderer) */
 const _pendingPermissions = new Map();
 
-ipcMain.on('permission-respond', (event, reqId, decision) => {
+ipcMain.on('permission-respond', (event, reqId, decision, remember) => {
     const pending = _pendingPermissions.get(reqId);
     if (pending) {
         clearTimeout(pending.timer);
         _pendingPermissions.delete(reqId);
-        pending.resolve(decision === 'allow');
+        const allowed = decision === 'allow';
+        // Save override for this session if "Remember" was checked
+        if (remember && pending.sessionId && pending.toolName) {
+            const task = runningTasks.get(pending.sessionId);
+            if (task) {
+                if (!task.permissionOverrides) task.permissionOverrides = [];
+                task.permissionOverrides.push({
+                    action: allowed ? 'allow' : 'deny',
+                    permission: pending.toolName,
+                    pattern: '*',
+                });
+            }
+        }
+        pending.resolve(allowed);
     }
 });
 
@@ -5611,7 +5929,7 @@ function askPermission(win, sessionId, toolName, args) {
             _pendingPermissions.delete(reqId);
             resolve(false); // auto-deny after 5 min
         }, 300000);
-        _pendingPermissions.set(reqId, { resolve, timer });
+        _pendingPermissions.set(reqId, { resolve, timer, sessionId, toolName });
         const preview = toolName === 'bash' ? (args.command || '').slice(0, 500)
             : toolName === 'code_execute' ? (args.code || '').slice(0, 500)
             : toolName === 'write' ? `Write to: ${args.file_path || '?'}`
@@ -5664,7 +5982,7 @@ function scanSkills(workspaceDir) {
     };
 
     // Scan in priority order
-    const appPath = app.isPackaged ? path.join(process.resourcesPath, 'app') : app.getAppPath();
+    const appPath = app.getAppPath();
     scanDir(path.join(appPath, 'src', 'data', 'skills'), 'bundled');
     scanDir(path.join(require('os').homedir(), '.openyak', 'skills'), 'global');
     if (workspaceDir) {
@@ -5847,6 +6165,81 @@ async function executeLocalTool(name, args, workingDir) {
     } catch (err) {
         return `Error: ${err.message || err}`.slice(0, maxOutput);
     }
+}
+
+/** Snapshot files in workspace directory (shallow, non-recursive for speed) */
+function snapshotWorkspaceFiles(workingDir) {
+    const fs = require('fs');
+    const path = require('path');
+    const cwd = workingDir || process.cwd();
+    const snapshot = new Map();
+    try {
+        const walk = (dir, depth) => {
+            if (depth > 3) return;
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const e of entries) {
+                if (e.name.startsWith('.') || e.name === 'node_modules' || e.name === '__pycache__') continue;
+                const full = path.join(dir, e.name);
+                if (e.isDirectory()) { walk(full, depth + 1); continue; }
+                try {
+                    const stat = fs.statSync(full);
+                    snapshot.set(full, stat.mtimeMs);
+                } catch {}
+            }
+        };
+        walk(cwd, 0);
+    } catch {}
+    return snapshot;
+}
+
+/** Track files created/modified by tool execution for artifact cards */
+function trackCreatedFile(sessionId, toolName, args, output, workingDir, preSnapshot) {
+    if (!output || output.startsWith('Error:')) return;
+    const task = runningTasks.get(sessionId);
+    if (!task) return;
+    const fs = require('fs');
+    const pathMod = require('path');
+    const cwd = workingDir || process.cwd();
+
+    if (toolName === 'write' || toolName === 'edit') {
+        const filePath = args.file_path || '';
+        if (!filePath) return;
+        const resolvedPath = pathMod.resolve(cwd, filePath);
+        _addTrackedFile(task, resolvedPath, toolName === 'write' ? 'created' : 'edited');
+        return;
+    }
+
+    // For bash/code_execute: compare filesystem snapshot to detect new/modified files
+    if ((toolName === 'bash' || toolName === 'code_execute') && preSnapshot) {
+        try {
+            const postSnapshot = snapshotWorkspaceFiles(workingDir);
+            for (const [filePath, mtime] of postSnapshot) {
+                const prevMtime = preSnapshot.get(filePath);
+                if (prevMtime === undefined || mtime > prevMtime) {
+                    _addTrackedFile(task, filePath, prevMtime === undefined ? 'created' : 'edited');
+                }
+            }
+        } catch {}
+    }
+}
+
+function _addTrackedFile(task, resolvedPath, action) {
+    const fs = require('fs');
+    const pathMod = require('path');
+    if (!fs.existsSync(resolvedPath)) return;
+    const alreadyTracked = task.createdFiles.some(f => f.path === resolvedPath);
+    if (alreadyTracked) return;
+    try {
+        const stat = fs.statSync(resolvedPath);
+        if (!stat.isFile()) return;
+        task.createdFiles.push({
+            path: resolvedPath,
+            name: pathMod.basename(resolvedPath),
+            ext: pathMod.extname(resolvedPath).toLowerCase(),
+            size: stat.size,
+            action,
+        });
+    } catch {}
 }
 
 function _simpleGlobMatch(filename, pattern) {
@@ -6049,14 +6442,20 @@ async function streamWhamInMain(win, sessionId, accessToken, accountId, modelId,
                 } else {
                     const preview = tc.name === 'bash' ? (parsedArgs.command || '') : tc.name === 'code_execute' ? (parsedArgs.code || '') : `${tc.name}(${JSON.stringify(parsedArgs).slice(0, 200)})`;
                     win?.webContents.send('task-stream-tool', { sessionId, tool: tc.name, preview, phase: 'start' });
+                    const needsSnapshot = tc.name === 'bash' || tc.name === 'code_execute';
+                    const preSnap = needsSnapshot ? snapshotWorkspaceFiles(workingDir) : null;
                     output = await executeLocalTool(tc.name, parsedArgs, workingDir);
                     win?.webContents.send('task-stream-tool', { sessionId, tool: tc.name, output: output.slice(0, 3000), phase: 'done' });
+                    trackCreatedFile(sessionId, tc.name, parsedArgs, output, workingDir, preSnap);
                 }
             } else {
                 const preview = tc.name === 'bash' ? (parsedArgs.command || '') : tc.name === 'code_execute' ? (parsedArgs.code || '') : `${tc.name}(${JSON.stringify(parsedArgs).slice(0, 200)})`;
                 win?.webContents.send('task-stream-tool', { sessionId, tool: tc.name, preview, phase: 'start' });
+                const needsSnapshot = tc.name === 'bash' || tc.name === 'code_execute';
+                const preSnap = needsSnapshot ? snapshotWorkspaceFiles(workingDir) : null;
                 output = await executeLocalTool(tc.name, parsedArgs, workingDir);
                 win?.webContents.send('task-stream-tool', { sessionId, tool: tc.name, output: output.slice(0, 3000), phase: 'done' });
+                trackCreatedFile(sessionId, tc.name, parsedArgs, output, workingDir, preSnap);
             }
 
             // Append function_call + function_call_output to input for next WHAM round
@@ -6067,7 +6466,8 @@ async function streamWhamInMain(win, sessionId, accessToken, accountId, modelId,
         }
     }
 
-    win?.webContents.send('task-stream-done', { sessionId });
+    const taskData = runningTasks.get(sessionId);
+    win?.webContents.send('task-stream-done', { sessionId, createdFiles: taskData?.createdFiles || [] });
 }
 
 async function streamAnthropicInMain(win, sessionId, apiKey, modelId, messages, signal) {

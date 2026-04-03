@@ -1,27 +1,8 @@
-# Project Metadata Configuration
-# Project-specific information and settings
-
 project:
-  # Project name (derived from directory name or user input)
-  name: ""
-
-  # Project description (optional, user-provided)
-  description: ""
-
-  # Project mode: personal, team, or enterprise
-  # - personal: Single developer, lightweight workflows
-  # - team: Collaborative development with PR workflows
-  # - enterprise: Full governance and compliance features
-  mode: personal
-
-  # Project creation timestamp (ISO 8601 format)
-  created_at: ""
-
-  # Project initialization status
-  initialized: true
-
-  # Optimization status (true if project structure has been optimized)
-  optimized: false
-
-  # Template version used to create/update this project
-  template_version: "2.7.3"
+    created_at: ""
+    description: ""
+    initialized: true
+    mode: personal
+    name: ""
+    optimized: false
+    template_version: 2.8.3

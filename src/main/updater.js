@@ -6,8 +6,9 @@
  */
 
 const { autoUpdater } = require('electron-updater');
-const { dialog, ipcMain, BrowserWindow } = require('electron');
+const { dialog, ipcMain, BrowserWindow, app } = require('electron');
 const log = require('electron-log');
+const os = require('os');
 
 // Configure logging
 autoUpdater.logger = log;
@@ -24,6 +25,31 @@ let mainWindowRef = null;
 let progressWindow = null;
 
 /**
+ * Get current platform info for logging and user display
+ */
+function getPlatformInfo() {
+  const platform = process.platform; // darwin, win32, linux
+  const arch = process.arch;         // x64, arm64
+  const platformName = platform === 'darwin' ? 'macOS' : platform === 'win32' ? 'Windows' : 'Linux';
+  const archName = arch === 'arm64' ? 'Apple Silicon' : arch === 'x64' ? 'Intel (x64)' : arch;
+  return { platform, arch, platformName, archName };
+}
+
+/**
+ * Determine if an update error is due to missing platform release
+ */
+function isMissingPlatformRelease(err) {
+  const msg = (err.message || '').toLowerCase();
+  return msg.includes('cannot find')
+    || msg.includes('no published versions')
+    || msg.includes('404')
+    || msg.includes('net::err')
+    || msg.includes('enotfound')
+    || msg.includes('cannot download')
+    || (msg.includes('latest') && msg.includes('not found'));
+}
+
+/**
  * Initialize the auto updater with event handlers
  * @param {BrowserWindow} mainWindow - The main application window
  */
@@ -33,7 +59,7 @@ function initAutoUpdater(mainWindow) {
   // Checking for update
   autoUpdater.on('checking-for-update', () => {
     log.info('[Updater] Checking for updates...');
-    sendStatusToRenderer({ status: 'checking', message: '업데이트 확인 중...' });
+    sendStatusToRenderer({ status: 'checking', message: 'Checking for updates...' });
   });
 
   // Update available
@@ -42,7 +68,7 @@ function initAutoUpdater(mainWindow) {
     sendStatusToRenderer({ 
       status: 'available', 
       version: info.version,
-      message: `새 버전 ${info.version}이 사용 가능합니다.`
+      message: `New version ${info.version} is available.`
     });
 
     // Show update dialog
@@ -55,7 +81,7 @@ function initAutoUpdater(mainWindow) {
     sendStatusToRenderer({ 
       status: 'latest', 
       version: info.version,
-      message: '최신 버전을 사용 중입니다.'
+      message: 'You are using the latest version.'
     });
   });
 
@@ -78,7 +104,7 @@ function initAutoUpdater(mainWindow) {
       speed,
       transferred,
       total,
-      message: `다운로드 중: ${percent}%`
+      message: `Downloading: ${percent}%`
     });
   });
 
@@ -88,7 +114,7 @@ function initAutoUpdater(mainWindow) {
     sendStatusToRenderer({ 
       status: 'downloaded', 
       version: info.version,
-      message: '업데이트 다운로드 완료'
+      message: 'Update download complete'
     });
 
     // Show install dialog
@@ -97,26 +123,42 @@ function initAutoUpdater(mainWindow) {
 
   // Error handling
   autoUpdater.on('error', (err) => {
-    log.error('[Updater] Error:', err);
-    
+    const { platformName, archName } = getPlatformInfo();
+    log.error(`[Updater] Error (${platformName} ${archName}):`, err);
+
     // Close progress window on error
     closeDownloadProgressWindow();
-    
-    sendStatusToRenderer({ 
-      status: 'error', 
+
+    sendStatusToRenderer({
+      status: 'error',
       error: err.message,
-      message: `업데이트 오류: ${err.message}`
+      message: `업데이트 확인 실패`
     });
-    
-    // Show error dialog
+
+    // Show user-friendly notification instead of alarming error dialog
     if (mainWindowRef && !mainWindowRef.isDestroyed()) {
-      dialog.showMessageBox(mainWindowRef, {
-        type: 'error',
-        title: '업데이트 오류',
-        message: '업데이트 중 오류가 발생했습니다.',
-        detail: err.message,
-        buttons: ['확인']
-      });
+      if (isMissingPlatformRelease(err)) {
+        // Platform-specific release not yet available — not a real error
+        log.info(`[Updater] No ${platformName} (${archName}) release found — skipping update`);
+        dialog.showMessageBox(mainWindowRef, {
+          type: 'info',
+          title: 'Update',
+          message: `Currently running the latest available version.`,
+          detail: `No update for ${platformName} (${archName}) has been published yet.\nYou can continue using the app without any issues.\n\nVersion: ${app.getVersion()}`,
+          buttons: ['OK'],
+          noLink: true
+        });
+      } else {
+        // Genuine error (network issue, etc.)
+        dialog.showMessageBox(mainWindowRef, {
+          type: 'warning',
+          title: 'Update Check Failed',
+          message: `Could not check for updates.`,
+          detail: `The app will continue to work normally.\nYou can try again later or check manually.\n\nReason: ${err.message}`,
+          buttons: ['OK'],
+          noLink: true
+        });
+      }
     }
   });
 
@@ -191,12 +233,13 @@ async function showUpdateAvailableDialog(info) {
   log.info('[Updater] Clean release notes preview:', cleanReleaseNotes.substring(0, 100));
   log.info('[Updater] Showing update dialog...');
 
+  const { platformName, archName } = getPlatformInfo();
   const result = await dialog.showMessageBox(mainWindowRef, {
     type: 'info',
-    title: '업데이트 가능',
-    message: `새 버전이 사용 가능합니다!`,
-    detail: `현재 버전: ${require('electron').app.getVersion()}\n새 버전: ${info.version}\n\n${cleanReleaseNotes ? '변경 사항:\n' + cleanReleaseNotes.substring(0, 500) : '업데이트를 다운로드하시겠습니까?'}`,
-    buttons: ['지금 업데이트', '나중에'],
+    title: 'Update Available',
+    message: `A new version is available!`,
+    detail: `Current: ${app.getVersion()} (${platformName} ${archName})\nNew: ${info.version}\n\n${cleanReleaseNotes ? 'Changes:\n' + cleanReleaseNotes.substring(0, 500) : 'Would you like to download the update?'}`,
+    buttons: ['Update Now', 'Later'],
     defaultId: 0,
     cancelId: 1,
     noLink: true
@@ -279,11 +322,11 @@ function showDownloadProgressWindow() {
       </style>
     </head>
     <body>
-      <h3>업데이트 다운로드 중...</h3>
+      <h3>Downloading update...</h3>
       <div class="progress-container">
         <div class="progress-bar" id="progressBar"></div>
       </div>
-      <div class="status" id="status">준비 중...</div>
+      <div class="status" id="status">Preparing...</div>
     </body>
     </html>
   `;
@@ -338,10 +381,10 @@ async function showUpdateReadyDialog(info) {
 
   const result = await dialog.showMessageBox(mainWindowRef, {
     type: 'info',
-    title: '업데이트 준비 완료',
-    message: '업데이트가 다운로드되었습니다.',
-    detail: `버전 ${info.version}을 설치할 준비가 되었습니다.\n앱을 재시작하여 업데이트를 적용하시겠습니까?\n\n(\"나중에\"를 선택하면 앱 종료 시 자동으로 설치됩니다)`,
-    buttons: ['지금 재시작', '나중에'],
+    title: 'Update Ready',
+    message: 'Update has been downloaded.',
+    detail: `Version ${info.version} is ready to install.\nRestart the app to apply the update?\n\n(Selecting "Later" will install automatically when you close the app)`,
+    buttons: ['Restart Now', 'Later'],
     defaultId: 0,
     cancelId: 1,
     noLink: true
@@ -401,9 +444,11 @@ function registerIpcHandlers() {
  * Check for updates (called on app start)
  */
 function checkForUpdates() {
-  log.info('[Updater] Starting update check...');
-  log.info('[Updater] Current version:', require('electron').app.getVersion());
-  
+  const { platform, arch, platformName, archName } = getPlatformInfo();
+  log.info(`[Updater] Starting update check... (${platformName} ${archName})`);
+  log.info('[Updater] Current version:', app.getVersion());
+  log.info(`[Updater] Platform: ${platform}, Arch: ${arch}`);
+
   autoUpdater.checkForUpdates()
     .then((result) => {
       if (result) {
@@ -415,8 +460,7 @@ function checkForUpdates() {
       }
     })
     .catch((err) => {
-      log.error('[Updater] Failed to check for updates:', err);
-      log.error('[Updater] Error details:', err.message, err.stack);
+      log.error(`[Updater] Failed to check for updates (${platformName} ${archName}):`, err.message);
     });
 }
 

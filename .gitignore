@@ -217,6 +217,4 @@ references/
 tasks/
 reports/
 .auto-claude/
-
-# Reference implementations (not shipped)
 references/desktop/

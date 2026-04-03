@@ -1,24 +1,21 @@
 llm:
-  mode: ""
-  team_mode: ""
-  glm_env_var: "GLM_API_KEY"
-
-  # Performance tier selection (set once during init/update)
-  # Controls model selection for all sub-agents and team agents
-  # Options: high (complex reasoning), medium (balanced), low (fast/cheap)
-  performance_tier: "medium"
-
-  # Claude model mapping by tier
-  claude_models:
-    high: "opus"      # Complex reasoning, architecture, security
-    medium: "sonnet"  # Balanced performance for most tasks
-    low: "haiku"      # Fast exploration, simple tasks
-
-  # GLM backend configuration
-  glm:
-    base_url: "https://api.z.ai/api/anthropic"
-    models:
-      high: "glm-5"           # Complex reasoning
-      medium: "glm-4.7"       # Balanced performance
-      low: "glm-4.5-air"      # Lightweight tasks (Z.ai official default)
-
+    mode: ""
+    team_mode: ""
+    glm_env_var: GLM_API_KEY
+    performance_tier: medium
+    claude_models:
+        high: opus
+        medium: sonnet
+        low: haiku
+    glm:
+        base_url: https://api.z.ai/api/anthropic
+        models:
+            high: glm-5
+            medium: glm-4.7
+            low: glm-4.5-air
+            opus: glm-5.1
+            sonnet: glm-4.7
+            haiku: glm-4.5-air
+    default_model: sonnet
+    quality_model: opus
+    speed_model: haiku

@@ -1,7 +1,5 @@
-# User Configuration
-# User-specific information and preferences
-
 user:
-  # User name for personalization and commit attribution
-  # Used in git commits when configured with Co-Authored-By
-  name: ""
+    # Set locally; never commit real tokens (see MoAI docs)
+    github_token: ""
+    github_username: cccnam5158
+    name: joseph

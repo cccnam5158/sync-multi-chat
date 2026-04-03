@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Multi Chat (v0.9.1)</title>
+    <title>Sync Multi Chat (v0.10.0)</title>
     <link rel="stylesheet" href="../../node_modules/easymde/dist/easymde.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -21,11 +21,11 @@
                     </svg>
                 </button>
                 <button type="button" class="sidebar-rail-btn sidebar-rail-new-chat" data-sidebar-panel="new-chat" title="New Chat">
-                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>
+                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>
                     <span class="rail-btn-label">New Chat</span>
                 </button>
                 <button type="button" class="sidebar-rail-btn sidebar-rail-new-task" data-sidebar-panel="new-task" title="New Task">
-                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg></span>
+                    <span class="rail-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg></span>
                     <span class="rail-btn-label">New Task</span>
                 </button>
                 <div class="sidebar-rail-separator" aria-hidden="true"></div>
@@ -219,8 +219,8 @@
                                 <span class="customize-list-title" id="customize-list-title">Skills</span>
                                 <div class="customize-search-row">
                                     <input type="search" id="customize-search" class="customize-search" placeholder="Search..." autocomplete="off" />
-                                    <button type="button" id="cust-expand-all" class="cust-tree-toggle-btn" title="Expand All"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/><path d="M4 2l4 4 4-4"/></svg></button>
-                                    <button type="button" id="cust-collapse-all" class="cust-tree-toggle-btn" title="Collapse All"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 10l4-4 4 4"/><path d="M4 14l4-4 4 4"/></svg></button>
+                                    <button type="button" id="cust-expand-all" class="cust-tree-toggle-btn" title="Expand All"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="5" x2="21" y2="5"/><line x1="7" y1="10" x2="21" y2="10"/><line x1="7" y1="15" x2="21" y2="15"/><line x1="3" y1="20" x2="21" y2="20"/><polyline points="3 9 5 11 3 13"/></svg></button>
+                                    <button type="button" id="cust-collapse-all" class="cust-tree-toggle-btn" title="Collapse All"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="5" x2="21" y2="5"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="3" y1="20" x2="21" y2="20"/></svg></button>
                                 </div>
                             </div>
                             <div id="customize-list-content" class="customize-list-content"></div>
@@ -228,6 +228,13 @@
                         <!-- Panel 3: Right detail -->
                         <div class="customize-detail-panel" id="customize-detail-panel">
                             <div class="customize-detail-empty">Select an item to view details</div>
+                        </div>
+                        <!-- Connectors Coming Soon overlay -->
+                        <div id="connectors-coming-soon" class="coming-soon-overlay coming-soon-full hidden">
+                            <div class="coming-soon-card">
+                                <span class="coming-soon-badge">Coming Soon</span>
+                                <p class="coming-soon-desc">Connect external services like Slack, Notion, GitHub, Figma, and more to enhance your AI workflow.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -290,10 +297,16 @@
                                     </div>
                                 </div>
                                 <!-- Own API Key (BYOK) section -->
-                                <div class="settings-section">
+                                <div class="settings-section coming-soon-section">
                                     <h3 class="settings-section-title">Your Own API Key</h3>
                                     <p class="settings-section-desc">Enter API keys for direct access to each provider's models.</p>
                                     <div id="settings-provider-list" class="settings-provider-grid"></div>
+                                    <div class="coming-soon-overlay">
+                                        <div class="coming-soon-card">
+                                            <span class="coming-soon-badge">Coming Soon</span>
+                                            <p class="coming-soon-desc">Bring your own API keys to use models from OpenAI, Anthropic, Google AI, and more directly.</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div id="settings-tab-workspace" class="settings-tab-content hidden">
@@ -334,10 +347,13 @@
                 <!-- Top bar: model + mode + controls -->
                 <header class="task-chat-topbar">
                     <div class="task-chat-topbar-left">
-                        <select id="task-model-selector" class="task-chat-model-select" title="Select model">
-                            <option value="">Select model...</option>
-                            <!-- Populated dynamically from configured providers -->
-                        </select>
+                        <div id="task-title-wrap" class="task-title-wrap hidden">
+                            <span id="task-title-display" class="task-title-display" title="Click to edit title"></span>
+                            <span class="task-title-pencil" title="Edit title">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                            </span>
+                            <input type="text" id="task-title-input" class="task-title-input hidden" />
+                        </div>
                     </div>
                     <div class="task-chat-topbar-right">
                         <span id="task-ws-state-badge" class="task-state-badge task-state-idle hidden"></span>
@@ -356,10 +372,18 @@
                 <div class="task-chat-input-area">
                     <div id="task-chat-chips" class="task-chat-chips" style="display:none;"></div>
                     <div class="task-chat-input-row">
-                        <textarea id="task-chat-input" class="task-chat-textarea" placeholder="Describe the outcome you want" rows="1"></textarea>
-                        <button type="button" id="task-chat-send-btn" class="task-chat-send-btn" disabled title="Send (Enter)">
-                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        </button>
+                        <div class="task-chat-input-wrap">
+                            <textarea id="task-chat-input" class="task-chat-textarea" placeholder="Describe the outcome you want" rows="1"></textarea>
+                            <div class="task-chat-composer-actions">
+                                <select id="task-model-selector" class="task-chat-model-select" title="Select model">
+                                    <option value="">Select model...</option>
+                                    <!-- Populated dynamically from configured providers -->
+                                </select>
+                                <button type="button" id="task-chat-send-btn" class="task-chat-send-btn" disabled title="Send (Enter)">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="task-chat-input-toolbar">
                         <button type="button" id="task-attach-btn" class="task-chat-toolbar-btn" title="Attach context from clipboard">
