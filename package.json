@@ -14,7 +14,7 @@
     "generate:icons": "node scripts/generate-icons.js",
     "build": "node scripts/generate-icons.js && electron-builder",
     "build:win": "node scripts/generate-icons.js && electron-builder --win",
-    "build:mac": "node scripts/generate-icons.js && electron-builder --mac --x64 && electron-builder --mac --arm64",
+    "build:mac": "node scripts/generate-icons.js && electron-builder --mac --x64 --arm64",
     "build:mac:x64": "node scripts/generate-icons.js && electron-builder --mac --x64",
     "build:mac:arm64": "node scripts/generate-icons.js && electron-builder --mac --arm64",
     "build:portable": "node scripts/generate-icons.js && electron-packager . \"Sync Multi Chat\" --platform=win32 --arch=x64 --out=dist-packager --overwrite --icon=build/icon.ico",

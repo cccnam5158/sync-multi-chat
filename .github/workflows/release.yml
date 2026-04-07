@@ -110,29 +110,45 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build macOS DMGs (Intel + Apple Silicon)
+      - name: Build macOS release artifacts (Intel + Apple Silicon)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build:mac
 
-      - name: Upload macOS DMGs to GitHub Release
+      - name: Upload macOS release artifacts to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           TAG_VER="${GITHUB_REF_NAME#v}"
-          X64="dist/Sync-Multi-Chat-Setup-${TAG_VER}-x64.dmg"
-          ARM="dist/Sync-Multi-Chat-Setup-${TAG_VER}-arm64.dmg"
-          for f in "$X64" "$ARM"; do
+          REQUIRED=(
+            "dist/latest-mac.yml"
+            "dist/Sync-Multi-Chat-Setup-${TAG_VER}-x64.zip"
+            "dist/Sync-Multi-Chat-Setup-${TAG_VER}-arm64.zip"
+            "dist/Sync-Multi-Chat-Setup-${TAG_VER}-x64.dmg"
+            "dist/Sync-Multi-Chat-Setup-${TAG_VER}-arm64.dmg"
+          )
+          for f in "${REQUIRED[@]}"; do
             [[ -f "$f" ]] || { echo "::error::Missing $f"; ls -la dist/; exit 1; }
           done
-          gh release upload "$GITHUB_REF_NAME" "$X64" "$ARM" --clobber
+          gh release upload "$GITHUB_REF_NAME" \
+            dist/latest-mac*.yml \
+            dist/Sync-Multi-Chat-Setup-${TAG_VER}-x64.zip \
+            dist/Sync-Multi-Chat-Setup-${TAG_VER}-arm64.zip \
+            dist/Sync-Multi-Chat-Setup-${TAG_VER}-x64.zip.blockmap \
+            dist/Sync-Multi-Chat-Setup-${TAG_VER}-arm64.zip.blockmap \
+            dist/Sync-Multi-Chat-Setup-${TAG_VER}-x64.dmg \
+            dist/Sync-Multi-Chat-Setup-${TAG_VER}-arm64.dmg \
+            --clobber
 
       - name: Upload mac artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mac-dmg
+          name: mac-release-artifacts
           path: |
+            dist/latest-mac*.yml
+            dist/Sync-Multi-Chat-Setup-*.zip
+            dist/Sync-Multi-Chat-Setup-*.zip.blockmap
             dist/*.dmg
           if-no-files-found: error

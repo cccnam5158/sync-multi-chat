@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Upload macOS DMGs (Intel + Apple Silicon) to an existing GitHub Release.
+# Upload macOS release artifacts (DMG + updater metadata) to an existing GitHub Release.
 # Prerequisites: `gh` CLI authenticated (`gh auth login`), `npm run build:mac` already run.
 set -euo pipefail
 
@@ -14,12 +14,23 @@ fi
 
 X64="$ROOT/dist/Sync-Multi-Chat-Setup-${TAG#v}-x64.dmg"
 ARM="$ROOT/dist/Sync-Multi-Chat-Setup-${TAG#v}-arm64.dmg"
+X64_ZIP="$ROOT/dist/Sync-Multi-Chat-Setup-${TAG#v}-x64.zip"
+ARM_ZIP="$ROOT/dist/Sync-Multi-Chat-Setup-${TAG#v}-arm64.zip"
+LATEST_MAC="$ROOT/dist/latest-mac.yml"
 
-for f in "$X64" "$ARM"; do
+for f in "$X64" "$ARM" "$X64_ZIP" "$ARM_ZIP" "$LATEST_MAC"; do
   [[ -f "$f" ]] || { echo "Missing: $f — run: npm run build:mac"; exit 1; }
 done
 
 echo "Uploading to release $TAG ..."
-"$GH" release upload "$TAG" "$X64" "$ARM" --clobber
+"$GH" release upload "$TAG" \
+  "$ROOT"/dist/latest-mac*.yml \
+  "$X64_ZIP" \
+  "$ARM_ZIP" \
+  "$X64_ZIP".blockmap \
+  "$ARM_ZIP".blockmap \
+  "$X64" \
+  "$ARM" \
+  --clobber
 echo "Done."
 "$GH" release view "$TAG" --json assets --jq '.assets[].name'

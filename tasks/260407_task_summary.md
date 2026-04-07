@@ -15,3 +15,5 @@
 - 태그 푸시: `v0.10.1` → `origin` (GitHub Actions 릴리스 워크플로 트리거됨)
 - 릴리스 노트: Chat/Task 히스토리 **미리보기**, 행 **제목 더블클릭** 인라인 이름 변경, 저장 프롬프트 목록 클릭 시 **loadToEditor**로 잘못된 프롬프트 열림 수정.
 - CI: `build-windows` 후 `build-mac`이 동일 태그 Release에 DMG 업로드.
+- 추가 보완(맥 완전 배포): `build:mac`을 단일 멀티 아키텍처 빌드(`electron-builder --mac --x64 --arm64`)로 변경해 EEXIST(icon.icns link) 실패를 제거.
+- 추가 보완(자동업데이트): mac 릴리스 업로드 대상을 DMG만이 아니라 `latest-mac*.yml`, `*-mac*.zip`, `*-mac*.zip.blockmap`까지 포함하도록 워크플로/스크립트 확장.
