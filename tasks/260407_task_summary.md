@@ -17,3 +17,4 @@
 - CI: `build-windows` 후 `build-mac`이 동일 태그 Release에 DMG 업로드.
 - 추가 보완(맥 완전 배포): `build:mac`을 단일 멀티 아키텍처 빌드(`electron-builder --mac --x64 --arm64`)로 변경해 EEXIST(icon.icns link) 실패를 제거.
 - 추가 보완(자동업데이트): mac 릴리스 업로드 대상을 DMG만이 아니라 `latest-mac*.yml`, `*-mac*.zip`, `*-mac*.zip.blockmap`까지 포함하도록 워크플로/스크립트 확장.
+- 2026-04-08: 커밋 `03f03ec` 푸시 후 **`v0.10.1` 태그 force-push 재발행**(리포지토리 태그가 fix 커밋을 가리키도록). Windows job도 동일 워크플로에서 한 번 더 실행됨(동일 버전 재게시 가능성).
