@@ -189,6 +189,139 @@ let currentService = '';
 let currentInstanceKey = null;
 
 //===========================================
+// RESPONSE COMPLETION OBSERVER
+// Content-stability polling: after a prompt is sent, we watch the
+// last-assistant-response area until it stops changing. When stable
+// for N consecutive ticks, emit 'chat-response-complete' so the
+// renderer can refresh the session's cached chatThread for the
+// history preview modal + inline title editing.
+//===========================================
+
+let responseObserverInterval = null;
+let responseObserverState = null;
+const RESPONSE_OBSERVER_TICK_MS = 800;
+const RESPONSE_OBSERVER_STABLE_TICKS = 3; // ~2.4s of stability
+const RESPONSE_OBSERVER_MAX_MS = 15 * 60 * 1000; // 15 minutes safety cap
+
+function computeResponseSignature(config) {
+    try {
+        // Claude explicit streaming flag - stay busy while present
+        if (currentService === 'claude') {
+            if (document.querySelector('[data-is-streaming]')) {
+                return 'claude:streaming';
+            }
+        }
+        let lastEl = null;
+        const tryList = (list) => {
+            if (!Array.isArray(list)) return null;
+            for (const sel of list) {
+                try {
+                    const nodes = document.querySelectorAll(sel);
+                    if (nodes && nodes.length > 0) return nodes[nodes.length - 1];
+                } catch (_) { /* ignore bad selectors */ }
+            }
+            return null;
+        };
+        lastEl = tryList(config && config.lastResponseSelector) || tryList(config && config.messageSelector);
+        let msgCount = 0;
+        if (config && Array.isArray(config.messageSelector)) {
+            for (const sel of config.messageSelector) {
+                try {
+                    const n = document.querySelectorAll(sel).length;
+                    if (n > msgCount) msgCount = n;
+                } catch (_) { /* ignore */ }
+            }
+        }
+        const text = lastEl ? (lastEl.innerText || lastEl.textContent || '') : '';
+        return `${msgCount}:${text.length}`;
+    } catch (e) {
+        return 'error';
+    }
+}
+
+function stopResponseObserver(reason) {
+    if (responseObserverInterval) {
+        clearInterval(responseObserverInterval);
+        responseObserverInterval = null;
+    }
+    if (responseObserverState) {
+        console.log('[ResponseObserver] stopped:', reason || 'unknown', 'service=', currentService, 'instanceKey=', currentInstanceKey);
+    }
+    responseObserverState = null;
+}
+
+function startResponseObserver(config) {
+    // Reset/restart if one is already running (new prompt during active observe)
+    responseObserverState = {
+        startedAt: Date.now(),
+        baseline: computeResponseSignature(config),
+        lastSignature: null,
+        stableCount: 0,
+        sawChange: false,
+        config,
+    };
+    if (responseObserverInterval) {
+        clearInterval(responseObserverInterval);
+        responseObserverInterval = null;
+    }
+    responseObserverInterval = setInterval(() => {
+        const st = responseObserverState;
+        if (!st) {
+            if (responseObserverInterval) { clearInterval(responseObserverInterval); responseObserverInterval = null; }
+            return;
+        }
+        if (Date.now() - st.startedAt > RESPONSE_OBSERVER_MAX_MS) {
+            stopResponseObserver('max-duration');
+            return;
+        }
+        const sig = computeResponseSignature(st.config);
+        // Treat explicit Claude streaming flag as always-busy
+        if (sig === 'claude:streaming') {
+            st.sawChange = true;
+            st.stableCount = 0;
+            st.lastSignature = sig;
+            return;
+        }
+        if (st.lastSignature === null) {
+            // First tick post-send: remember signature. If it differs from baseline
+            // immediately, count that as change already.
+            st.lastSignature = sig;
+            if (sig !== st.baseline) {
+                st.sawChange = true;
+                st.stableCount = 1;
+            }
+            return;
+        }
+        if (sig !== st.lastSignature) {
+            st.sawChange = true;
+            st.stableCount = 0;
+            st.lastSignature = sig;
+            return;
+        }
+        // signature is stable
+        if (st.sawChange) {
+            st.stableCount += 1;
+            if (st.stableCount >= RESPONSE_OBSERVER_STABLE_TICKS) {
+                try {
+                    ipcRenderer.send('chat-response-complete', {
+                        service: currentService,
+                        instanceKey: currentInstanceKey,
+                    });
+                    console.log('[ResponseObserver] response-complete emitted for', currentService, currentInstanceKey);
+                } catch (e) {
+                    console.error('[ResponseObserver] emit failed:', e);
+                }
+                stopResponseObserver('stable');
+            }
+        }
+    }, RESPONSE_OBSERVER_TICK_MS);
+}
+
+// Safety: stop observer on navigation away so it doesn't leak across SPA resets
+window.addEventListener('pagehide', () => stopResponseObserver('pagehide'));
+window.addEventListener('beforeunload', () => stopResponseObserver('beforeunload'));
+
+//===========================================
 // SPA URL OBSERVER (fix: ChatGPT pushState doesn't trigger did-navigate)
 //===========================================
 
@@ -591,6 +724,9 @@ async function injectPrompt(text, selectors, autoSend = false, options = {}) {
             ? (useHumanTyping ? 1000 : 350)
             : (useHumanTyping ? 1000 : 0);
         clickSendButton(selectors, inputEl, { sendDelayMs });
+        // Start (or restart) response-completion observer a bit after send click
+        // so the baseline reflects the state just before streaming begins.
+        setTimeout(() => startResponseObserver(selectors), sendDelayMs + 400);
     } else {
         console.log('[injectPrompt] autoSend is false, skipping send button click');
     }
@@ -607,6 +743,8 @@ ipcRenderer.on('click-send-button', (event, { selectors, sendDelayMs } = {}) => 
         if (inputEl) break;
     }
     clickSendButton(selectors, inputEl, { sendDelayMs });
+    const effectiveDelay = Number.isFinite(sendDelayMs) ? Math.max(0, sendDelayMs) : 1000;
+    setTimeout(() => startResponseObserver(selectors), effectiveDelay + 400);
 });
 
 function isSendButtonDisabled(btn) {

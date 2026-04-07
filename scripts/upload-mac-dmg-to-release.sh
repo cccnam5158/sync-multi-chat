@@ -3,7 +3,7 @@
 # Prerequisites: `gh` CLI authenticated (`gh auth login`), `npm run build:mac` already run.
 set -euo pipefail
 
-TAG="${1:-v0.10.0}"
+TAG="${1:-v0.10.1}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GH="${GH_BIN:-$(command -v gh || true)}"
 if [[ -z "$GH" || ! -x "$GH" ]]; then

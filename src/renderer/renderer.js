@@ -57,7 +57,31 @@ function getResetUrlsForCurrentMode(onlySlotKey = null) {
     return resetUrls;
 }
 
-async function applyResetUrlsToCurrentSession(resetUrls) {
+/**
+ * Drop chatThread entries that correspond to the slot being reset.
+ * - Full reset (no onlySlotKey): returns [] (all cleared).
+ * - Multi mode per-slot: slotKey === service name, drop entries where entry.service matches.
+ * - Single mode per-slot: slotKey format is "<service>-<idx>" (0-based); the stored
+ *   entry.instance is formatted as "#<idx+1>" (see buildChatThreadJsonForCPB in
+ *   src/main/main.js). Drop entries whose instance label matches.
+ */
+function filterChatThreadForReset(existingThread, onlySlotKey, mode) {
+    if (!Array.isArray(existingThread)) return [];
+    if (!onlySlotKey) return [];
+    return existingThread.filter((entry) => {
+        if (!entry) return false;
+        if (mode === 'single') {
+            const m = /-(\d+)$/.exec(onlySlotKey);
+            if (!m) return true;
+            const expectedInstance = `#${parseInt(m[1], 10) + 1}`;
+            return entry.instance !== expectedInstance;
+        }
+        // Multi mode: slotKey is the service name
+        return entry.service !== onlySlotKey;
+    });
+}
+
+async function applyResetUrlsToCurrentSession(resetUrls, { onlySlotKey = null } = {}) {
     const keys = Object.keys(resetUrls || {});
     if (keys.length === 0 || !currentSessionId) return;
 
@@ -75,6 +99,12 @@ async function applyResetUrlsToCurrentSession(resetUrls) {
             ? { ...existingSession.multiAiConfig, urls: { ...(existingSession.multiAiConfig.urls || {}), ...resetUrls } }
             : null;
 
+        // Drop chat-thread entries that no longer reflect the live webview
+        // state after navigation. Full reset wipes the whole thread; per-slot
+        // reset wipes only the matching slot.
+        const mode = existingSession.chatMode || (existingSession.singleAiConfig ? 'single' : 'multi');
+        const nextChatThread = filterChatThreadForReset(existingSession.chatThread, onlySlotKey, mode);
+
         await historyManager.saveSession({
             ...existingSession,
             id: currentSessionId,
@@ -84,6 +114,7 @@ async function applyResetUrlsToCurrentSession(resetUrls) {
             urls: nextUrls,
             singleAiConfig: nextSingleAiConfig,
             multiAiConfig: nextMultiAiConfig,
+            chatThread: nextChatThread,
         });
 
         loadHistoryList({ preserveScroll: true });
@@ -93,8 +124,18 @@ async function applyResetUrlsToCurrentSession(resetUrls) {
 }
 
 async function resetCurrentSessionViews({ onlySlotKey = null } = {}) {
+    // Cancel any pending live chat-thread capture so a stale scheduled save
+    // can't resurrect the old thread after we clear it below.
+    cancelChatThreadCaptureTimer();
+    // If a capture is already in flight, wait for it to settle (bounded) so
+    // our reset save runs last and wins the race.
+    const deadline = Date.now() + 1500;
+    while (chatThreadCaptureInFlight && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 50));
+    }
+
     const resetUrls = getResetUrlsForCurrentMode(onlySlotKey);
-    await applyResetUrlsToCurrentSession(resetUrls);
+    await applyResetUrlsToCurrentSession(resetUrls, { onlySlotKey });
 
     if (onlySlotKey) {
         if (chatMode === 'single') {
@@ -105,15 +146,20 @@ async function resetCurrentSessionViews({ onlySlotKey = null } = {}) {
         return;
     }
 
+    // Full reset wiped the entire chatThread in applyResetUrlsToCurrentSession,
+    // so the current session is effectively back to a "no first turn" state.
+    currentSessionHasFirstTurn = false;
     window.electronAPI.newChat();
 
 }
 
 async function triggerNewChatWorkflow() {
     hideTaskWorkspace();
-    // Save current session first (if there is one)
+    // Save current session first (if there is one) — flush any pending
+    // chat-thread capture before the session id is rotated.
     if (currentSessionId) {
-        await saveCurrentSession();
+        await flushChatThreadCaptureNow();
+        await saveCurrentSession({ extractChatThread: true });
     }
 
     let activeServices = [];
@@ -132,6 +178,9 @@ async function triggerNewChatWorkflow() {
     }
 
     currentSessionId = generateId();
+    // Fresh session has no chat turns yet; block chatThread extraction until
+    // a real chat-response-complete signal fires for this session.
+    currentSessionHasFirstTurn = false;
     const newSessionData = {
         id: currentSessionId,
         title: `Chat ${new Date().toLocaleTimeString()}`,
@@ -3060,7 +3109,7 @@ function dateToChartBucketKey(d, granularity) {
 }
 
 function sessionToChartBucketKey(session, granularity) {
-    const t = new Date(session.updatedAt || session.createdAt || 0);
+    const t = new Date(session.createdAt || session.updatedAt || 0);
     return dateToChartBucketKey(t, granularity);
 }
 
@@ -3165,8 +3214,8 @@ function renderDashBucketDetail(bucketKey) {
     const gran = dashChartGranularityCache;
     const filtered = dashChartSessionsCache.filter((s) => sessionToChartBucketKey(s, gran) === bucketKey);
     filtered.sort((a, b) => {
-        const tb = new Date(b.updatedAt || b.createdAt || 0).getTime();
-        const ta = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const tb = new Date(b.createdAt || b.updatedAt || 0).getTime();
+        const ta = new Date(a.createdAt || a.updatedAt || 0).getTime();
         return tb - ta;
     });
     titleEl.textContent = `Period: ${formatDashBucketPeriodLabel(bucketKey, gran)}`;
@@ -3181,7 +3230,7 @@ function renderDashBucketDetail(bucketKey) {
         const tdTitle = document.createElement('td');
         tdTitle.textContent = s.title || 'Untitled';
         const tdWhen = document.createElement('td');
-        tdWhen.textContent = formatDashSessionDate(s.updatedAt || s.createdAt);
+        tdWhen.textContent = formatDashSessionDate(s.createdAt || s.updatedAt);
         tr.appendChild(tdTitle);
         tr.appendChild(tdWhen);
         tr.addEventListener('click', () => onDashSessionRowActivate(tr));
@@ -3591,6 +3640,7 @@ async function resetToNewSessionAfterDelete() {
     });
 
     currentSessionId = generateId();
+    currentSessionHasFirstTurn = false;
     const newSessionData = {
         id: currentSessionId,
         title: `Chat ${new Date().toLocaleTimeString()}`,
@@ -3616,6 +3666,11 @@ async function performHistoryBulkDelete(ids) {
     const deletingCurrent = uniqueIds.includes(currentSessionId);
 
     try {
+        // If the current session is among the deleted ids, cancel any pending
+        // live chat-thread capture so it cannot resurrect the row later.
+        if (deletingCurrent) {
+            cancelChatThreadCaptureTimer();
+        }
         await historyManager.deleteSessions(uniqueIds);
 
         // If deleted sessions include the current one, reset like New Chat
@@ -3660,6 +3715,27 @@ async function setupHistory() {
 
         document.addEventListener('keydown', (e) => {
             if (e.key !== 'Escape') return;
+            // If any nested modal is visible, do NOT close the parent panel.
+            // Let the modal's own ESC handler (or Close button) handle it.
+            const chatPreviewModal = document.getElementById('chat-thread-preview-modal');
+            if (chatPreviewModal && chatPreviewModal.classList.contains('visible')) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeChatThreadPreview();
+                return;
+            }
+            const renameModal = document.getElementById('rename-session-modal');
+            if (renameModal && renameModal.classList.contains('visible')) {
+                return; // rename modal manages its own close
+            }
+            const deleteModal = document.getElementById('history-delete-modal');
+            if (deleteModal && deleteModal.classList.contains('visible')) {
+                return;
+            }
+            const clearAllModal = document.getElementById('history-clear-all-modal');
+            if (clearAllModal && clearAllModal.classList.contains('visible')) {
+                return;
+            }
             const sb = document.getElementById('history-sidebar');
             const historyPanelOpen = sb && sb.getAttribute('data-active-panel') === 'history';
             if (historyPanelOpen && selectedHistorySessionIds.size > 0) {
@@ -3921,6 +3997,9 @@ async function loadHistoryList(options = {}) {
                     <button type="button" class="history-icon-btn history-rename-btn" title="Rename" aria-label="Rename">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                     </button>
+                    <button type="button" class="history-icon-btn history-preview-btn" title="Preview chat thread" aria-label="Preview chat thread">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
                     <button type="button" class="history-icon-btn history-delete-btn-danger" title="Delete" aria-label="Delete">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6"/></svg>
                     </button>
@@ -3954,6 +4033,12 @@ async function loadHistoryList(options = {}) {
                 showHistoryDeleteModal(session);
             });
 
+            item.querySelector('.history-preview-btn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.electronAPI?.setServiceVisibility?.(false);
+                showChatThreadPreview(session);
+            });
+
             // Task stop button in history
             const stopBtn = item.querySelector('.history-task-stop-btn');
             if (stopBtn) {
@@ -3962,6 +4047,12 @@ async function loadHistoryList(options = {}) {
                     stopTask(session.id);
                 });
             }
+
+            // Double-click on title to enable inline editing
+            item.querySelector('.history-title')?.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                startInlineEdit(item, session);
+            });
 
             // For task sessions, open in task workspace instead of webview restore
             if (isTask) {
@@ -4156,6 +4247,12 @@ async function performHistoryDelete(session) {
     try {
         const wasCurrentSession = (session.id === currentSessionId);
 
+        // Cancel any pending live chat-thread capture for the session being
+        // deleted so a late timer can't resurrect the row.
+        if (wasCurrentSession) {
+            cancelChatThreadCaptureTimer();
+        }
+
         await historyManager.deleteSession(session.id);
 
         // If deleted session is the current one, trigger New Chat behavior
@@ -4174,6 +4271,7 @@ async function performHistoryDelete(session) {
             });
 
             currentSessionId = generateId();
+            currentSessionHasFirstTurn = false;
             const newSessionData = {
                 id: currentSessionId,
                 title: `Chat ${new Date().toLocaleTimeString()}`,
@@ -4189,7 +4287,7 @@ async function performHistoryDelete(session) {
 
             // Reset webviews
             window.electronAPI.newChat();
-        
+
         }
 
         loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
@@ -4212,6 +4310,8 @@ function showClearAllModal() {
 
 async function performClearAll() {
     try {
+        // All sessions are gone; cancel any pending live chat-thread capture.
+        cancelChatThreadCaptureTimer();
         await historyManager.clearAll();
         const idKey = 'multi_chat_current_session_id';
         sessionStorage.removeItem(idKey);
@@ -4227,6 +4327,7 @@ async function performClearAll() {
         });
 
         currentSessionId = generateId();
+        currentSessionHasFirstTurn = false;
         const newSessionData = {
             id: currentSessionId,
             title: `Chat ${new Date().toLocaleTimeString()}`,
@@ -4252,6 +4353,10 @@ async function performClearAll() {
 
 // Global variable to track current session ID
 let currentSessionId = null;
+// Tracks whether the current session has completed at least one real chat turn.
+// Used to gate chatThread extraction so that fresh/unused sessions don't
+// capture landing-page "slop" (menu trees, nav, etc.) via fallback extractors.
+let currentSessionHasFirstTurn = false;
 // Flag to track if main process state has been applied (prevents race condition)
 let hasAppliedMainState = false;
 // Generate a simple UUID-like string
@@ -4259,7 +4364,152 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-async function saveCurrentSession() {
+// ==========================================
+// Live Chat Thread Capture
+// Debounced auto-refresh of the current session's chatThread so the
+// history preview modal + inline title editing always reflect recent
+// webview activity. Triggered by 'chat-response-complete' events from
+// each service-preload observer and flushed at every destructive
+// transition (new chat, new task, session switch, delete, app close).
+// ==========================================
+let chatThreadCaptureTimer = null;
+let chatThreadCaptureInFlight = false;
+let chatThreadCapturePendingRearm = false;
+const CHAT_THREAD_CAPTURE_DEBOUNCE_MS = 1500;
+
+function cancelChatThreadCaptureTimer() {
+    if (chatThreadCaptureTimer) {
+        clearTimeout(chatThreadCaptureTimer);
+        chatThreadCaptureTimer = null;
+    }
+    chatThreadCapturePendingRearm = false;
+}
+
+function scheduleChatThreadCapture(delay = CHAT_THREAD_CAPTURE_DEBOUNCE_MS) {
+    if (chatThreadCaptureInFlight) {
+        // Another capture is running; re-arm after it finishes
+        chatThreadCapturePendingRearm = true;
+        return;
+    }
+    if (chatThreadCaptureTimer) {
+        clearTimeout(chatThreadCaptureTimer);
+    }
+    chatThreadCaptureTimer = setTimeout(() => {
+        chatThreadCaptureTimer = null;
+        captureChatThreadForCurrentSession().catch((e) => {
+            console.error('[ChatThreadCapture] capture failed:', e);
+        });
+    }, Math.max(0, delay));
+}
+
+async function captureChatThreadForCurrentSession() {
+    const snapshotId = currentSessionId;
+    if (!snapshotId) return;
+    // Skip capture until the current session has actually completed a turn.
+    // This prevents fallback extractors from saving landing-page DOM as a
+    // fake chat thread (e.g., menu trees) for never-used sessions.
+    if (!currentSessionHasFirstTurn) return;
+    if (chatThreadCaptureInFlight) {
+        chatThreadCapturePendingRearm = true;
+        return;
+    }
+    chatThreadCaptureInFlight = true;
+    try {
+        // Skip task sessions: their thread is managed by task workflow
+        let fresh = null;
+        try {
+            fresh = await historyManager.getSession(snapshotId);
+        } catch (e) {
+            console.warn('[ChatThreadCapture] getSession failed:', e);
+            return;
+        }
+        if (!fresh) {
+            // Session was deleted during the debounce window; do not resurrect
+            return;
+        }
+        if (fresh.sessionType === 'task') {
+            return;
+        }
+        let thread = null;
+        try {
+            thread = await window.electronAPI?.getChatThreadJson?.();
+        } catch (e) {
+            console.warn('[ChatThreadCapture] getChatThreadJson failed:', e);
+            return;
+        }
+        if (!thread || !Array.isArray(thread) || thread.length === 0) {
+            // Never clobber an existing known-good thread with empty data
+            return;
+        }
+        // Ensure currentSessionId didn't change out from under us during the IPC
+        if (currentSessionId !== snapshotId) {
+            return;
+        }
+        // Re-read again for maximum freshness (avoid racing saveCurrentSession)
+        let latest = null;
+        try {
+            latest = await historyManager.getSession(snapshotId);
+        } catch (_) { /* fall through */ }
+        // Double-check the active session did not change while awaiting
+        // historyManager.getSession(); if it did, do NOT persist this thread
+        // to whatever session id we ended up reading.
+        if (currentSessionId !== snapshotId) return;
+        const target = latest ? { ...latest } : { ...fresh };
+        if (!target || !target.id || target.id !== snapshotId) return;
+        target.id = snapshotId;
+        target.chatThread = thread;
+        // Stamp the chatThread with its owning session id so future reads
+        // can detect cross-session contamination (see showChatThreadPreview).
+        target.chatThreadSourceSessionId = snapshotId;
+        target.updatedAt = new Date().toISOString();
+        await historyManager.saveSession(target);
+        // Refresh sidebar only if the history panel is open
+        const sidebar = document.getElementById('history-sidebar');
+        if (sidebar && sidebar.getAttribute('data-active-panel') === 'history') {
+            loadHistoryList({ preserveScroll: true });
+        }
+    } finally {
+        chatThreadCaptureInFlight = false;
+        if (chatThreadCapturePendingRearm) {
+            chatThreadCapturePendingRearm = false;
+            scheduleChatThreadCapture();
+        }
+    }
+}
+
+async function flushChatThreadCaptureNow() {
+    // Cancel any pending debounced capture and run synchronously.
+    if (chatThreadCaptureTimer) {
+        clearTimeout(chatThreadCaptureTimer);
+        chatThreadCaptureTimer = null;
+    }
+    // If a capture is already in flight, wait for it to settle (bounded).
+    const deadline = Date.now() + 3000;
+    while (chatThreadCaptureInFlight && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 50));
+    }
+    chatThreadCapturePendingRearm = false;
+    try {
+        await captureChatThreadForCurrentSession();
+    } catch (e) {
+        console.error('[ChatThreadCapture] flush failed:', e);
+    }
+}
+
+// Subscribe to completion signals from service-preload observers
+try {
+    window.electronAPI?.onChatResponseComplete?.(({ service, instanceKey } = {}) => {
+        console.log('[ChatThreadCapture] response-complete signal:', service, instanceKey);
+        // A real chat turn just completed for the current session; mark it so
+        // that subsequent chatThread extraction is allowed.
+        currentSessionHasFirstTurn = true;
+        scheduleChatThreadCapture();
+    });
+} catch (e) {
+    console.warn('[ChatThreadCapture] subscription failed:', e);
+}
+
+async function saveCurrentSession({ extractChatThread = false } = {}) {
     try {
         if (!currentSessionId) {
             currentSessionId = generateId();
@@ -4451,6 +4701,49 @@ async function saveCurrentSession() {
             createdAt: existingSession?.createdAt || new Date().toISOString(),
         };
 
+        // Extract and save chat thread content when switching sessions or closing app.
+        // Only extract if a real chat turn has actually completed for this session;
+        // otherwise we'd persist fallback/landing-page noise (menu trees, nav, etc.).
+        const sessionIdAtSave = currentSessionId;
+        if (extractChatThread && currentSessionHasFirstTurn) {
+            try {
+                const chatThread = await window.electronAPI.getChatThreadJson?.();
+                // If the session rotated (e.g., user clicked New Chat) during the
+                // IPC above, refuse to stamp the thread onto whatever session id
+                // we ended up with — this prevents cross-session contamination.
+                if (currentSessionId !== sessionIdAtSave) {
+                    if (existingSession?.chatThread) {
+                        sessionData.chatThread = existingSession.chatThread;
+                        if (existingSession.chatThreadSourceSessionId) {
+                            sessionData.chatThreadSourceSessionId = existingSession.chatThreadSourceSessionId;
+                        }
+                    }
+                } else if (chatThread && Array.isArray(chatThread) && chatThread.length > 0) {
+                    sessionData.chatThread = chatThread;
+                    sessionData.chatThreadSourceSessionId = sessionIdAtSave;
+                } else if (existingSession?.chatThread) {
+                    sessionData.chatThread = existingSession.chatThread;
+                    if (existingSession.chatThreadSourceSessionId) {
+                        sessionData.chatThreadSourceSessionId = existingSession.chatThreadSourceSessionId;
+                    }
+                }
+            } catch (e) {
+                console.warn('[Session Save] Chat thread extraction failed:', e);
+                if (existingSession?.chatThread) {
+                    sessionData.chatThread = existingSession.chatThread;
+                    if (existingSession.chatThreadSourceSessionId) {
+                        sessionData.chatThreadSourceSessionId = existingSession.chatThreadSourceSessionId;
+                    }
+                }
+            }
+        } else if (existingSession?.chatThread) {
+            // Preserve existing chat thread on non-extraction saves
+            sessionData.chatThread = existingSession.chatThread;
+            if (existingSession.chatThreadSourceSessionId) {
+                sessionData.chatThreadSourceSessionId = existingSession.chatThreadSourceSessionId;
+            }
+        }
+
         await historyManager.saveSession(sessionData);
         // Refresh list if open
         const sidebar = document.getElementById('history-sidebar');
@@ -4490,8 +4783,10 @@ async function loadSession(session) {
             clearTimeout(urlChangeDebounceTimer);
             urlChangeDebounceTimer = null;
         }
-        // Synchronously save current session before switching
-        await saveCurrentSession();
+        // Flush any pending chat-thread capture before the session id changes
+        await flushChatThreadCaptureNow();
+        // Synchronously save current session before switching (extract chat thread for preview)
+        await saveCurrentSession({ extractChatThread: true });
         console.log('[History] Saved previous session before switching');
     }
 
@@ -4506,6 +4801,14 @@ async function loadSession(session) {
         currentSessionId = session.id;
         localStorage.setItem(currentSessionIdKey, currentSessionId);
     }
+
+    // Initialize first-turn flag from the session being loaded. A session is
+    // considered to have completed its first turn only if it already carries a
+    // non-empty chatThread. Fresh/unused sessions stay "no first turn" so that
+    // we neither overwrite their (empty) chatThread nor re-create their chat.
+    const targetChatThread = Array.isArray(session.chatThread) ? session.chatThread : [];
+    currentSessionHasFirstTurn = targetChatThread.length > 0;
+    const targetIsEmptySession = !currentSessionHasFirstTurn;
 
     // Determine session chat mode (legacy sessions without chatMode are treated as Multi AI)
     const sessionChatMode = session.chatMode || 'multi';
@@ -4593,14 +4896,38 @@ async function loadSession(session) {
 
         // Restore Services (cap to 4 as per spec)
         const activeServices = clampMultiActiveServices(session.activeServices || session.multiAiConfig?.activeServices || []);
-        if (activeServices.length > 0) {
-            // First turn off all
+
+        // For empty (no-first-turn) sessions, avoid toggling services off/on.
+        // The off/on dance destroys and recreates webviews, which kicks them to
+        // the service homepage and effectively starts a brand-new chat—losing
+        // the stored URL link the user actually wants to open. Instead, only
+        // adjust toggles that truly need changing, then navigate directly.
+        const currentActiveSet = new Set(activeServiceKeys || []);
+        const targetActiveSet = new Set(activeServices);
+        const sameActiveSet = currentActiveSet.size === targetActiveSet.size
+            && [...currentActiveSet].every(s => targetActiveSet.has(s));
+
+        let toggleDelay = 500;
+        if (targetIsEmptySession && sameActiveSet) {
+            // Fastest path: no toggle changes needed at all. Navigate immediately.
+            toggleDelay = 0;
+        } else if (targetIsEmptySession) {
+            // Minimal-churn path: only turn OFF services that shouldn't be active
+            // and turn ON services that should be, without touching matches.
+            allServices.forEach(s => {
+                const wantOn = targetActiveSet.has(s);
+                const isOn = currentActiveSet.has(s);
+                if (wantOn === isOn) return;
+                if (toggles[s]) toggles[s].checked = wantOn;
+                window.electronAPI.toggleService(s, wantOn);
+            });
+        } else if (activeServices.length > 0) {
+            // Legacy full-reset path for sessions that already had a turn:
+            // preserves previous behavior to avoid regressions in restoration.
             allServices.forEach(s => {
                 if (toggles[s]) toggles[s].checked = false;
                 window.electronAPI.toggleService(s, false);
             });
-
-            // Then turn on saved
             activeServices.forEach(s => {
                 if (toggles[s]) toggles[s].checked = true;
                 window.electronAPI.toggleService(s, true);
@@ -4617,7 +4944,7 @@ async function loadSession(session) {
                     }
                 });
                 isSessionLoading = false;
-            }, 500);
+            }, toggleDelay);
         } else {
             isSessionLoading = false;
         }
@@ -4802,6 +5129,294 @@ function setupResizeHandle() {
 }
 
 // ==========================================
+// Inline Title Edit Logic
+// ==========================================
+function startInlineEdit(item, session) {
+    const titleEl = item.querySelector('.history-title');
+    if (!titleEl || titleEl.querySelector('.history-inline-edit-input')) return; // Already editing
+
+    const originalTitle = session.title || '';
+    // Hide badges during edit
+    const badges = titleEl.querySelectorAll('.history-item-badge, .history-task-stop-btn');
+    badges.forEach(b => b.style.display = 'none');
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'history-inline-edit-input';
+    input.value = originalTitle;
+
+    // Clear title text and insert input
+    titleEl.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) node.textContent = '';
+    });
+    titleEl.insertBefore(input, titleEl.firstChild);
+
+    input.focus();
+    input.select();
+
+    let committed = false;
+
+    const commit = async () => {
+        if (committed) return;
+        committed = true;
+        const newTitle = input.value.trim();
+        if (newTitle && newTitle !== originalTitle) {
+            await commitInlineEdit(session, newTitle);
+        } else {
+            cancelInlineEdit();
+        }
+    };
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            commit();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            committed = true;
+            cancelInlineEdit();
+        }
+    });
+
+    // Prevent blur-race: when Enter triggers commit, the subsequent DOM replacement
+    // by loadHistoryList fires a blur on the detached input. Use direct commit
+    // (no setTimeout) and rely on the `committed` flag to dedupe.
+    input.addEventListener('blur', () => {
+        commit();
+    });
+
+    // Swallow click events originating inside the edit input so that parent
+    // listeners (e.g., history item click-to-load) can never act on them.
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('mousedown', (e) => e.stopPropagation());
+}
+
+async function commitInlineEdit(session, newTitle) {
+    // Guard: must have a valid id to update the existing row (prevents creating a new row)
+    if (!session || !session.id) {
+        console.error('[History] Cannot rename: session has no id', session);
+        loadHistoryList({ preserveScroll: true });
+        return;
+    }
+    try {
+        // Read the freshest record by id to avoid stale-closure overwrites
+        // (e.g., URL-change autosave may have updated this session during the edit)
+        const fresh = await historyManager.getSession(session.id);
+        const target = fresh ? { ...fresh } : { ...session };
+        target.id = session.id; // ensure upsert by the original id
+        target.title = newTitle;
+        target.updatedAt = new Date().toISOString();
+        await historyManager.saveSession(target);
+        // Keep the in-memory closure in sync so subsequent edits reflect the new title
+        session.title = newTitle;
+        session.updatedAt = target.updatedAt;
+    } catch (e) {
+        console.error('Failed to save inline rename:', e);
+    }
+    loadHistoryList({ preserveScroll: true, ensureActiveVisible: true });
+}
+
+function cancelInlineEdit() {
+    loadHistoryList({ preserveScroll: true });
+}
+
+// ==========================================
+// Chat Thread Preview Logic
+// ==========================================
+function showChatThreadPreview(session) {
+    const modal = document.getElementById('chat-thread-preview-modal');
+    const contentEl = document.getElementById('chat-thread-preview-content');
+    const titleEl = document.getElementById('chat-thread-preview-title');
+    if (!modal || !contentEl) return;
+
+    const isTask = session && session.sessionType === 'task';
+    const titlePrefix = isTask ? 'Task Preview' : 'Preview';
+    titleEl.textContent = `${titlePrefix}: ${session.title || 'Untitled Session'}`;
+
+    if (isTask) {
+        // Task sessions use `taskMessages` (chronological user / assistant / stopped
+        // bubbles). We render them in the task conversation format regardless of
+        // taskState — if still running, in-progress messages are shown as-is.
+        const messages = Array.isArray(session.taskMessages) ? session.taskMessages : [];
+        if (messages.length === 0) {
+            contentEl.innerHTML = '<p class="chat-thread-preview-empty">No task messages saved for this session.</p>';
+        } else {
+            const stateLabel = session.taskState && session.taskState !== 'idle'
+                ? `<div class="chat-thread-preview-task-state-row"><span class="chat-thread-preview-task-state" data-state="${escapeHtml(session.taskState)}">State: ${escapeHtml(session.taskState)}</span></div>`
+                : '';
+            // Single flex-column wrapper so the state badge and the message
+            // list stack vertically. #chat-thread-preview-content is itself
+            // a flex row container; without this wrapper the badge would be
+            // stretched as a row flex item.
+            contentEl.innerHTML = `<div class="chat-thread-preview-task-wrap">${stateLabel}<div class="chat-thread-preview-task">${renderTaskThreadForPreview(messages)}</div></div>`;
+        }
+    } else {
+        // Cross-session contamination guard: if a stamped source session id is
+        // present and does not match the session being previewed, treat the
+        // thread as untrusted (likely leaked from another session in an earlier
+        // version of the capture path). Prefer "no preview" over showing wrong
+        // content to the user.
+        const hasThread = session.chatThread && Array.isArray(session.chatThread) && session.chatThread.length > 0;
+        const stampedId = session.chatThreadSourceSessionId;
+        const stampMismatch = hasThread && stampedId && session.id && stampedId !== session.id;
+
+        if (!hasThread || stampMismatch) {
+            contentEl.innerHTML = '<p class="chat-thread-preview-empty">No chat thread content saved for this session.</p>';
+            if (stampMismatch) {
+                console.warn('[Preview] chatThread source mismatch; refusing to render',
+                    { sessionId: session.id, stampedId });
+            }
+        } else {
+            // Column count = number of webviews the user selected for THIS session,
+            // capped at 4. Prefer session config; fall back to the number of
+            // thread entries so we still use every pixel of horizontal space
+            // even if config metadata is missing.
+            const selectedViewCount = getSelectedWebviewCountForSession(session);
+            const cols = Math.max(1, Math.min(4, selectedViewCount || session.chatThread.length || 1));
+            contentEl.innerHTML = `<div class="chat-thread-preview-grid" style="--cols:${cols};">${renderChatThread(session.chatThread)}</div>`;
+        }
+    }
+
+    window.electronAPI.setServiceVisibility(false);
+    modal.classList.add('visible');
+}
+
+/**
+ * Render task messages (taskMessages[]) for the Preview modal while preserving
+ * the task conversation visual format (user bubble / assistant bubble / stopped
+ * notice). Intentionally standalone from appendTaskMessageBubble() so the preview
+ * does not depend on the live task workspace DOM and does not wire any actions.
+ */
+function renderTaskThreadForPreview(messages) {
+    const canMarkdown = (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function');
+    const mdToHtml = (raw) => {
+        if (!raw) return '';
+        if (canMarkdown) {
+            try { return marked.parse(String(raw), { breaks: true, gfm: true }); }
+            catch (_) { return escapeHtml(String(raw)); }
+        }
+        return escapeHtml(String(raw));
+    };
+
+    return messages.map((msg) => {
+        if (!msg) return '';
+        const role = msg.role || 'assistant';
+        const ts = msg.timestamp ? new Date(msg.timestamp).toLocaleString() : '';
+
+        if (role === 'stopped') {
+            return `
+                <div class="task-chat-message task-chat-message-stopped" data-preview-msg-id="${escapeHtml(msg.id || '')}">
+                    <div class="task-stopped-notice">
+                        <svg class="task-stopped-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <span class="task-stopped-text">${escapeHtml(String(msg.content || 'Task interrupted'))}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        const avatarLetter = role === 'user' ? 'U' : role === 'assistant' ? 'AI' : '!';
+        const attachments = Array.isArray(msg.attachments) ? msg.attachments : [];
+        const attachHtml = attachments.length
+            ? `<div class="task-chat-msg-attachments">${attachments
+                .map((a) => `<span class="task-chat-msg-attachment" title="${escapeHtml(a.label || '')}">${escapeHtml(a.label || '')}</span>`)
+                .join('')}</div>`
+            : '';
+
+        const hasContent = msg.content != null && String(msg.content) !== '';
+        const contentHtml = hasContent
+            ? mdToHtml(msg.content)
+            : (role === 'assistant'
+                ? '<em style="color:hsl(var(--muted-foreground));">(in progress…)</em>'
+                : '<em style="color:hsl(var(--muted-foreground));">(empty)</em>');
+
+        const timeHtml = ts ? `<div class="chat-thread-entry-time">${escapeHtml(ts)}</div>` : '';
+
+        return `
+            <div class="task-chat-message task-chat-message-${escapeHtml(role)}" data-preview-msg-id="${escapeHtml(msg.id || '')}">
+                <div class="task-chat-avatar">${avatarLetter}</div>
+                <div class="task-chat-bubble-wrap">
+                    <div class="task-chat-bubble">
+                        ${attachHtml}
+                        <div class="task-chat-bubble-content">${contentHtml}</div>
+                    </div>
+                    ${timeHtml}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Best-effort count of the webviews the user had active when the session was saved.
+ * Handles both Single AI Mode (per-instance) and Multi AI Mode (per-service), with
+ * a legacy `activeServices` fallback. Always returns a non-negative integer.
+ */
+function getSelectedWebviewCountForSession(session) {
+    if (!session) return 0;
+    const mode = session.chatMode || (session.singleAiConfig ? 'single' : 'multi');
+    try {
+        if (mode === 'single') {
+            const instances = session.singleAiConfig && Array.isArray(session.singleAiConfig.activeInstances)
+                ? session.singleAiConfig.activeInstances
+                : null;
+            if (instances) return instances.filter(Boolean).length;
+        } else {
+            const svcList = session.multiAiConfig && Array.isArray(session.multiAiConfig.activeServices)
+                ? session.multiAiConfig.activeServices
+                : null;
+            if (svcList) return svcList.length;
+        }
+    } catch (_) { /* fall through */ }
+    if (Array.isArray(session.activeServices)) return session.activeServices.length;
+    return 0;
+}
+
+function closeChatThreadPreview() {
+    const modal = document.getElementById('chat-thread-preview-modal');
+    if (modal) modal.classList.remove('visible');
+    applySmcPreferredServiceVisibility();
+}
+
+function renderChatThread(chatThread) {
+    const canMarkdown = (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function');
+    return chatThread.map(entry => {
+        const serviceLabel = entry.instance
+            ? `${entry.service || 'service'} ${entry.instance}`
+            : (entry.service || 'Unknown');
+        const serviceName = escapeHtml(serviceLabel);
+        const timestamp = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '';
+        const raw = (entry.content == null || entry.content === '') ? '' : String(entry.content);
+        let contentHtml;
+        let contentClass = 'chat-thread-entry-content';
+        if (!raw) {
+            contentHtml = '<em style="color:hsl(var(--muted-foreground));">(empty)</em>';
+        } else if (canMarkdown) {
+            try {
+                contentHtml = marked.parse(raw, { breaks: true, gfm: true });
+            } catch (e) {
+                console.warn('[ChatThreadPreview] markdown parse failed, falling back to raw:', e);
+                contentHtml = escapeHtml(raw);
+                contentClass += ' is-raw';
+            }
+        } else {
+            contentHtml = escapeHtml(raw);
+            contentClass += ' is-raw';
+        }
+        return `
+            <div class="chat-thread-entry">
+                <div class="chat-thread-entry-header">
+                    <strong>${serviceName}</strong>
+                    <span class="chat-thread-entry-time">${escapeHtml(timestamp)}</span>
+                </div>
+                <div class="${contentClass}">${contentHtml}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ==========================================
 // Rename Modal Logic
 // ==========================================
 let pendingRenameSession = null;
@@ -4868,6 +5483,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeBtn) closeBtn.onclick = closeRenameModal;
     if (cancelBtn) cancelBtn.onclick = closeRenameModal;
     if (saveBtn) saveBtn.onclick = performRename;
+
+    // Chat Thread Preview Modal close buttons
+    document.getElementById('close-chat-thread-preview-btn')?.addEventListener('click', closeChatThreadPreview);
+    document.getElementById('btn-close-chat-thread-preview')?.addEventListener('click', closeChatThreadPreview);
+    // Click on backdrop (outside the modal content) closes the preview
+    document.getElementById('chat-thread-preview-modal')?.addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'chat-thread-preview-modal') {
+            closeChatThreadPreview();
+        }
+    });
 });
 
 // Initialize
@@ -4883,8 +5508,10 @@ window.addEventListener('beforeunload', saveHistoryScrollState);
 if (window.electronAPI.onAppWillClose) {
     window.electronAPI.onAppWillClose(async () => {
         try {
-            // Force one last save with URLs fetched from main webContents
-            await saveCurrentSession();
+            // Flush any pending live chat-thread capture, then force one last
+            // save with URLs and chat thread fetched from main webContents.
+            await flushChatThreadCaptureNow();
+            await saveCurrentSession({ extractChatThread: true });
         } catch (e) {
             console.error('[Session] Final saveCurrentSession failed:', e);
         } finally {
@@ -5015,7 +5642,10 @@ function hideTaskWorkspace() {
 }
 
 async function triggerNewTaskWorkflow() {
-    await saveCurrentSession();
+    // Flush any pending chat-thread capture for the outgoing chat session
+    // before we rotate into a task session.
+    await flushChatThreadCaptureNow();
+    await saveCurrentSession({ extractChatThread: true });
     const taskId = generateId();
     const now = new Date().toISOString();
     const taskSession = {

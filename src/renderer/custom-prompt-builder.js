@@ -7585,13 +7585,13 @@
     window.openCustomPromptBuilderForId = function (promptId) {
         openCPB();
         const ex = cpbPrompts.find((x) => x.id === promptId);
-        if (ex) trySwitchPrompt(ex.id);
+        if (ex) loadToEditor(ex.id);
     };
     window.openCustomPromptBuilderForIdEdit = function (promptId) {
         openCPB();
         const ex = cpbPrompts.find((x) => x.id === promptId);
         if (ex) {
-            trySwitchPrompt(ex.id);
+            loadToEditor(ex.id);
             setMainMode('editor');
             setPreviewMode(false);
             if (el.promptTitle) el.promptTitle.focus();

@@ -3178,6 +3178,58 @@ async function buildLastResponseJsonForCPB({ anonymousMode = false } = {}) {
     return jsonOutput.length ? JSON.stringify(jsonOutput, null, 2) : '';
 }
 
+// Forward per-webview response-complete signals from service-preload observers
+// to the renderer so it can refresh the current session's cached chatThread.
+// Accepts from any registered service webContents or single-mode instance webContents.
+ipcMain.on('chat-response-complete', (event, payload = {}) => {
+    try {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        const sender = event.sender;
+        let matched = false;
+        // Multi mode service views
+        for (const svc of Object.keys(views || {})) {
+            const v = views[svc];
+            if (v && v.view && !v.view.webContents.isDestroyed() && v.view.webContents === sender) {
+                matched = true;
+                break;
+            }
+        }
+        // Single mode instance views
+        if (!matched && typeof getEnabledSingleInstances === 'function') {
+            try {
+                const instances = getEnabledSingleInstances();
+                if (Array.isArray(instances)) {
+                    for (const inst of instances) {
+                        if (inst && inst.wc && inst.wc === sender) { matched = true; break; }
+                    }
+                }
+            } catch (_) { /* ignore */ }
+        }
+        if (!matched) {
+            // Don't relay signals from unknown senders
+            return;
+        }
+        mainWindow.webContents.send('chat-response-complete', {
+            service: payload.service || null,
+            instanceKey: payload.instanceKey || null,
+            mode: chatMode,
+        });
+    } catch (e) {
+        console.error('[IPC] chat-response-complete forward error:', e);
+    }
+});
+
+// Return chat thread JSON for session persistence (used by renderer to save chatThread in IndexedDB)
+ipcMain.handle('get-chat-thread-json', async () => {
+    try {
+        const json = await buildChatThreadJsonForCPB({ anonymousMode: false });
+        return json ? JSON.parse(json) : null;
+    } catch (e) {
+        console.error('[IPC] get-chat-thread-json error:', e);
+        return null;
+    }
+});
+
 ipcMain.on('copy-chat-thread', async (event, options = {}) => {
     const { format = 'markdown', anonymousMode = false } = options;
 

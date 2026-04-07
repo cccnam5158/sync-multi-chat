@@ -22,14 +22,14 @@
 
 -   **멀티 패널 인터페이스**: 최대 4개의 AI 서비스(ChatGPT, Claude, Gemini, Grok, Perplexity)를 그리드 레이아웃에서 동시에 보고 상호작용할 수 있습니다.
 -   **싱글 AI 모드** *(v0.6.0 신규)*: 하나의 AI 서비스만 구독하는 사용자를 위해—동일 서비스의 최대 4개 인스턴스를 열어 다양한 모델의 응답을 비교할 수 있습니다.
--   **커스텀 프롬프트 빌더** *(v0.7.0 신규)*: 시스템/전역/개별 변수로 커스텀 프롬프트를 만들고 저장·관리합니다. 메인 입력창에서 슬래시 명령(`/`)으로 저장된 프롬프트를 불러와 인라인 변수 편집이 가능합니다. *(v0.8.0)* 프롬프트 빌더 및 메인 프롬프트 미리보기에서 **Mermaid** 다이어그램, **코드 블록**(문법 강조), **LaTeX** 수식 라이브 프리뷰 지원. *(v0.9.0)* 카테고리 생성/정렬/할당이 가능한 카테고리 관리 플로우와 Prompt Hub 연계를 강화했습니다. *(v0.9.1)* 카테고리 트리 편집·드래그 앤 드롭 관련 버그를 수정했습니다(필터/이름 변경 경합, Grid.js 행 DnD, 카테고리 재정렬·재부모 규칙).
+-   **커스텀 프롬프트 빌더** *(v0.7.0 신규)*: 시스템/전역/개별 변수로 커스텀 프롬프트를 만들고 저장·관리합니다. 메인 입력창에서 슬래시 명령(`/`)으로 저장된 프롬프트를 불러와 인라인 변수 편집이 가능합니다. *(v0.8.0)* 프롬프트 빌더 및 메인 프롬프트 미리보기에서 **Mermaid** 다이어그램, **코드 블록**(문법 강조), **LaTeX** 수식 라이브 프리뷰 지원. *(v0.9.0)* 카테고리 생성/정렬/할당이 가능한 카테고리 관리 플로우와 Prompt Hub 연계를 강화했습니다. *(v0.9.1)* 카테고리 트리 편집·드래그 앤 드롭 관련 버그를 수정했습니다(필터/이름 변경 경합, Grid.js 행 DnD, 카테고리 재정렬·재부모 규칙). *(v0.10.1)* 저장 프롬프트 목록에서 **행 클릭 시 의도한 프롬프트가 열리도록** 편집기 로딩 경로를 수정했습니다(정렬/필터/갱신 후에도 일관되게 동작).
 -   **macOS 빌드** *(v0.10.0 신규)*: **Intel(x64)** 및 **Apple Silicon(arm64)**용 네이티브 설치 파일(DMG/ZIP). `npm run build:mac`으로 로컬 빌드 후 CPU에 맞는 아티팩트를 설치합니다.
 -   **앱 내 로그인** *(v0.10.0)*: 지원되는 흐름에서 Google/OAuth 로그인을 **앱 안에서** 완료할 수 있습니다(서비스 웹뷰와 **동일 세션 파티션**을 쓰는 **모달 로그인 창** 포함). 더 이상 모든 단계에서 외부 Chrome 창이 필수는 아닙니다.
 -   **ChatGPT 구독 + Skills(Task UI)** *(v0.10.0)*: **ChatGPT Plus/Pro/Team** 구독(OpenAI OAuth·Codex 계열 로그인)으로 **API 키 없이** OpenAI 호스팅 모델을 쓰고, **Task** 워크플로에서 **Skills**(`src/data/skills` 번들)를 활용할 수 있습니다.
 -   **동시 프롬프트 전송**: 중앙의 "마스터 입력창"에서 메시지를 보내면 활성화된 모든 AI 서비스에 즉시 전송됩니다.
 -   **폭넓은 서비스 지원**: ChatGPT, Claude, Gemini, Grok (xAI), Perplexity, **Genspark**를 지원합니다. *(v0.8.1)* **Perplexity** 패널 로그인 상태 탐지가 개선되어 **Login Required** 배지와 실제 세션이 더 잘 맞습니다.
 -   **채팅 기록 관리**: 활성화된 서비스, 레이아웃, URL을 포함한 전체 채팅 세션을 저장하고 복원할 수 있습니다.
--   **대화 기록 (History)**: 사이드바에서 과거 세션에 접근하여 즉시 복원할 수 있습니다. *(v0.9.0)* Left Panel에 **Dashboard**, **Prompt Hub** 메뉴가 추가되고 **Chat History** 메뉴 시인성이 개선되었습니다.
+-   **대화 기록 (History)**: 사이드바에서 과거 세션에 접근하여 즉시 복원할 수 있습니다. *(v0.9.0)* Left Panel에 **Dashboard**, **Prompt Hub** 메뉴가 추가되고 **Chat History** 메뉴 시인성이 개선되었습니다. *(v0.10.1)* 히스토리에서 저장된 **채팅 스레드**·**Task** 대화를 **미리보기**할 수 있고, 행 **제목 더블클릭**으로 **이름을 바로 수정**할 수 있습니다.
 -   **줌 및 레이아웃 제어**: 텍스트 크기를 조절하고 2x2, 1x3, 1x4, 최대화 레이아웃 간에 전환할 수 있습니다.
 -   **프롬프트 히스토리**: 자주 사용하는 프롬프트를 저장하고 재사용할 수 있습니다.
 -   **크로스 체크 (Cross Check)**: 한 AI의 답변을 다른 AI들에게 새로운 프롬프트로 보내 상호 검증(반복 개선)할 수 있습니다.
@@ -42,7 +42,7 @@
 
 ## 버전
 
--   **현재 버전**: v0.10.0
+-   **현재 버전**: v0.10.1
 
 ## 설치 방법
 
@@ -50,15 +50,15 @@
 
 **설치 프로그램**으로 배포되며 **자동 업데이트**를 지원합니다(GitHub Releases).
 
-1.  최신 설치 파일: [Sync-Multi-Chat-Setup-0.10.0-x64.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.0/Sync-Multi-Chat-Setup-0.10.0-x64.exe)
+1.  최신 설치 파일: [Sync-Multi-Chat-Setup-0.10.1-x64.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.1/Sync-Multi-Chat-Setup-0.10.1-x64.exe)
 2.  설치 마법사를 따라 진행합니다.
 3.  앱 시작 시 업데이트를 확인합니다.
 
 ### macOS
 
 1.  Mac에 맞는 **DMG**를 받습니다.
-    - **Apple Silicon (M1/M2/M3…)** — [Sync-Multi-Chat-Setup-0.10.0-arm64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.0/Sync-Multi-Chat-Setup-0.10.0-arm64.dmg)
-    - **Intel (x64)** — [Sync-Multi-Chat-Setup-0.10.0-x64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.0/Sync-Multi-Chat-Setup-0.10.0-x64.dmg)
+    - **Apple Silicon (M1/M2/M3…)** — [Sync-Multi-Chat-Setup-0.10.1-arm64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.1/Sync-Multi-Chat-Setup-0.10.1-arm64.dmg)
+    - **Intel (x64)** — [Sync-Multi-Chat-Setup-0.10.1-x64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.1/Sync-Multi-Chat-Setup-0.10.1-x64.dmg)
 2.  DMG를 열고 **Sync Multi Chat**을 **응용 프로그램** 폴더로 드래그합니다.
 3.  최초 실행 시 Gatekeeper 안내가 나오면 **시스템 설정 → 개인정보 보호 및 보안**에서 허용하거나, 한 번 **제어 클릭 → 열기**로 실행합니다.
 
@@ -85,6 +85,7 @@
 -   **내비게이션/프롬프트 워크플로우 개선** *(v0.9.0)*: Left Panel에 Dashboard + Prompt Hub 메뉴를 추가하고 Chat History 가독성을 강화했으며, 커스텀 프롬프트 카테고리 관리를 빌더에서 바로 수행할 수 있습니다.
 -   **Mermaid 라이브 프리뷰 개선** *(v0.9.0)*: 커스텀 프롬프트 미리보기에서 Mermaid 블록의 전체화면/맞춤 동작과 재렌더 안정성을 개선했습니다.
 -   **Prompt Hub / 커스텀 프롬프트 카테고리 UX** *(v0.9.1)*: 카테고리 **더블클릭 이름 변경**과 단일 클릭 필터가 충돌하지 않도록 조정했고, Grid.js 갱신 후에도 **프롬프트→카테고리** 드래그가 유지됩니다. 카테고리 **드래그 앤 드롭**은 재정렬·재부모·무해한 no-op을 정리했으며, 드롭 대상 **하이라이트**로 할당 위치를 구분하기 쉽습니다.
+-   **채팅/Task 히스토리 UX** *(v0.10.1)*: 저장된 **채팅 스레드**·**Task** 내용 **미리보기** 모달, 히스토리 **제목 더블클릭 인라인 이름 변경**, 커스텀 프롬프트 목록 **올바른 편집기 로딩**(정렬/필터 후 잘못된 프롬프트 열림 수정).
 -   **ChatGPT 구독 & Skills** *(v0.10.0)*: 설정에서 **OpenAI OAuth**로 구독 기반 모델을 **Task** 경험에 연결하고, 번들된 **Skills** 디렉터리(`asarUnpack`)를 도구형 워크플로에 사용합니다.
 -   **봇 탐지 우회**: 호환성을 보장하기 위해 User-Agent 스푸핑 및 사람과 유사한 입력 이벤트 트리거를 사용합니다.
 

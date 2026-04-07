@@ -5,22 +5,22 @@
 
 const SMC_CONFIG = {
     // Current version
-    version: 'v0.10.0',
+    version: 'v0.10.1',
 
     // Release date
-    releaseDate: '2026-04-03',
+    releaseDate: '2026-04-07',
 
     // Download URLs (artifact names follow package.json electron-builder artifactName)
     downloads: {
         windows: {
             installer:
-                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.0/Sync-Multi-Chat-Setup-0.10.0-x64.exe',
+                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.1/Sync-Multi-Chat-Setup-0.10.1-x64.exe',
         },
         macos: {
             intelDmg:
-                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.0/Sync-Multi-Chat-Setup-0.10.0-x64.dmg',
+                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.1/Sync-Multi-Chat-Setup-0.10.1-x64.dmg',
             arm64Dmg:
-                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.0/Sync-Multi-Chat-Setup-0.10.0-arm64.dmg',
+                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.1/Sync-Multi-Chat-Setup-0.10.1-arm64.dmg',
         },
         linux: null,
     },

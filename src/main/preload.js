@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     reportUiState: (state) => ipcRenderer.send('report-ui-state', state),
     getSavedSession: () => ipcRenderer.invoke('get-saved-session'),
     getCurrentUrls: () => ipcRenderer.invoke('get-current-urls'),
+    getChatThreadJson: () => ipcRenderer.invoke('get-chat-thread-json'),
+    onChatResponseComplete: (callback) => ipcRenderer.on('chat-response-complete', (event, data) => callback(data)),
     onAppWillClose: (callback) => ipcRenderer.on('app-will-close', () => callback()),
     appCloseReady: () => ipcRenderer.invoke('app-close-ready'),
     // Auto Update APIs

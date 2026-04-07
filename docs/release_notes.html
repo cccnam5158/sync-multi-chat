@@ -4,14 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Multi Chat 릴리스 노트 | v0.10.0 업데이트 내역</title>
-    <meta name="description" content="Sync Multi Chat 업데이트 내역. v0.10.0 macOS, 앱 내 로그인, ChatGPT 구독·Skills(Task). Release notes and changelog.">
-    <meta name="keywords" content="Sync Multi Chat, 릴리스 노트, release notes, v0.10.0, macOS, ChatGPT, Skills, OAuth, in-app login">
+    <title>Sync Multi Chat 릴리스 노트 | v0.10.1 업데이트 내역</title>
+    <meta name="description" content="Sync Multi Chat 업데이트 내역. v0.10.1 히스토리 미리보기·제목 편집, 프롬프트 열기 버그 수정, macOS·Windows CI 릴리스. Release notes and changelog.">
+    <meta name="keywords" content="Sync Multi Chat, 릴리스 노트, release notes, v0.10.1, v0.10.0, macOS, ChatGPT, Skills, history preview, Custom Prompt Builder">
     <link rel="canonical" href="https://cccnam5158.github.io/sync-multi-chat/release_notes.html">
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://cccnam5158.github.io/sync-multi-chat/release_notes.html">
-    <meta property="og:title" content="Sync Multi Chat 릴리스 노트 | v0.10.0 업데이트 내역">
+    <meta property="og:title" content="Sync Multi Chat 릴리스 노트 | v0.10.1 업데이트 내역">
     <meta property="og:description" content="Sync Multi Chat 업데이트 내역. Custom Prompt Builder, Single AI 모드, 크로스 체크 등. Release notes and changelog.">
     <meta property="og:image" content="https://raw.githubusercontent.com/cccnam5158/sync-multi-chat/master/assets/mutli-ai-chat.png">
     <meta property="og:site_name" content="Sync Multi Chat">
@@ -20,7 +20,7 @@
     <meta property="og:locale:alternate" content="ja_JP">
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Sync Multi Chat 릴리스 노트 | v0.10.0 업데이트 내역">
+    <meta name="twitter:title" content="Sync Multi Chat 릴리스 노트 | v0.10.1 업데이트 내역">
     <meta name="twitter:description" content="Sync Multi Chat 업데이트 내역. Custom Prompt Builder, Single AI 모드, 크로스 체크 등.">
     <meta name="twitter:image" content="https://raw.githubusercontent.com/cccnam5158/sync-multi-chat/master/assets/mutli-ai-chat.png">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -40,7 +40,7 @@
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     Sync Multi Chat                     <span class="version-badge"
-                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.10.0</span>
+                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.10.1</span>
                 </a>
                 <div class="nav-links">
                     <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
@@ -101,18 +101,43 @@
             style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 60px; max-width: 900px; margin-left: auto; margin-right: auto; padding-left: 20px;">
             <h2 style="margin-bottom: 0;" data-i18n="releaseNotes.title">Release History</h2>
             <span style="color: var(--text-tertiary); font-size: 0.9rem;" data-i18n="releaseNotes.lastUpdated">Last
-                updated: Apr 3, 2026</span>
+                updated: Apr 7, 2026</span>
         </div>
 
         <div class="timeline">
 
-            <!-- v0.10.0 (Active) -->
+            <!-- v0.10.1 (Active) -->
             <div class="timeline-item active">
                 <div class="timeline-dot"></div>
 
                 <div class="version-header">
-                    <span class="version-number">v0.10.0</span>
+                    <span class="version-number">v0.10.1</span>
                     <span class="badge-current" data-i18n="releaseNotes.current">Current</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>✨ <span data-i18n="releaseNotes.newFeatures">New Features</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v0101.feature1"><strong>Chat &amp; Task History preview</strong>: Preview saved chat-thread columns or Task transcripts from the history list.</li>
+                        <li data-i18n="releaseNotes.v0101.feature2"><strong>Inline history title rename</strong>: Double-click a history row title to edit it in place (Enter to save, Esc to cancel).</li>
+                    </ul>
+                    <h3>🔧 <span data-i18n="releaseNotes.bugFixes">Bug Fixes</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v0101.fix1"><strong>Custom Prompt Builder</strong>: Clicking a saved prompt now loads the correct editor content (load-to-editor path; fixes wrong prompt after sort/filter).</li>
+                    </ul>
+                    <h3>🏗️ <span data-i18n="releaseNotes.buildAndRelease">Build &amp; Release</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v0101.build1"><strong>GitHub Actions</strong>: Windows installer on <code>windows-latest</code>; macOS Intel + Apple Silicon DMGs on <code>macos-latest</code>, uploaded to the same release.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.10.0 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.10.0</span>
                 </div>
 
                 <div class="release-card-content">

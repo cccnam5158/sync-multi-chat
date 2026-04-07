@@ -1,5 +1,19 @@
 # Release Notes
 
+## v0.10.1 (2026-04-07)
+
+### ✨ New Features
+*   **Chat & Task History preview**: From the history sidebar, open a **preview** of the saved **chat thread** (per-service columns) or **Task** transcript without fully restoring the session—useful for finding the right snapshot quickly.
+*   **Rename history entries in place**: **Double-click** a Chat/Task history row **title** to edit it inline (Enter to save, Esc to cancel). Updates are persisted on the existing session record.
+
+### 🔧 Bug Fixes
+*   **Custom Prompt Builder — correct prompt opens on row click**: Opening a prompt from the saved list now routes through **`loadToEditor`** instead of **`trySwitchPrompt`**, fixing cases where the **wrong prompt** could appear after sorting/filtering or list refresh.
+
+### 🏗️ Build & Release
+*   **GitHub Actions**: Windows installer continues to build on **`windows-latest`**. **macOS Intel (x64)** and **Apple Silicon (arm64)** **DMG** artifacts are built on **`macos-latest`** and **uploaded to the same GitHub Release** alongside the Windows `.exe`.
+
+---
+
 ## v0.10.0 (2026-04-03)
 
 ### ✨ New Features

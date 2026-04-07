@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Multi Chat (v0.10.0)</title>
+    <title>Sync Multi Chat (v0.10.1)</title>
     <link rel="stylesheet" href="../../node_modules/easymde/dist/easymde.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -130,7 +130,7 @@
                                             <thead>
                                                 <tr>
                                                     <th scope="col">Title</th>
-                                                    <th scope="col">Updated</th>
+                                                    <th scope="col">Created</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="dash-bucket-tbody"></tbody>
@@ -399,17 +399,32 @@
                                 <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
                             </button>
                             <div id="task-mode-menu" class="task-chat-mode-menu hidden">
+                                <div class="task-mode-menu-header">
+                                    <span class="task-mode-menu-title">Modes</span>
+                                </div>
                                 <button type="button" class="task-mode-option" data-mode="plan">
-                                    <strong>Plan mode</strong>
-                                    <span>AI will explore and analyze, no file changes</span>
+                                    <svg class="task-mode-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12h6M9 8h6M9 16h3"/></svg>
+                                    <span class="task-mode-option-text">
+                                        <strong>Plan mode</strong>
+                                        <span>Claude will explore the code and present a plan before editing</span>
+                                    </span>
+                                    <svg class="task-mode-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                                 </button>
                                 <button type="button" class="task-mode-option active" data-mode="ask">
-                                    <strong>Ask before edits</strong>
-                                    <span>AI will ask before making each change</span>
+                                    <svg class="task-mode-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 12l5 5 5-5"/><path d="M12 3c4.97 0 9 3.58 9 8s-4.03 8-9 8a9.86 9.86 0 01-4.26-.96L3 20l1.5-3.87A7.35 7.35 0 013 11c0-4.42 4.03-8 9-8z"/></svg>
+                                    <span class="task-mode-option-text">
+                                        <strong>Ask before edits</strong>
+                                        <span>Claude will ask for approval before making each edit</span>
+                                    </span>
+                                    <svg class="task-mode-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                                 </button>
                                 <button type="button" class="task-mode-option" data-mode="auto">
-                                    <strong>Edit automatically</strong>
-                                    <span>AI will make changes automatically</span>
+                                    <svg class="task-mode-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                                    <span class="task-mode-option-text">
+                                        <strong>Edit automatically</strong>
+                                        <span>Claude will edit your files directly without asking</span>
+                                    </span>
+                                    <svg class="task-mode-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                                 </button>
                             </div>
                         </div>
@@ -870,6 +885,21 @@
                 <div class="prompt-delete-actions">
                     <button id="btn-cancel-rename-session" class="btn-ghost">Cancel</button>
                     <button id="btn-save-rename-session" class="btn-primary">Save</button>
+                </div>
+            </div>
+        </div>
+        <!-- Chat Thread Preview Modal -->
+        <div id="chat-thread-preview-modal" class="modal">
+            <div class="modal-content chat-thread-preview-shell">
+                <div class="modal-header chat-thread-preview-header">
+                    <h3 id="chat-thread-preview-title">Chat Thread Preview</h3>
+                    <button id="close-chat-thread-preview-btn" class="close-btn" aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-body chat-thread-preview-body">
+                    <div id="chat-thread-preview-content"></div>
+                </div>
+                <div class="chat-thread-preview-actions">
+                    <button id="btn-close-chat-thread-preview" class="btn-ghost">Close</button>
                 </div>
             </div>
         </div>
