@@ -11,5 +11,7 @@
 
 ## 완료 기록
 
+- 커밋: `128caa7` — `release: v0.10.1 — history preview, inline title rename, CPB prompt-open fix`
+- 태그 푸시: `v0.10.1` → `origin` (GitHub Actions 릴리스 워크플로 트리거됨)
 - 릴리스 노트: Chat/Task 히스토리 **미리보기**, 행 **제목 더블클릭** 인라인 이름 변경, 저장 프롬프트 목록 클릭 시 **loadToEditor**로 잘못된 프롬프트 열림 수정.
 - CI: `build-windows` 후 `build-mac`이 동일 태그 Release에 DMG 업로드.
