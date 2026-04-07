@@ -20,3 +20,4 @@
 - 2026-04-08: 커밋 `03f03ec` 푸시 후 **`v0.10.1` 태그 force-push 재발행**(리포지토리 태그가 fix 커밋을 가리키도록). Windows job도 동일 워크플로에서 한 번 더 실행됨(동일 버전 재게시 가능성).
 
 - 2026-04-08: docs 상단 배지 문구에서 내부 배포 방식(GitHub Actions) 언급 제거, 사용자 가치 중심 요약으로 EN/KO/JA 동시 수정.
+- 2026-04-08: mac build 실패 원인(`build/icon.icns` 중복 링크로 EEXIST) 확인 후 `package.json`의 `extraResources`에서 `icon.icns` 항목 제거.

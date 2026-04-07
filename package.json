@@ -143,10 +143,6 @@
       {
         "from": "build/icon-512.png",
         "to": "icon-512.png"
-      },
-      {
-        "from": "build/icon.icns",
-        "to": "icon.icns"
       }
     ]
   }
