@@ -14,7 +14,7 @@ const translations = {
         "nav.getStarted": "Get Started",
 
         // Hero Section
-        "hero.badge": "v0.10.1: Chat/Task history preview, double-click title rename, prompt list open fix; macOS DMGs on GitHub Actions",
+        "hero.badge": "v0.10.1: Chat/Task history preview, title quick rename, and fixed prompt opening from list",
         "hero.title1": "No API keys.",
         "hero.title2a": "Use your ChatGPT, Claude, Gemini",
         "hero.title2b": "subscriptions in one place.",
@@ -241,7 +241,7 @@ const translations = {
         "nav.getStarted": "시작하기",
 
         // Hero Section
-        "hero.badge": "v0.10.1: 채팅/Task 히스토리 미리보기, 제목 더블클릭 수정, 프롬프트 열기 수정; macOS DMG는 GitHub Actions",
+        "hero.badge": "v0.10.1: 채팅/Task 히스토리 미리보기, 제목 빠른 수정, 프롬프트 목록 열기 수정",
         "hero.title1": "API 키 없이.",
         "hero.title2a": "개인 구독 ChatGPT, Claude, Gemini를",
         "hero.title2b": "한 곳에서 최대한 활용.",
@@ -468,7 +468,7 @@ const translations = {
         "nav.getStarted": "始める",
 
         // Hero Section
-        "hero.badge": "v0.10.1: チャット/Task履歴プレビュー、タイトルダブルクリック編集、プロンプト開く修正、macOS DMGをGitHub Actionsでビルド",
+        "hero.badge": "v0.10.1: チャット/Task履歴プレビュー、タイトルのクイック編集、プロンプト一覧の誤開き修正",
         "hero.title1": "APIキー不要。",
         "hero.title2a": "個人のChatGPT・Claude・Geminiを",
         "hero.title2b": "1つのアプリで最大限に。",
