@@ -2009,7 +2009,10 @@
 
     function substitutePlain(text, map) {
         let t = text;
-        for (const [k, v] of Object.entries(map)) { t = t.replaceAll(`{{${k}}}`, v); }
+        for (const [k, v] of Object.entries(map)) {
+            if (typeof v === 'string' && !v.trim()) continue;
+            t = t.replaceAll(`{{${k}}}`, v);
+        }
         return t;
     }
 
@@ -7597,6 +7600,10 @@
             if (el.promptTitle) el.promptTitle.focus();
         }
     };
+
+    // Allow renderer.js (closeSmcFullPanels) to reset CPB layer refcounts when
+    // navigating away without a proper closeCPB() call.
+    window.resetCpbMainLayerState = resetMainLayerStateAndOrphans;
 
     // Expose block rendering utilities for reuse by task chat
     window._cpbBlockUtils = {

@@ -28,9 +28,9 @@ github:
     spec_git_workflow: main_direct
 moai:
     model_policy: medium
-    template_version: 2.8.3
+    template_version: 2.10.2
     update_check_frequency: daily
-    version: 2.8.3
+    version: 2.10.2
     version_check:
         cache_ttl_hours: 24
         enabled: true

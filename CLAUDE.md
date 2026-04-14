@@ -37,7 +37,7 @@ Analyze user request to determine routing:
 
 Core Skills (load when needed):
 
-- Skill("moai-foundation-claude") for orchestration patterns
+- Skill("moai-foundation-cc") for orchestration patterns
 - Skill("moai-foundation-core") for SPEC system and workflows
 - Skill("moai-workflow-project") for project management
 
@@ -79,6 +79,17 @@ Default (natural language): Routes to autonomous workflow (plan -> run -> sync p
 
 Allowed Tools: Full access (Agent, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet, Bash, Read, Write, Edit, Glob, Grep)
 
+### Unified Skill: /agency
+
+Definition: Self-evolving creative production system for websites, landing pages, and web applications.
+
+Subcommands: brief, build, review, learn, evolve, resume, profile, phase, sync-upstream, rollback, config
+Default (natural language): Routes to agency pipeline (Planner -> Copywriter/Designer -> Builder -> Evaluator -> Learner)
+
+Pipeline: GAN Loop (Builder-Evaluator iterates up to 5 times until quality threshold 0.75 is met)
+
+For detailed Agency rules, see .claude/rules/agency/constitution.md
+
 ---
 
 ## 4. Agent Catalog
@@ -102,6 +113,14 @@ backend, frontend, security, devops, performance, debug, testing, refactoring
 ### Builder Agents (3)
 
 agent, skill, plugin
+
+### Evaluator Agents (1)
+
+evaluator-active (independent skeptical quality assessment, 4-dimension scoring)
+
+### Agency Agents (6)
+
+planner, copywriter, designer, builder, evaluator, learner (self-evolving creative production pipeline)
 
 ### Dynamic Team Generation (Experimental)
 
@@ -160,6 +179,18 @@ For team-based parallel execution of these phases, see .claude/skills/moai/team/
 
 For TRUST 5 framework details, see .claude/rules/moai/core/moai-constitution.md
 
+### Harness-Based Quality Routing
+
+MoAI-ADK uses a 3-level harness system for adaptive quality depth:
+
+- **minimal**: Fast validation for simple changes
+- **standard**: Default quality checks for most work
+- **thorough**: Full evaluator-active + TRUST 5 validation for complex SPECs
+
+Harness level is auto-determined by the Complexity Estimator based on SPEC scope. evaluator-active provides independent skeptical assessment with 4-dimension scoring (Functionality/Security/Craft/Consistency).
+
+**Configuration:** .moai/config/sections/harness.yaml, .moai/config/evaluator-profiles/
+
 ### LSP Quality Gates
 
 MoAI-ADK implements LSP-based quality gates:
@@ -211,13 +242,15 @@ When fixing bugs:
 - Fix the bug with minimal code changes
 - Verify the reproduction test passes after the fix
 
-### Go-Specific Guidelines
+### Language-Specific Guidelines
 
-For Go development:
-- Run `go test -race ./...` for concurrency safety
-- Use table-driven tests for comprehensive coverage
-- Maintain 85%+ test coverage per package
-- Run `go vet` and `golangci-lint` before commits
+The quality gate auto-detects the project language and runs the appropriate toolchain:
+- **Go**: `go vet` → `golangci-lint` → `go test`
+- **Node.js**: `eslint` → `npm test`
+- **Python**: `ruff` → `pytest`
+- **Rust**: `cargo clippy` → `cargo test`
+
+Tools that are not installed are skipped gracefully. Projects with no recognized language marker pass the gate silently.
 
 ---
 
@@ -267,6 +300,16 @@ MoAI-ADK uses Claude Code's official rules system at `.claude/rules/moai/`:
 - **Workflow rules**: Progressive disclosure, token budget, workflow modes
 - **Development rules**: Skill frontmatter schema, tool permissions
 - **Language rules**: Path-specific rules for 16 programming languages
+- **Agency rules**: AI Agency constitution (.claude/rules/agency/constitution.md)
+
+### Agency Configuration
+
+- `.agency/config.yaml`: Agency pipeline settings, adaptation weights, iteration limits
+- `.agency/context/`: Brand voice, visual identity, target audience, tech preferences
+- `.agency/fork-manifest.yaml`: Fork tracking for agency agents/skills evolved from MoAI upstream
+- `.moai/config/sections/constitution.yaml`: Project technical constraints (machine-readable)
+- `.moai/config/sections/harness.yaml`: Quality depth routing (minimal/standard/thorough)
+- `.moai/config/evaluator-profiles/`: Evaluator scoring profiles (default, strict, lenient, frontend)
 
 ### Language Rules
 
@@ -352,6 +395,7 @@ For core parallel execution principles, see .claude/rules/moai/core/moai-constit
 - **Loop Prevention**: Maximum 3 retries per operation with failure pattern detection and user intervention
 - **Platform Compatibility**: Always prefer Edit tool over sed/awk
 - **Team File Ownership**: In team mode, each teammate owns specific file patterns to prevent write conflicts
+- **Background Agent Write Restriction**: [HARD] Background subagents (`run_in_background: true`) auto-deny Write/Edit operations. Use `run_in_background: false` for agents that modify files. Read-only agents (research, analysis) can safely run in background.
 
 ### Worktree Isolation Rules [HARD]
 
@@ -520,29 +564,9 @@ Large PDFs (>10 pages) return a lightweight reference when @-mentioned. Always s
 
 ---
 
-Version: 13.1.0 (Agent Teams Integration)
-Last Updated: 2026-03-29
+Version: 14.0.0 (Agency v3.2 + Harness Design Integration)
+Last Updated: 2026-04-03
 Language: English
 Core Rule: MoAI is an orchestrator; direct implementation is prohibited
 
-For detailed patterns on plugins, sandboxing, headless mode, and version management, see Skill("moai-foundation-claude").
-
-## Skill routing
-
-When the user's request matches an available skill, ALWAYS invoke it using the Skill
-tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
-The skill has specialized workflows that produce better results than ad-hoc answers.
-
-Key routing rules:
-- Product ideas, "is this worth building", brainstorming → invoke office-hours
-- Bugs, errors, "why is this broken", 500 errors → invoke investigate
-- Ship, deploy, push, create PR → invoke ship
-- QA, test the site, find bugs → invoke qa
-- Code review, check my diff → invoke review
-- Update docs after shipping → invoke document-release
-- Weekly retro → invoke retro
-- Design system, brand → invoke design-consultation
-- Visual audit, design polish → invoke design-review
-- Architecture review → invoke plan-eng-review
-- Save progress, checkpoint, resume → invoke checkpoint
-- Code quality, health check → invoke health
+For detailed patterns on plugins, sandboxing, headless mode, and version management, see Skill("moai-foundation-cc").

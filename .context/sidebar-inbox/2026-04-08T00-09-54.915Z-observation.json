@@ -1,0 +1,10 @@
+{
+  "type": "observation",
+  "timestamp": "2026-04-08T00:09:54.915Z",
+  "page": {
+    "url": "https://news.ycombinator.com/",
+    "title": ""
+  },
+  "userMessage": "이 사이드 패널에 내가 뭘 할수 있지?",
+  "sidebarSessionId": "unknown"
+}

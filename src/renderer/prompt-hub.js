@@ -346,6 +346,177 @@
         saveAllPrompts(all);
     }
 
+    /** Generate a unique id matching CPB's uid() format. */
+    function generatePromptId() {
+        return Math.random().toString(16).slice(2) + Date.now().toString(16);
+    }
+
+    /** Strip a trailing .md / .markdown extension (case-insensitive). Also trims surrounding whitespace. */
+    function stripMdExtension(name) {
+        return String(name || '').replace(/\.(md|markdown)$/i, '').trim();
+    }
+
+    /** Strip UTF-8 BOM if present. */
+    function stripBom(text) {
+        return text && text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+    }
+
+    /** Normalize a title for case/whitespace-insensitive comparison (content is compared raw). */
+    function normalizeTitleForCompare(title) {
+        return String(title || '').trim().toLowerCase();
+    }
+
+    /** Build a dedup signature from (title, content). */
+    function dedupSignature(title, content) {
+        return normalizeTitleForCompare(title) + '\u0000' + String(content || '');
+    }
+
+    /**
+     * Given a desired title and a set of existing (case-insensitive, trimmed) titles,
+     * return a title that does not collide. Appends " (2)", " (3)", ... when needed.
+     */
+    function resolveTitleCollision(desiredTitle, existingTitleSet) {
+        const base = desiredTitle || 'Untitled';
+        if (!existingTitleSet.has(normalizeTitleForCompare(base))) return base;
+        let n = 2;
+        while (n < 10000) {
+            const candidate = `${base} (${n})`;
+            if (!existingTitleSet.has(normalizeTitleForCompare(candidate))) return candidate;
+            n += 1;
+        }
+        /* Fallback: suffix with a short random token to guarantee uniqueness. */
+        return `${base} (${Math.random().toString(16).slice(2, 6)})`;
+    }
+
+    /** Read a File as UTF-8 text. Resolves to string, or rejects. */
+    function readFileAsText(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+            reader.onerror = () => reject(reader.error || new Error('FileReader error'));
+            try {
+                reader.readAsText(file);
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Import dropped local .md files as new prompts.
+     * - title = filename without .md/.markdown extension (whitespace/Unicode preserved, only trimmed)
+     * - content = file contents (markdown text; UTF-8 BOM stripped)
+     * - categoryId = targetCatId or null
+     *
+     * Handles edge cases:
+     *   1. Non-.md files → skipped.nonMd
+     *   2. Empty / whitespace-only files → skipped.empty
+     *   3. Exact (title+content) duplicates of an existing prompt → skipped.duplicate
+     *   4. Same-title / different-content files → title auto-suffixed with " (2)", " (3)", ...
+     *   5. Unreadable files → skipped.failed
+     *   6. Dedup is also applied within a single drop batch.
+     *
+     * Returns Promise<{imported, skipped:{nonMd, empty, duplicate, failed}}>.
+     */
+    async function importMdFilesAsPrompts(fileList, targetCatId) {
+        const files = Array.from(fileList || []);
+        const skipped = { nonMd: 0, empty: 0, duplicate: 0, failed: 0 };
+
+        const mdFiles = [];
+        for (const f of files) {
+            if (/\.(md|markdown)$/i.test(f.name || '')) mdFiles.push(f);
+            else skipped.nonMd += 1;
+        }
+        if (mdFiles.length === 0) return { imported: 0, skipped };
+
+        const normalizedCat = !targetCatId || targetCatId === '__uncat__' || targetCatId === '' ? null : String(targetCatId);
+        const existing = loadPromptsRaw().map(normalizePrompt);
+
+        /* Build dedup structures from existing prompts. */
+        const existingSignatures = new Set();
+        const existingTitles = new Set();
+        for (const p of existing) {
+            existingSignatures.add(dedupSignature(p.title, p.content));
+            existingTitles.add(normalizeTitleForCompare(p.title));
+        }
+
+        const newPrompts = [];
+        for (const file of mdFiles) {
+            let rawContent;
+            try {
+                rawContent = await readFileAsText(file);
+            } catch (err) {
+                skipped.failed += 1;
+                continue;
+            }
+            const content = stripBom(rawContent || '');
+
+            /* Empty or whitespace-only file → skip. */
+            if (content.trim().length === 0) {
+                skipped.empty += 1;
+                continue;
+            }
+
+            const desiredTitle = stripMdExtension(file.name) || 'Untitled';
+
+            /* Exact duplicate (title + content) against existing or earlier-in-batch entries → skip. */
+            const sig = dedupSignature(desiredTitle, content);
+            if (existingSignatures.has(sig)) {
+                skipped.duplicate += 1;
+                continue;
+            }
+
+            /* Title collision (same title, different content) → auto-suffix. */
+            const finalTitle = resolveTitleCollision(desiredTitle, existingTitles);
+
+            const now = Date.now();
+            const prompt = normalizePrompt({
+                id: generatePromptId(),
+                title: finalTitle,
+                content,
+                localVars: [],
+                createdAt: now,
+                updatedAt: now,
+                lastUsedAt: now,
+                categoryId: normalizedCat,
+                tags: [],
+                summary: '',
+                favorite: false,
+            });
+            newPrompts.push(prompt);
+
+            /* Update in-memory dedup sets so the next batch item sees it. */
+            existingSignatures.add(dedupSignature(finalTitle, content));
+            existingTitles.add(normalizeTitleForCompare(finalTitle));
+        }
+
+        if (newPrompts.length === 0) {
+            return { imported: 0, skipped };
+        }
+
+        const merged = newPrompts.concat(existing);
+        saveAllPrompts(merged);
+        return { imported: newPrompts.length, skipped };
+    }
+
+    /** Build a short toast message from importMdFilesAsPrompts() result. */
+    function formatImportToast(result) {
+        const { imported, skipped } = result;
+        const parts = [];
+        if (skipped.duplicate) parts.push(`${skipped.duplicate} duplicate`);
+        if (skipped.empty) parts.push(`${skipped.empty} empty`);
+        if (skipped.nonMd) parts.push(`${skipped.nonMd} non-md`);
+        if (skipped.failed) parts.push(`${skipped.failed} failed`);
+        const skipStr = parts.join(', ');
+        if (imported > 0) {
+            return skipStr
+                ? `Imported ${imported} prompt${imported === 1 ? '' : 's'} (skipped: ${skipStr})`
+                : `Imported ${imported} prompt${imported === 1 ? '' : 's'}`;
+        }
+        if (skipStr) return `No prompts imported — ${skipStr}`;
+        return 'No .md files to import';
+    }
+
     const PH_SVG = {
         viewTable: '<svg class="ph-ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
         viewPreview: '<svg class="ph-ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -1554,6 +1725,7 @@
         };
         root.addEventListener('dragover', (e) => {
             const dt = e.target.closest('[data-ph-drop-cat]');
+            const isFileDrag = e.dataTransfer && e.dataTransfer.types && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') !== -1;
             if (_hubDropHighlight && _hubDropHighlight !== dt) clearHubDropHighlight();
             if (dt) {
                 e.preventDefault();
@@ -1561,11 +1733,45 @@
                 e.dataTransfer.dropEffect = isCatDrag ? 'move' : 'copy';
                 dt.classList.add('ph-cat-item--drag-over');
                 _hubDropHighlight = dt;
+                return;
+            }
+            if (isFileDrag) {
+                /* Allow file drop on the prompt list area as well. */
+                const listHost = e.target.closest('#ph-list-host');
+                if (listHost) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                }
             }
         });
         root.addEventListener('dragend', clearHubDropHighlight);
         root.addEventListener('drop', (e) => {
             clearHubDropHighlight();
+            /* Local file drop (.md import) takes precedence over internal DnD. */
+            const fileList = e.dataTransfer && e.dataTransfer.files;
+            if (fileList && fileList.length > 0) {
+                const dropOnCat = e.target.closest('[data-ph-drop-cat]');
+                const onListHost = e.target.closest('#ph-list-host');
+                if (!dropOnCat && !onListHost) return;
+                e.preventDefault();
+                let targetCat = null;
+                if (dropOnCat) {
+                    const v = dropOnCat.getAttribute('data-ph-drop-cat');
+                    targetCat = !v || v === '__uncat__' ? null : v;
+                } else {
+                    const v = _phState.catId;
+                    targetCat = !v || v === '__uncat__' ? null : v;
+                }
+                importMdFilesAsPrompts(fileList, targetCat).then((result) => {
+                    phToast(formatImportToast(result));
+                    renderPromptHub();
+                    window.SMCPromptLibrary?._cpbReloadPromptsAfterExternalChange?.();
+                    window.SMCPromptLibrary?._cpbPhRefresh?.();
+                }).catch(() => {
+                    phToast('Failed to import files');
+                });
+                return;
+            }
             const dropEl = e.target.closest('[data-ph-drop-cat]');
             if (!dropEl) return;
             e.preventDefault();
@@ -2032,6 +2238,7 @@
         };
         panel.addEventListener('dragover', (e) => {
             const dt = e.target.closest('[data-ph-drop-cat]');
+            const isFileDrag = e.dataTransfer && e.dataTransfer.types && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') !== -1;
             if (_cpbDropHighlight && _cpbDropHighlight !== dt) clearCpbDropHighlight();
             if (dt) {
                 e.preventDefault();
@@ -2039,11 +2246,46 @@
                 e.dataTransfer.dropEffect = isCatDrag ? 'move' : 'copy';
                 dt.classList.add('ph-cat-item--drag-over');
                 _cpbDropHighlight = dt;
+                return;
+            }
+            if (isFileDrag) {
+                /* Allow file drop on the CPB prompt list area as well. */
+                const listHost = e.target.closest('#cpb-list');
+                if (listHost) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                }
             }
         });
         panel.addEventListener('dragend', clearCpbDropHighlight);
         panel.addEventListener('drop', (e) => {
             clearCpbDropHighlight();
+            /* Local file drop (.md import) takes precedence over internal DnD. */
+            const fileList = e.dataTransfer && e.dataTransfer.files;
+            if (fileList && fileList.length > 0) {
+                const dropOnCat = e.target.closest('[data-ph-drop-cat]');
+                const onListHost = e.target.closest('#cpb-list');
+                if ((!dropOnCat || !panel.contains(dropOnCat)) && !onListHost) return;
+                e.preventDefault();
+                let targetCat = null;
+                if (dropOnCat && panel.contains(dropOnCat)) {
+                    const v = dropOnCat.getAttribute('data-ph-drop-cat');
+                    targetCat = !v || v === '__uncat__' ? null : v;
+                } else {
+                    const S = window.SMCPromptLibrary?._getCpbPhState?.();
+                    const v = S && S.catId;
+                    targetCat = !v || v === '__uncat__' ? null : v;
+                }
+                importMdFilesAsPrompts(fileList, targetCat).then((result) => {
+                    phToast(formatImportToast(result));
+                    window.SMCPromptLibrary?._cpbReloadPromptsAfterExternalChange?.();
+                    refresh();
+                    renderPromptHub();
+                }).catch(() => {
+                    phToast('Failed to import files');
+                });
+                return;
+            }
             const dropEl = e.target.closest('[data-ph-drop-cat]');
             if (!dropEl || !panel.contains(dropEl)) return;
             e.preventDefault();
@@ -2316,6 +2558,7 @@
 
     window.SMCPromptLibrary.filterPromptBySidebarState = filterPromptBySidebarState;
     window.SMCPromptLibrary.buildCategoryTreeForPanel = buildCategoryTreeDndHtml;
+    window.SMCPromptLibrary.importMdFilesAsPrompts = importMdFilesAsPrompts;
     window.SMCPromptLibrary.buildFavoriteCategoriesHtmlForPanel = buildFavoriteCategoriesHtml;
     window.SMCPromptLibrary._focusCategoryTreeInlineInput = focusTreeInlineInputIfEditing;
 

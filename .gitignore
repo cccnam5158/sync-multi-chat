@@ -218,3 +218,4 @@ tasks/
 reports/
 .auto-claude/
 references/desktop/
+.gstack/

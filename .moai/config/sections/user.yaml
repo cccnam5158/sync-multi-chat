@@ -1,5 +1,3 @@
 user:
-    # Set locally; never commit real tokens (see MoAI docs)
-    github_token: ""
     github_username: cccnam5158
     name: joseph

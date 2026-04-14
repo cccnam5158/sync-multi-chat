@@ -1,0 +1,10 @@
+{
+  "type": "observation",
+  "timestamp": "2026-04-08T00:12:23.320Z",
+  "page": {
+    "url": "http://127.0.0.1:34567/cookie-picker",
+    "title": ""
+  },
+  "userMessage": "이 웹페이지 내용은?",
+  "sidebarSessionId": "e01226d4-1288-4c74-97e3-f177d9257d10"
+}

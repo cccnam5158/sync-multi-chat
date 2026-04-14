@@ -2014,6 +2014,15 @@ function closeSmcFullPanels() {
     const sb = document.getElementById('history-sidebar');
     if (sb) sb.setAttribute('data-active-panel', 'none');
     document.querySelectorAll('.sidebar-rail-btn').forEach((b) => b.classList.remove('active'));
+    /* Clear any lingering modal/popup overlay classes that CPB or other panels may have
+       added via refcount-based layer management. Without this cleanup, navigating away
+       (e.g. New Task) while a CPB modal was open leaves the z-index 12990 dark overlay
+       stuck on <body>, causing a black-screen. */
+    document.body.classList.remove('main-modal-layer-active', 'main-popup-layer-active');
+    /* Also tell CPB to reset its internal refcounts so re-opening CPB later is consistent. */
+    if (typeof window.resetCpbMainLayerState === 'function') {
+        window.resetCpbMainLayerState();
+    }
 }
 
 window.closeSmcFullPanels = closeSmcFullPanels;
@@ -5290,11 +5299,10 @@ function showChatThreadPreview(session) {
  * does not depend on the live task workspace DOM and does not wire any actions.
  */
 function renderTaskThreadForPreview(messages) {
-    const canMarkdown = (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function');
     const mdToHtml = (raw) => {
         if (!raw) return '';
-        if (canMarkdown) {
-            try { return marked.parse(String(raw), { breaks: true, gfm: true }); }
+        if (_safeMarkedInstance) {
+            try { return _safeMarkedInstance.parse(String(raw)); }
             catch (_) { return escapeHtml(String(raw)); }
         }
         return escapeHtml(String(raw));
@@ -5380,7 +5388,6 @@ function closeChatThreadPreview() {
 }
 
 function renderChatThread(chatThread) {
-    const canMarkdown = (typeof marked !== 'undefined' && marked && typeof marked.parse === 'function');
     return chatThread.map(entry => {
         const serviceLabel = entry.instance
             ? `${entry.service || 'service'} ${entry.instance}`
@@ -5392,9 +5399,9 @@ function renderChatThread(chatThread) {
         let contentClass = 'chat-thread-entry-content';
         if (!raw) {
             contentHtml = '<em style="color:hsl(var(--muted-foreground));">(empty)</em>';
-        } else if (canMarkdown) {
+        } else if (_safeMarkedInstance) {
             try {
-                contentHtml = marked.parse(raw, { breaks: true, gfm: true });
+                contentHtml = _safeMarkedInstance.parse(raw);
             } catch (e) {
                 console.warn('[ChatThreadPreview] markdown parse failed, falling back to raw:', e);
                 contentHtml = escapeHtml(raw);
@@ -5623,6 +5630,8 @@ function showTaskWorkspace() {
     if (vp) vp.style.display = 'none';
     if (cc) cc.style.display = 'none';
     if (rh) rh.style.display = 'none';
+    /* Safety: ensure no dark overlay from a previous modal/popup state is still covering the viewport. */
+    document.body.classList.remove('main-modal-layer-active', 'main-popup-layer-active');
     // Refresh model list with latest provider state
     populateTaskModelSelector();
 }
@@ -6441,29 +6450,37 @@ function autoGrowTextarea(el) {
 
 /** Render markdown to HTML with syntax highlighting (fail-safe).
  *  Uses CPB's block rendering system for code/mermaid/latex blocks. */
+/**
+ * Shared marked instance with HTML-escaping renderer. Created once to avoid
+ * the cumulative marked.use() global state pollution that occurs when
+ * marked.use() is called repeatedly (each call stacks renderers).
+ */
+const _safeMarkedInstance = (() => {
+    if (typeof marked === 'undefined' || !marked.Marked) return null;
+    const _escHtml = (h) => h.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const inst = new marked.Marked({ breaks: true, gfm: true });
+    inst.use({
+        renderer: {
+            html(token) { return _escHtml(token.raw || token.text || ''); },
+        },
+    });
+    return inst;
+})();
+
 function renderMarkdownToHtml(md) {
     if (!md) return '';
     try {
         const cpb = window._cpbBlockUtils;
-        if (typeof marked !== 'undefined' && marked.parse) {
-            // Escape raw HTML tags so they are displayed as text, not rendered as DOM
-            const _escHtml = (h) => h.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            const customRenderer = {
-                html(token) { return _escHtml(token.raw || token.text || ''); },
-            };
+        if (_safeMarkedInstance) {
             // If CPB block utils available, extract fenced blocks first and use CPB wrappers
             if (cpb) {
                 const { text: stripped, blocks } = cpb.extractAllFencedBlocks(md);
-                marked.setOptions({ breaks: true, gfm: true });
-                marked.use({ renderer: customRenderer });
-                let html = marked.parse(stripped);
+                let html = _safeMarkedInstance.parse(stripped);
                 html = cpb.injectBlockWrappersIntoHtml(html, blocks);
                 return html;
             }
             // Fallback: basic marked rendering without CPB
-            marked.setOptions({ breaks: true, gfm: true });
-            marked.use({ renderer: customRenderer });
-            return marked.parse(md);
+            return _safeMarkedInstance.parse(md);
         }
     } catch {
         // Fail-safe: if marked throws during streaming, fall back to plain text

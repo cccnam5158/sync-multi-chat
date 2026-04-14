@@ -1,0 +1,10 @@
+{
+  "type": "observation",
+  "timestamp": "2026-04-08T00:11:15.860Z",
+  "page": {
+    "url": "https://www.youtube.com/embed/Orhu9stQZr8?rel=0&modestbranding=1",
+    "title": ""
+  },
+  "userMessage": "Clean up this page for reading. First run a quick deterministic pass:\n$B cleanup --all\n\nThen take a snapshot to see what's left:\n$B snapshot -i\n\nLook at the snapshot and identify remaining non-content elements:\n- Ad placeholders, \"ADVERTISEMENT\" labels, sponsored content\n- Cookie/consent banners, newsletter popups, login walls\n- Audio/podcast player widgets, video autoplay\n- Sidebar widgets (puzzles, games, \"most popular\", recommendations)\n- Social share buttons, follow prompts, \"See more on Google\"\n- Floating chat widgets, feedback buttons\n- Navigation drawers, mega-menus (unless they ARE the page content)\n- Empty whitespace from removed ads\n\nKEEP: the site header/masthead/logo, article headline, article body,\narticle images, author byline, date. The page should still look like\nthe site it is, just without the crap.\n\nFor each element to remove, run JavaScript via $B to hide it:\n$B eval \"document.querySelector('SELECTOR').style.display='none'\"\n\nAlso unlock scrolling if the page is scroll-locked:\n$B eval \"document.body.style.overflow='auto';document.documentElement.style.overflow='auto'\"",
+  "sidebarSessionId": "e01226d4-1288-4c74-97e3-f177d9257d10"
+}

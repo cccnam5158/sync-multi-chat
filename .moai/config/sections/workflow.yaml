@@ -106,7 +106,6 @@ workflow:
                 isolation: worktree
                 mode: acceptEdits
                 model: sonnet
-        teammate_display: auto
     token_budget:
         plan: 30000
         run: 180000
