@@ -1,0 +1,177 @@
+/* Bottom input area */
+.task-chat-input-area {
+    flex-shrink: 0;
+    border-top: 1px solid hsl(var(--border));
+    background: hsl(220 15% 13%);
+    padding: 10px 14px 8px;
+}
+
+.task-chat-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.task-chat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: hsl(220 15% 18%);
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+    font-size: 0.72rem;
+    max-width: 200px;
+}
+
+.task-chat-chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.task-chat-chip-remove {
+    background: none;
+    border: none;
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 0 2px;
+    line-height: 1;
+}
+
+.task-chat-chip-remove:hover { color: hsl(0 72% 65%); }
+
+.task-chat-input-row {
+    display: flex;
+    position: relative;
+}
+
+.task-chat-input-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: block;
+}
+
+.task-chat-composer-actions {
+    position: absolute;
+    right: 10px;
+    bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 2;
+    max-width: calc(100% - 20px);
+    pointer-events: auto;
+}
+
+.task-chat-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: none;
+    /* Room for model select + send inside the box (bottom-right); % is width of .task-chat-input-wrap */
+    padding: 14px max(100px, min(268px, calc(100% - 32px))) 14px 16px;
+    border-radius: 14px;
+    border: 1px solid hsl(var(--border));
+    background: hsl(220 15% 16%);
+    color: hsl(var(--foreground));
+    font-size: 0.9rem;
+    font-family: 'Noto Sans', 'Segoe UI', sans-serif;
+    line-height: 1.5;
+    min-height: 52px;
+    max-height: 50vh;
+    overflow-y: auto;
+    transition: height 0.1s ease;
+}
+
+.task-chat-textarea:focus {
+    outline: none;
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
+/* New Task empty state: wider, taller composer with gradient */
+.task-workspace.task-ws-empty .task-chat-textarea {
+    min-height: 128px;
+    border-radius: 16px;
+    padding: 16px max(100px, min(268px, calc(100% - 32px))) 16px 18px;
+    background: linear-gradient(145deg, hsl(260 15% 18%) 0%, hsl(220 15% 14%) 50%, hsl(240 12% 16%) 100%);
+    border: 1px solid hsl(260 12% 24% / 0.6);
+}
+
+.task-chat-send-btn {
+    position: relative;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 50%;
+    border: none;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, opacity 0.15s ease;
+    z-index: 1;
+}
+
+.task-chat-send-btn:hover { background: hsl(var(--primary) / 0.85); }
+.task-chat-send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Send button → Stop button when running */
+.task-chat-send-btn.is-running {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    background: hsl(0 72% 50%);
+    opacity: 1 !important;
+    cursor: pointer;
+    animation: stopPulse 1.8s ease-in-out infinite;
+}
+.task-chat-send-btn.is-running:hover {
+    background: hsl(0 72% 42%);
+    animation: none;
+    box-shadow: 0 0 0 4px hsl(0 72% 50% / 0.3);
+}
+
+@keyframes stopPulse {
+    0%   { box-shadow: 0 0 0 0 hsl(0 72% 50% / 0.5); transform: scale(1); }
+    50%  { box-shadow: 0 0 0 8px hsl(0 72% 50% / 0); transform: scale(1.06); }
+    100% { box-shadow: 0 0 0 0 hsl(0 72% 50% / 0);   transform: scale(1); }
+}
+
+.task-chat-input-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.task-chat-toolbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: var(--radius);
+    border: none;
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+
+.task-chat-toolbar-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.task-chat-toolbar-btn:hover {
+    background: hsl(var(--primary) / 0.15);
+    color: hsl(var(--foreground));
+}
+

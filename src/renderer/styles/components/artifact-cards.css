@@ -1,0 +1,124 @@
+/* ─── Artifact Cards ─── */
+.task-artifact-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    max-width: 100%;
+}
+
+.task-artifact-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: hsl(220 15% 13%);
+    border: 1px solid hsl(var(--border));
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    min-width: 220px;
+    max-width: 340px;
+    flex: 1 1 220px;
+}
+
+.task-artifact-card:hover {
+    background: hsl(220 15% 16%);
+    border-color: hsl(var(--primary) / 0.4);
+}
+
+.task-artifact-preview {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: hsl(220 15% 18%);
+}
+
+.task-artifact-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.task-artifact-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.task-artifact-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: hsl(var(--primary));
+    line-height: 1;
+}
+
+.task-artifact-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.task-artifact-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.task-artifact-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.task-artifact-meta {
+    font-size: 0.68rem;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.3;
+    margin-top: 1px;
+}
+
+.task-artifact-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.task-artifact-card:hover .task-artifact-actions {
+    opacity: 1;
+}
+
+.task-artifact-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: transparent;
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    padding: 0;
+}
+
+.task-artifact-btn:hover {
+    background: hsl(var(--primary) / 0.15);
+    color: hsl(var(--primary));
+    border-color: hsl(var(--primary) / 0.3);
+}
+

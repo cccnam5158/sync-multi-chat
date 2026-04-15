@@ -1,0 +1,64 @@
+/* ========================================== */
+/* Prompt Expand/Collapse Button              */
+/* ========================================== */
+
+.master-preview-icon-btn {
+    width: 32px;
+    min-width: 32px;
+    padding: 0;
+}
+.master-preview-icon-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Prompt area expanded (fullscreen) state */
+#controls-container.prompt-expanded {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 11000 !important;
+    background: hsl(var(--background));
+    display: flex;
+    flex-direction: column;
+    height: 100vh !important;
+    max-height: 100vh !important;
+}
+#controls-container.prompt-expanded #toggles {
+    flex-shrink: 0;
+}
+#controls-container.prompt-expanded #input-area {
+    flex: 1;
+    max-height: none !important;
+}
+#controls-container.prompt-expanded .prompt-card {
+    max-height: none;
+    height: 100%;
+}
+#controls-container.prompt-expanded #master-input {
+    flex: 1;
+    min-height: 200px;
+}
+#controls-container.prompt-expanded .prompt-split-container {
+    flex: 1;
+    min-height: 0;
+}
+
+/* When inline preview is active, only enforce a minimum height */
+#controls-container.inline-preview-active {
+    min-height: 280px;
+}
+/* When collapsed with inline preview on, allow prompt area to collapse (override min-height above) */
+#controls-container.collapsed.inline-preview-active {
+    min-height: 0 !important;
+}
+/* When webview is maximized, collapse prompt area properly even with inline preview on */
+#views-placeholder.has-maximized-view ~ #controls-container.inline-preview-active {
+    min-height: 0 !important;
+}
+/* Expanded state remains fullscreen */
+#controls-container.prompt-expanded.inline-preview-active {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-height: 100vh !important;
+}
+

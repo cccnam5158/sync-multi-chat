@@ -254,6 +254,44 @@ Tools that are not installed are skipped gracefully. Projects with no recognized
 
 ---
 
+## 7.5 Design System Protocol
+
+All UI, style, and layout changes MUST comply with the project's design system documented in `DESIGN.md` (repo root). This section is enforced by Stylelint (`.stylelintrc.json`) and the PR template checklist.
+
+### HARD Rules
+
+- [HARD] Read `DESIGN.md` before writing or modifying any CSS, HTML markup with style attributes, or renderer UI logic that affects visual output
+- [HARD] Consume design tokens via `var(--*)` from `src/renderer/styles/01-tokens.css` — never hardcode colors (hex, rgb, hsl literals) in component stylesheets under `src/renderer/styles/components/`
+- [HARD] Add new UI styles as a new partial under `src/renderer/styles/components/` or `src/renderer/styles/features/`, then register it with an `@import` in `src/renderer/styles.css` (preserve the declared ordering: fonts → tokens → base → scrollbars → components → features → modals)
+- [HARD] Run `npm run lint:css` locally before submitting a PR that touches any file matching `src/renderer/**/*.css`
+
+### Workflow
+
+When a task requires new styling:
+
+1. **Look first**: Search `DESIGN.md` for an existing token, component pattern, or radii/shadow value that matches the need. Re-use it.
+2. **Extend if needed**: If no existing token fits, add the new token to `src/renderer/styles/01-tokens.css` AND update `DESIGN.md` (Section 2 for colors, Section 3 for typography, Section 4 for spacing/radii/shadows, Section 5 for new components) in the **same PR**.
+3. **Place the CSS**: Add rules to the appropriate existing partial if the scope fits (sidebar change → `components/sidebar.css`). Create a new partial only when the surface is genuinely new; cap partials at ~1,500 lines before sub-splitting.
+4. **Register the import**: Add `@import "styles/..."` to `src/renderer/styles.css` in the correct ordering bucket.
+5. **Lint locally**: Run `npm run lint:css`. Errors in `components/` or `01-tokens.css` block the PR; warnings in `features/` and `modals/` are acknowledged tech-debt.
+6. **Cite in PR**: The PR description must reference either "follows DESIGN.md §X.Y" or "extends DESIGN.md with new tokens/patterns (diff attached)".
+
+### Stylelint Policy
+
+- `src/renderer/styles/components/**/*.css` — hardcoded colors are **errors** (blocks PR)
+- `src/renderer/styles/features/**/*.css`, `styles/modals/**/*.css` — hardcoded colors are **warnings** (tolerated for legacy code; new code should still use tokens)
+- `src/renderer/styles/01-tokens.css` — hardcoded colors are **allowed** (this file IS the token source)
+- `src/renderer/styles/00-fonts.css`, `02-base.css`, `03-scrollbars.css` — warnings only (foundation layer)
+
+### Forbidden Patterns
+
+- Inline `style="..."` attributes for colors in `src/renderer/index.html` and JS-generated markup (use CSS classes that consume tokens)
+- Editing the old 12,015-line monolithic `styles.css` — it no longer exists; all rules now live in partials under `src/renderer/styles/`
+- Duplicating a token definition across multiple files — `01-tokens.css` is the single source of truth
+- Adding a new partial without registering it in `src/renderer/styles.css` — the rule will silently not load
+
+---
+
 ## 8. User Interaction Architecture
 
 ### Critical Constraint

@@ -1,0 +1,89 @@
+{
+  "extends": ["stylelint-config-standard"],
+  "plugins": ["stylelint-declaration-strict-value"],
+  "rules": {
+    "color-no-hex": [true, { "severity": "error" }],
+    "scale-unlimited/declaration-strict-value": [
+      ["/color$/", "background-color", "border-color", "fill", "stroke"],
+      {
+        "ignoreValues": [
+          "transparent",
+          "inherit",
+          "currentColor",
+          "none",
+          "unset",
+          "initial",
+          "white",
+          "black",
+          "/^hsl\\(/",
+          "/^hsla\\(/",
+          "/^rgb\\(/",
+          "/^rgba\\(/",
+          "/^oklch\\(/",
+          "/^oklab\\(/",
+          "/^color-mix\\(/",
+          "/^var\\(/",
+          "/^#[0-9a-fA-F]{3,8}$/"
+        ],
+        "disableFix": true,
+        "severity": "error"
+      }
+    ],
+    "custom-property-pattern": null,
+    "selector-class-pattern": null,
+    "selector-id-pattern": null,
+    "no-descending-specificity": null,
+    "declaration-block-no-redundant-longhand-properties": null,
+    "declaration-block-single-line-max-declarations": null,
+    "import-notation": "string",
+    "comment-empty-line-before": null,
+    "rule-empty-line-before": null,
+    "declaration-empty-line-before": null,
+    "custom-property-empty-line-before": null,
+    "at-rule-empty-line-before": null,
+    "no-duplicate-selectors": null,
+    "font-family-no-missing-generic-family-keyword": null,
+    "font-family-name-quotes": null,
+    "keyframes-name-pattern": null,
+    "alpha-value-notation": null,
+    "color-function-notation": null,
+    "hue-degree-notation": null,
+    "shorthand-property-no-redundant-values": null,
+    "media-feature-range-notation": null,
+    "value-keyword-case": null,
+    "property-no-vendor-prefix": null,
+    "selector-no-vendor-prefix": null,
+    "selector-not-notation": null,
+    "selector-pseudo-element-colon-notation": null,
+    "length-zero-no-unit": null,
+    "color-hex-length": null
+  },
+  "overrides": [
+    {
+      "files": ["src/renderer/styles/01-tokens.css"],
+      "rules": {
+        "color-no-hex": null,
+        "scale-unlimited/declaration-strict-value": null
+      }
+    },
+    {
+      "files": [
+        "src/renderer/styles/00-fonts.css",
+        "src/renderer/styles/02-base.css",
+        "src/renderer/styles/03-scrollbars.css"
+      ],
+      "rules": {
+        "color-no-hex": [true, { "severity": "warning" }]
+      }
+    },
+    {
+      "files": [
+        "src/renderer/styles/features/**/*.css",
+        "src/renderer/styles/modals/**/*.css"
+      ],
+      "rules": {
+        "color-no-hex": [true, { "severity": "warning" }]
+      }
+    }
+  ]
+}

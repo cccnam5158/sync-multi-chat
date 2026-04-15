@@ -1,0 +1,92 @@
+/* ========================================== */
+/* Generic Confirm Modal (replaces native)    */
+/* ========================================== */
+.smc-confirm-modal {
+    z-index: 13300 !important;
+}
+.smc-confirm-modal .modal-content.smc-confirm-modal-content {
+    width: min(520px, 94vw);
+    max-width: min(520px, 94vw) !important;
+    min-width: min(280px, 94vw);
+    /* Was padding:0 — title/body/buttons were flush to card edge */
+    padding: 20px 22px 18px !important;
+    box-sizing: border-box;
+    text-align: left !important;
+    border-radius: 14px;
+    border: 1px solid hsl(var(--border));
+    background: linear-gradient(180deg, hsl(224 30% 13%), hsl(224 30% 10%));
+    box-shadow: 0 24px 60px rgba(0,0,0,.55), 0 0 0 1px hsl(var(--primary) / .15) inset;
+    overflow: hidden;
+}
+
+.smc-confirm-modal .modal-header {
+    padding: 0 0 12px;
+    margin: 0;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.smc-confirm-modal .modal-header h3 {
+    margin: 0;
+    padding: 2px 0 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.35;
+    color: hsl(var(--foreground));
+}
+
+.smc-confirm-modal .close-btn {
+    flex-shrink: 0;
+    padding: 6px 8px;
+    margin: -2px -4px 0 0;
+}
+
+.smc-confirm-modal .prompt-delete-actions {
+    margin-top: 4px;
+    padding-top: 16px;
+    border-top: 1px solid hsl(var(--border) / 0.45);
+}
+.smc-confirm-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 24px 16px;
+}
+.smc-confirm-icon {
+    color: hsl(var(--primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.smc-confirm-icon svg {
+    stroke: hsl(var(--primary));
+}
+.smc-confirm-msg {
+    font-size: 14px;
+    line-height: 1.55;
+    color: hsl(var(--foreground));
+    text-align: center;
+    margin: 0;
+    white-space: pre-line;
+    word-break: normal;
+    overflow-wrap: break-word;
+    hyphens: manual;
+}
+
+.smc-confirm-modal .modal-body {
+    padding: 12px 0 6px;
+    margin: 0;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+}
+.smc-confirm-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid hsl(var(--border));
+}
+

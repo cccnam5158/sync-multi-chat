@@ -1,0 +1,29 @@
+
+/* App-wide dark scrollbars (panels, lists, inputs with overflow) */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(217 10% 42% / 0.65) hsl(220 15% 11%);
+}
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+*::-webkit-scrollbar-track {
+    background: hsl(220 15% 11%);
+}
+*::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+        180deg,
+        hsl(var(--muted-foreground) / 0.52),
+        hsl(var(--muted-foreground) / 0.34)
+    );
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, hsl(var(--primary) / 0.62), hsl(var(--primary) / 0.42));
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+

@@ -1,0 +1,97 @@
+/* Tool execution blocks (inside assistant bubble) */
+.task-tool-block {
+    margin: 6px 0;
+    border-radius: 8px;
+    border: 1px solid hsl(220 15% 25%);
+    background: hsl(220 15% 11%);
+    font-size: 0.76rem;
+    overflow: hidden;
+}
+
+.task-tool-summary {
+    padding: 6px 12px;
+    cursor: pointer;
+    color: hsl(var(--muted-foreground));
+    font-weight: 500;
+    font-size: 0.76rem;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.task-tool-icon { font-size: 0.8rem; }
+
+.task-tool-preview,
+.task-tool-output {
+    margin: 0;
+    padding: 8px 12px;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    font-family: 'Consolas', 'Courier New', monospace;
+    max-height: 200px;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.task-tool-preview {
+    color: hsl(var(--foreground) / 0.7);
+    background: hsl(220 15% 9%);
+    border-top: 1px solid hsl(220 15% 20%);
+}
+
+.task-tool-output {
+    color: hsl(142 40% 65%);
+    background: hsl(220 15% 8%);
+    border-top: 1px solid hsl(220 15% 20%);
+}
+
+@keyframes thinkingPulse {
+    0%, 100% { border-color: hsl(45 60% 30% / 0.3); }
+    50% { border-color: hsl(45 60% 45% / 0.6); }
+}
+
+.task-thinking-summary {
+    padding: 8px 14px;
+    cursor: pointer;
+    color: hsl(45 60% 65%);
+    font-weight: 500;
+    font-size: 0.78rem;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.task-thinking-summary::before {
+    content: '\25B6';
+    font-size: 0.6rem;
+    transition: transform 0.15s;
+}
+
+.task-thinking-block[open] .task-thinking-summary::before {
+    transform: rotate(90deg);
+}
+
+.task-thinking-content {
+    padding: 0 14px 10px;
+    color: hsl(45 20% 55%);
+    font-size: 0.74rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-height: 300px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    font-family: 'Noto Sans', 'Segoe UI', sans-serif;
+    margin: 0;
+}
+

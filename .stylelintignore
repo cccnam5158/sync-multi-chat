@@ -1,0 +1,6 @@
+node_modules
+dist
+build
+src/renderer/fonts
+src/renderer/vendor
+references

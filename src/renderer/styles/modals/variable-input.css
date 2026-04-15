@@ -1,0 +1,168 @@
+/* ========================================== */
+/* Variable Input Modal                       */
+/* ========================================== */
+.var-input-modal {
+    z-index: 13220 !important;
+}
+.var-input-modal .modal-content.var-input-modal-content {
+    width: min(760px, 94vw);
+    max-width: min(760px, 94vw) !important;
+    max-height: min(82vh, 720px);
+    padding: 0 !important;
+    text-align: left !important;
+    border-radius: 14px;
+    border: 1px solid hsl(var(--border));
+    background: linear-gradient(180deg, hsl(224 30% 12%), hsl(224 30% 10%));
+    box-shadow: 0 24px 60px rgba(0,0,0,.52), 0 0 0 1px hsl(var(--primary) / .18) inset;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.var-input-modal .modal-header {
+    padding: 12px 18px;
+    border-bottom: 1px solid hsl(var(--border));
+}
+.var-input-modal .modal-header h3 {
+    font-size: 14px;
+    font-weight: 800;
+    color: hsl(var(--foreground));
+}
+.var-input-modal-body {
+    padding: 12px 18px;
+    overflow-y: auto;
+    flex: 1;
+    max-height: calc(82vh - 110px);
+}
+
+/* Modern scrollbar inside variable modal */
+.var-input-modal-body {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / .4) transparent;
+}
+.var-input-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+.var-input-modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.var-input-modal-body::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / .35);
+    border-radius: 99px;
+}
+.var-input-modal-body::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / .55);
+}
+
+.var-input-row textarea {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / .4) transparent;
+}
+.var-input-row textarea::-webkit-scrollbar {
+    width: 5px;
+}
+.var-input-row textarea::-webkit-scrollbar-track {
+    background: transparent;
+}
+.var-input-row textarea::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / .3);
+    border-radius: 99px;
+}
+.var-input-row textarea::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / .5);
+}
+
+.var-input-desc {
+    color: hsl(var(--muted-foreground));
+    font-size: 13px;
+    margin: 0 0 6px;
+}
+.var-input-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.var-input-stat-pill {
+    font-size: 11px;
+    border-radius: 999px;
+    padding: 2px 10px;
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    background: hsl(var(--background) / .55);
+}
+.var-input-stat-pill.warning {
+    border-color: hsl(0 82% 62% / .45);
+    color: #fca5a5;
+    background: hsl(0 82% 62% / .08);
+}
+#var-input-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.var-input-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    border: 1px solid hsl(var(--border));
+    border-radius: 8px;
+    background: hsl(var(--background) / .72);
+}
+.var-input-row.unresolved {
+    border-color: hsl(0 80% 65% / .5);
+}
+.var-input-row-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: hsl(var(--foreground));
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.var-input-row.unresolved .var-input-row-label {
+    color: #fca5a5;
+}
+.var-input-row-scope {
+    font-size: 10px;
+    border-radius: 999px;
+    padding: 1px 7px;
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+}
+.var-input-row textarea {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 72px;
+    max-height: 180px;
+    border: 1px solid hsl(var(--border));
+    border-radius: 7px;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-size: 13px;
+    padding: 8px 10px;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.5;
+}
+.var-input-modal.var-input-many .var-input-modal-body {
+    max-height: min(72vh, 660px);
+}
+.var-input-modal.var-input-many .var-input-row textarea {
+    min-height: 52px;
+    max-height: 120px;
+}
+.var-input-row textarea:focus {
+    outline: none;
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 1px hsl(var(--primary) / .3);
+}
+.var-input-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 18px;
+    border-top: 1px solid hsl(var(--border));
+}
+

@@ -1,0 +1,60 @@
+/*
+ * Bundled Noto Sans / Noto Sans Mono (Latin woff2, OFL-1.1).
+ * Source: @fontsource/noto-sans, @fontsource/noto-sans-mono — see fonts/NOTO-fonts-LICENSE.txt
+ */
+@font-face {
+    font-family: "Noto Sans";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("fonts/noto-sans-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("fonts/noto-sans-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("fonts/noto-sans-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("fonts/noto-sans-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans Mono";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("fonts/noto-sans-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans Mono";
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url("fonts/noto-sans-mono-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans Mono";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("fonts/noto-sans-mono-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+    font-family: "Noto Sans Mono";
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url("fonts/noto-sans-mono-latin-700-normal.woff2") format("woff2");
+}

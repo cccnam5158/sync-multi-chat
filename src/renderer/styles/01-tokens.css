@@ -1,0 +1,40 @@
+
+/* shadcn/ui inspired variables (Tailwind v3 based) */
+:root {
+    /* Using the .dark theme values provided by the user as the default since the app is dark mode */
+    --background: 224 71.4% 4.1%;
+    --foreground: 210 20% 98%;
+    --card: 224 71.4% 4.1%;
+    --card-foreground: 210 20% 98%;
+    --popover: 224 71.4% 4.1%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 263.4 70% 50.4%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 215 27.9% 16.9%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 215 27.9% 16.9%;
+    --muted-foreground: 217.9 10.6% 64.9%;
+    --accent: 215 27.9% 16.9%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 215 27.9% 16.9%;
+    --input: 215 27.9% 16.9%;
+    --ring: 263.4 70% 50.4%;
+    --radius: 0.5rem;
+
+    /* Semantic extensions — see DESIGN.md §2 */
+    --warning: 38 92% 50%;              /* amber — used by model-select flash */
+    --warning-foreground: 38 92% 10%;
+    --success: 142 72% 50%;             /* green — status live */
+    --surface-white: 0 0% 100%;         /* for iframe backgrounds that must be opaque white */
+    --muted-icon-fg: 0 0% 60%;          /* placeholder icon on dark surfaces (was #999) */
+    --muted-icon-fg-hover: 0 0% 87%;    /* icon hover on dark surfaces (was #ddd) */
+
+    --font-sans: "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "Noto Sans Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+    /* Prompt Hub filters, panel search: placeholder one step smaller than body */
+    --smc-fs-placeholder: max(10.5pt, 0.78rem);
+}

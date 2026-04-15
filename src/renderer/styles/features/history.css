@@ -1,0 +1,138 @@
+/* Modern Scrollbar for Chat History - matches #master-input */
+#history-list {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.55) transparent;
+}
+#history-list::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+#history-list::-webkit-scrollbar-button { display: none; }
+
+#history-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#history-list::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+        180deg,
+        hsl(var(--muted-foreground) / 0.58),
+        hsl(var(--muted-foreground) / 0.4)
+    );
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+#history-list::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+        180deg,
+        hsl(var(--primary) / 0.85),
+        hsl(var(--primary) / 0.62)
+    );
+    border: 1px solid transparent;
+    background-clip: content-box;
+}
+
+#history-list::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+.history-item {
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: var(--smc-fs-body);
+    color: hsl(var(--muted-foreground));
+    border: 1px solid transparent;
+}
+
+.history-item.history-item-with-actions {
+    cursor: default;
+    gap: 8px;
+}
+
+.history-item-check-label {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 2px;
+    margin: 0;
+}
+
+.history-item.history-item-with-actions:hover {
+    background-color: hsl(var(--accent) / 0.35);
+}
+
+.history-item-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.history-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 8px;
+    border: 1px solid hsl(var(--border));
+    background: hsl(220 15% 22%);
+    color: hsl(var(--foreground));
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.history-icon-btn svg {
+    display: block;
+    pointer-events: none;
+}
+
+.history-icon-btn:hover {
+    background: hsl(var(--primary) / 0.22);
+    border-color: hsl(var(--primary) / 0.45);
+}
+
+.history-open-session-btn.history-icon-btn {
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--primary) / 0.55);
+    background: hsl(var(--primary) / 0.12);
+}
+
+.history-open-session-btn.history-icon-btn:hover {
+    background: hsl(var(--primary) / 0.35);
+    border-color: hsl(var(--primary) / 0.7);
+    color: hsl(var(--primary-foreground));
+}
+
+.history-delete-btn-danger.history-icon-btn {
+    border-color: hsl(var(--destructive) / 0.65) !important;
+    background: hsl(var(--destructive) / 0.42) !important;
+    color: hsl(var(--destructive-foreground)) !important;
+}
+
+.history-delete-btn-danger.history-icon-btn:hover {
+    background: hsl(var(--destructive) / 0.62) !important;
+    border-color: hsl(var(--destructive)) !important;
+}
+
+.history-preview-btn.history-icon-btn {
+    border-color: hsl(var(--primary) / 0.4);
+    background: hsl(var(--primary) / 0.08);
+}
+
+.history-preview-btn.history-icon-btn:hover {
+    background: hsl(var(--primary) / 0.25);
+    border-color: hsl(var(--primary) / 0.6);
+}
+

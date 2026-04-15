@@ -1,0 +1,170 @@
+/* ─── Settings Panel ─── */
+.settings-root { padding: 16px; max-width: 600px; }
+
+.settings-nav {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid hsl(var(--border));
+    padding-bottom: 8px;
+}
+
+.settings-nav-btn {
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--radius);
+}
+
+.settings-nav-btn:hover { background: hsl(var(--primary) / 0.12); }
+.settings-nav-btn.active { background: hsl(var(--primary) / 0.22); color: hsl(var(--primary-foreground)); }
+
+.settings-tab-content.hidden { display: none; }
+.settings-hint { font-size: 0.78rem; color: hsl(var(--muted-foreground)); margin: 0 0 12px; }
+
+.settings-provider-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.settings-provider-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+    background: hsl(220 15% 15%);
+}
+
+.settings-provider-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.settings-provider-name { font-size: 0.84rem; font-weight: 600; color: hsl(var(--foreground)); }
+
+.settings-provider-status {
+    width: 8px; height: 8px; border-radius: 50%;
+}
+
+.settings-provider-status.configured { background: hsl(142 72% 50%); }
+.settings-provider-status.unconfigured { background: hsl(0 0% 40%); }
+
+.settings-provider-actions { display: flex; align-items: center; gap: 6px; }
+
+.settings-provider-key-input {
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+    background: hsl(220 15% 16%);
+    color: hsl(var(--foreground));
+    font-size: 0.78rem;
+    font-family: monospace;
+    width: 200px;
+}
+
+.settings-provider-save-btn { padding: 3px 10px; font-size: 0.72rem; }
+.settings-provider-remove-btn {
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    background: hsl(0 72% 50% / 0.15);
+    color: hsl(0 72% 70%);
+    border: 1px solid hsl(0 72% 50% / 0.3);
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+
+.settings-field-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.settings-field-row label { font-size: 0.82rem; color: hsl(var(--foreground)); font-weight: 500; }
+.settings-select { padding: 5px 10px; border-radius: var(--radius); border: 1px solid hsl(var(--border)); background: hsl(220 15% 16%); color: hsl(var(--foreground)); font-size: 0.82rem; }
+
+.settings-dir-selector { display: flex; align-items: center; gap: 8px; }
+.settings-dir-selector span { font-size: 0.78rem; color: hsl(var(--muted-foreground)); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-browse-btn { padding: 4px 12px; font-size: 0.75rem; }
+
+.settings-cli-status { display: flex; align-items: center; gap: 8px; }
+.settings-cli-status span { font-size: 0.78rem; }
+.settings-refresh-btn { background: none; border: none; color: hsl(var(--muted-foreground)); cursor: pointer; font-size: 1rem; }
+
+/* Settings sections */
+.settings-section { margin-bottom: 20px; }
+.settings-section-title { font-size: 0.9rem; font-weight: 600; color: hsl(var(--foreground)); margin: 0 0 4px; }
+.settings-section-desc { font-size: 0.76rem; color: hsl(var(--muted-foreground)); margin: 0 0 10px; line-height: 1.5; }
+
+/* ChatGPT Subscription */
+.settings-chatgpt-sub { padding: 10px 14px; border-radius: var(--radius); border: 1px solid hsl(var(--border)); background: hsl(220 15% 15%); }
+.settings-chatgpt-state.hidden { display: none; }
+.settings-chatgpt-signin { font-size: 0.82rem; padding: 8px 20px; }
+.settings-chatgpt-waiting-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.8rem; color: hsl(var(--muted-foreground)); }
+.settings-chatgpt-spinner { width: 16px; height: 16px; border: 2px solid hsl(var(--muted-foreground) / 0.3); border-top-color: hsl(var(--primary)); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.settings-chatgpt-callback-row { display: flex; gap: 6px; }
+.settings-chatgpt-callback-input { flex: 1; padding: 6px 10px; border-radius: var(--radius); border: 1px solid hsl(var(--border)); background: hsl(220 15% 16%); color: hsl(var(--foreground)); font-size: 0.78rem; }
+.settings-chatgpt-submit { padding: 6px 14px; font-size: 0.78rem; }
+.settings-chatgpt-connected-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.settings-chatgpt-check { color: hsl(142 72% 50%); font-size: 1rem; }
+.settings-chatgpt-email { font-size: 0.82rem; color: hsl(var(--foreground)); }
+.settings-chatgpt-active-badge { padding: 2px 8px; border-radius: 999px; font-size: 0.68rem; font-weight: 600; background: hsl(142 40% 25% / 0.4); color: hsl(142 60% 65%); }
+.settings-chatgpt-disconnect { background: transparent; border: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); padding: 4px 12px; border-radius: var(--radius); cursor: pointer; font-size: 0.78rem; }
+.settings-chatgpt-disconnect:hover { background: hsl(0 72% 50% / 0.15); color: hsl(0 72% 70%); border-color: hsl(0 72% 50% / 0.3); }
+
+/* Task history badges */
+.history-item-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.history-badge-task {
+    background: hsl(160 60% 30% / 0.3);
+    color: hsl(160 60% 70%);
+}
+
+.history-badge-running {
+    background: hsl(200 80% 25% / 0.3);
+    color: hsl(200 80% 70%);
+    animation: task-pulse 1.5s ease-in-out infinite;
+}
+
+.history-badge-done {
+    background: hsl(142 40% 25% / 0.3);
+    color: hsl(142 60% 65%);
+}
+
+.history-task-stop-btn {
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid hsl(0 72% 50% / 0.4);
+    background: hsl(0 72% 50% / 0.15);
+    color: hsl(0 72% 70%);
+    font-size: 0.62rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 4px;
+}
+
+.history-task-stop-btn:hover {
+    background: hsl(0 72% 50% / 0.3);
+}
+

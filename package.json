@@ -20,7 +20,13 @@
     "build:portable": "node scripts/generate-icons.js && electron-packager . \"Sync Multi Chat\" --platform=win32 --arch=x64 --out=dist-packager --overwrite --icon=build/icon.ico",
     "publish": "node scripts/generate-icons.js && electron-builder --win --publish always",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "lint:css": "stylelint \"src/renderer/**/*.css\"",
+    "lint:css:fix": "stylelint \"src/renderer/**/*.css\" --fix",
+    "prepare": "husky",
     "postinstall": "electron-rebuild"
+  },
+  "lint-staged": {
+    "src/renderer/**/*.css": "stylelint --max-warnings=10000"
   },
   "keywords": [
     "electron",
@@ -38,7 +44,12 @@
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
     "electron-packager": "^17.1.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
     "sharp": "^0.34.4",
+    "stylelint": "^16.10.0",
+    "stylelint-config-standard": "^36.0.1",
+    "stylelint-declaration-strict-value": "^1.10.7",
     "to-ico": "^1.1.5"
   },
   "dependencies": {

@@ -1,0 +1,377 @@
+/* Sidebar — icon rail; hamburger toggles .rail-expanded for icon + labels */
+#history-sidebar {
+    width: 48px;
+    background-color: hsl(220 15% 18%);
+    border-right: 1px solid hsl(var(--border));
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+    z-index: 600;
+    overflow: hidden;
+}
+
+#history-sidebar.rail-expanded {
+    width: 208px;
+}
+
+.sidebar-rail {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 6px 6px;
+    box-sizing: border-box;
+    background: hsl(220 15% 14%);
+}
+
+.sidebar-hamburger {
+    flex-shrink: 0;
+    align-self: center;
+    margin-bottom: 2px;
+    border-radius: var(--radius);
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-hamburger:hover {
+    background: hsl(var(--primary) / 0.28);
+    color: hsl(var(--primary-foreground));
+}
+
+#history-sidebar.rail-expanded .sidebar-hamburger {
+    align-self: stretch;
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 10px;
+    box-sizing: border-box;
+    border-radius: 10px;
+}
+
+.sidebar-rail-btn {
+    min-height: 36px;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 0 6px;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#history-sidebar.rail-expanded .sidebar-rail-btn:not(.sidebar-rail-new-chat) {
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 0 8px;
+}
+
+/* New Chat: primary round action (collapsed = circle, expanded = pill) */
+.sidebar-rail-new-chat {
+    border-radius: 999px;
+    background: hsl(var(--primary) / 0.2);
+    color: hsl(var(--primary-foreground));
+    border-color: hsl(var(--primary) / 0.38);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.12);
+}
+
+#history-sidebar:not(.rail-expanded) .sidebar-rail-new-chat {
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+    align-self: center;
+    padding: 0;
+    justify-content: center;
+}
+
+#history-sidebar.rail-expanded .sidebar-rail-new-chat {
+    justify-content: flex-start;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#history-sidebar.rail-expanded .sidebar-rail-new-chat .rail-btn-icon {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    border-radius: 50%;
+    background: hsl(var(--primary) / 0.42);
+    color: hsl(var(--primary-foreground));
+}
+
+.sidebar-rail-new-chat:hover {
+    background: hsl(var(--primary) / 0.42);
+    color: hsl(var(--primary-foreground));
+    border-color: hsl(var(--primary) / 0.55);
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.25);
+}
+
+.sidebar-rail-new-chat:active {
+    background: hsl(var(--primary) / 0.52);
+}
+
+.rail-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    min-width: 28px;
+}
+
+.rail-btn-label {
+    display: none;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: inherit;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#history-sidebar.rail-expanded .rail-btn-label {
+    display: inline;
+}
+
+.sidebar-rail-btn:not(.sidebar-rail-new-chat):not(.sidebar-rail-new-task):hover {
+    background: hsl(var(--primary) / 0.26);
+    color: hsl(var(--foreground));
+    border-color: hsl(var(--primary) / 0.42);
+}
+
+.sidebar-rail-btn.active:not(.sidebar-rail-new-chat):not(.sidebar-rail-new-task) {
+    background: hsl(var(--primary) / 0.32);
+    color: hsl(var(--primary-foreground));
+    border-color: hsl(var(--primary) / 0.5);
+}
+
+/* New Task button (accent variant of New Chat) */
+.sidebar-rail-new-task {
+    border-radius: 999px;
+    background: hsl(160 60% 30% / 0.25);
+    color: hsl(160 60% 85%);
+    border-color: hsl(160 60% 40% / 0.38);
+    box-shadow: 0 0 0 1px hsl(160 60% 40% / 0.12);
+}
+
+#history-sidebar:not(.rail-expanded) .sidebar-rail-new-task {
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+    align-self: center;
+    padding: 0;
+    justify-content: center;
+}
+
+#history-sidebar.rail-expanded .sidebar-rail-new-task {
+    justify-content: flex-start;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#history-sidebar.rail-expanded .sidebar-rail-new-task .rail-btn-icon {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    border-radius: 50%;
+    background: hsl(160 60% 30% / 0.42);
+    color: hsl(160 60% 85%);
+}
+
+.sidebar-rail-btn.sidebar-rail-new-task:hover {
+    background: hsl(160 60% 35% / 0.5);
+    color: hsl(160 60% 95%);
+    border-color: hsl(160 60% 45% / 0.6);
+    box-shadow: 0 0 0 1px hsl(160 60% 40% / 0.25);
+}
+
+.sidebar-rail-btn.sidebar-rail-new-task:active {
+    background: hsl(160 60% 35% / 0.65);
+}
+
+/* Sidebar rail separator */
+.sidebar-rail-separator {
+    height: 1px;
+    margin: 4px 8px;
+    background: hsl(var(--border) / 0.4);
+    flex-shrink: 0;
+}
+
+/* Sidebar rail spacer (push footer down) */
+.sidebar-rail-spacer {
+    flex: 1;
+    min-height: 0;
+}
+
+/* Sidebar footer — matches rail button layout exactly */
+.sidebar-footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 6px;
+    border-top: 1px solid hsl(var(--border) / 0.4);
+    background: hsl(220 15% 12%);
+    box-sizing: border-box;
+}
+
+.sidebar-footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 0 6px;
+    min-height: 36px;
+    font-size: 0.72rem;
+    color: hsl(var(--muted-foreground));
+}
+
+#history-sidebar.rail-expanded .sidebar-footer-row {
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 0 2px;
+}
+
+.sidebar-footer-account-row {
+    /* inherits from footer-row */
+}
+
+.sidebar-footer-account-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    min-width: 0;
+    width: 100%;
+}
+
+#history-sidebar.rail-expanded .sidebar-footer-account-info {
+    justify-content: flex-start;
+    gap: 10px;
+}
+
+.sidebar-footer-label {
+    display: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.78rem;
+}
+
+#history-sidebar.rail-expanded .sidebar-footer-label {
+    display: inline;
+}
+
+.sidebar-status-dot {
+    width: 8px;
+    height: 8px;
+    min-width: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.sidebar-status-offline {
+    background: hsl(0 0% 50%);
+}
+
+.sidebar-status-online {
+    background: hsl(142 72% 50%);
+    box-shadow: 0 0 4px hsl(142 72% 50% / 0.5);
+}
+
+/* Settings button — matches sidebar-rail-btn style */
+.sidebar-footer-gear {
+    min-height: 36px;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 0 6px;
+    width: 100%;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sidebar-footer-gear:hover {
+    background: hsl(var(--primary) / 0.15);
+    color: hsl(var(--foreground));
+}
+
+/* When expanded, show icon + label inline like other rail buttons */
+#history-sidebar.rail-expanded .sidebar-footer-gear {
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 0 2px;
+}
+
+.sidebar-footer-gear .footer-gear-label {
+    display: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+#history-sidebar.rail-expanded .sidebar-footer-gear .footer-gear-label {
+    display: inline;
+}
+
+/* Footer labels match rail-btn-label weight */
+.sidebar-footer-label {
+    font-weight: 500;
+}
+
+/* Placeholder panels */
+.smc-panel-body-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+}
+
+.smc-placeholder-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 40px;
+    text-align: center;
+    max-width: 360px;
+}
+
+.smc-placeholder-icon {
+    color: hsl(var(--muted-foreground) / 0.5);
+}
+
+.smc-placeholder-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    margin: 0;
+}
+
+.smc-placeholder-desc {
+    font-size: 0.82rem;
+    color: hsl(var(--muted-foreground));
+    margin: 0;
+    line-height: 1.5;
+}
+

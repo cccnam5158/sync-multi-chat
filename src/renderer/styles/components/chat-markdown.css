@@ -1,0 +1,71 @@
+/* Inline code */
+.task-chat-bubble-content code:not([class]) {
+    background: hsl(220 15% 22%);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 0.95em;
+    font-family: 'Consolas', 'Fira Code', monospace;
+}
+
+/* Lists in chat bubbles */
+.task-chat-bubble-content ul,
+.task-chat-bubble-content ol {
+    padding-left: 20px;
+    margin: 6px 0;
+}
+
+.task-chat-bubble-content li { margin: 3px 0; }
+
+/* Headings in chat */
+.task-chat-bubble-content h1,
+.task-chat-bubble-content h2,
+.task-chat-bubble-content h3 {
+    margin: 10px 0 6px;
+    font-size: 1em;
+    font-weight: 700;
+}
+
+.task-chat-bubble-content h1 { font-size: 1.1em; }
+.task-chat-bubble-content h2 { font-size: 1.05em; }
+
+/* Tables in chat */
+.task-chat-bubble-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 8px 0;
+    font-size: 0.8rem;
+}
+
+.task-chat-bubble-content th,
+.task-chat-bubble-content td {
+    border: 1px solid hsl(var(--border));
+    padding: 6px 10px;
+    text-align: left;
+}
+
+.task-chat-bubble-content th {
+    background: hsl(220 15% 18%);
+    font-weight: 600;
+}
+
+/* Blockquotes */
+.task-chat-bubble-content blockquote {
+    border-left: 3px solid hsl(var(--primary) / 0.5);
+    padding: 4px 12px;
+    margin: 6px 0;
+    color: hsl(var(--muted-foreground));
+}
+
+/* Links */
+.task-chat-bubble-content a {
+    color: hsl(var(--primary));
+    text-decoration: underline;
+}
+
+/* Horizontal rule */
+.task-chat-bubble-content hr {
+    border: none;
+    border-top: 1px solid hsl(var(--border));
+    margin: 10px 0;
+}
+
