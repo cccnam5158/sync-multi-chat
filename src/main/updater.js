@@ -475,9 +475,10 @@ function updateDownloadProgress(percent, status) {
  */
 function closeDownloadProgressWindow() {
   if (progressWindow && !progressWindow.isDestroyed()) {
-    progressWindow.close();
-    progressWindow = null;
+    // closable: false makes close() a no-op on macOS, so destroy the window.
+    progressWindow.destroy();
   }
+  progressWindow = null;
   
   // Reset taskbar progress
   if (mainWindowRef && !mainWindowRef.isDestroyed()) {
