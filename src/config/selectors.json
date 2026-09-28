@@ -1,15 +1,22 @@
 {
     "chatgpt": {
         "inputSelector": [
+            "div.ProseMirror[contenteditable='true'][data-composer-markdown]",
+            "div[contenteditable='true'][role='textbox']",
+            "textarea[name='prompt']",
             "div#prompt-textarea",
             "textarea#prompt-textarea",
             "div[contenteditable='true'][data-placeholder]"
         ],
         "sendButtonSelector": [
+            "form button[type='submit']",
+            "button[data-composer-submit]",
             "button[data-testid='send-button']",
             "button[aria-label='Send prompt']"
         ],
         "loggedInSelector": [
+            "div.ProseMirror[contenteditable='true'][data-composer-markdown]",
+            "div[contenteditable='true'][role='textbox']",
             "div#prompt-textarea",
             "textarea#prompt-textarea"
         ],
@@ -32,18 +39,23 @@
             "button[data-testid='file-attachment-button']"
         ],
         "copyButtonSelector": [
+            "button[aria-label='메시지 복사']",
+            "button[aria-label='Copy message']",
             "button[data-testid='copy-turn-action-button']"
         ],
         "conversationContainerSelector": [
+            "main [data-app-action-timeline-scroll]",
             "main div[class*='react-scroll-to-bottom']",
             "main .flex-1.overflow-hidden",
             "main"
         ],
         "messageSelector": [
+            "div[data-turn-key]",
             "div[data-message-author-role]",
             "article[data-testid]"
         ],
         "lastResponseSelector": [
+            "div[data-markdown-text-style='assistant-message']",
             "div[data-message-author-role='assistant']:last-of-type .markdown",
             "article[data-testid]:last-of-type .markdown",
             "div[data-message-author-role='assistant']:last-child"

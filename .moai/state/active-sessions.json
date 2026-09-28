@@ -1,0 +1,22 @@
+[
+  {
+    "session_id": "440b9ee5-c784-4bd6-91b7-8406f977fb33",
+    "spec_id": "(none)",
+    "phase": "(none)",
+    "started_at": "2026-09-28T08:16:57.318675Z",
+    "last_heartbeat": "2026-09-28T08:16:57.318675Z",
+    "pid": 7871,
+    "host": "josephnamui-MacBookPro.local",
+    "cwd": "/private/tmp/claude-501/-Volumes-mac-data-dev-joseph-sync-multi-chat/440b9ee5-c784-4bd6-91b7-8406f977fb33/scratchpad/probe2"
+  },
+  {
+    "session_id": "271c1f64-a35b-4f77-b3b6-5e6fe27f4811",
+    "spec_id": "(none)",
+    "phase": "(none)",
+    "started_at": "2026-09-28T08:17:00.620292Z",
+    "last_heartbeat": "2026-09-28T08:17:00.620292Z",
+    "pid": 5642,
+    "host": "josephnamui-MacBookPro.local",
+    "cwd": "/Volumes/mac-data/dev/joseph/sync-multi-chat"
+  }
+]
