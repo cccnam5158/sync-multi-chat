@@ -638,7 +638,18 @@ async function injectPrompt(text, selectors, autoSend = false, options = {}) {
         console.log('[injectPrompt] Detected ContentEditable element');
 
         // Clear existing content first
-        inputEl.innerHTML = '';
+        if (inputEl.classList.contains('ql-editor')) {
+            // Quill (Gemini): select existing content so the insertion replaces it.
+            // Wiping innerHTML drops Quill's <p> blocks; execCommand then emits <div>
+            // lines that Quill's normalizer discards, keeping only the first line.
+            const range = document.createRange();
+            range.selectNodeContents(inputEl);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+        } else {
+            inputEl.innerHTML = '';
+        }
 
         if (isPerplexityService) {
             // Perplexity (Lexical): Always use bulk insertion regardless of typing mode.

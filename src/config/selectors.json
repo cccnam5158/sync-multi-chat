@@ -120,7 +120,8 @@
         "sendButtonSelector": [
             "button[aria-label='Send message']",
             "button.send-button",
-            "button[aria-label='전송']"
+            "button[aria-label='전송']",
+            "button[aria-label='메시지 보내기']"
         ],
         "loggedInSelector": [
             "a[aria-label^=\"Google 계정:\"]",
