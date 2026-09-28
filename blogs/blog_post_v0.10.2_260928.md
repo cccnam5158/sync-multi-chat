@@ -61,7 +61,7 @@ ChatGPT가 프롬프트 입력창을 **ProseMirror 기반 composer**로 교체�
 
 | 구분 | 내용 |
 |------|------|
-| **Windows** | GitHub Actions `windows-latest`에서 **설치형 `.exe`** 빌드·게시(자동 업데이트 지원) |
+| **Windows** | GitHub Actions `windows-2022`(robotjs 네이티브 빌드용 VS 2022 고정)에서 **설치형 `.exe`** 빌드·게시(자동 업데이트 지원) |
 | **macOS** | `macos-latest`에서 **Apple Silicon(arm64)·Intel(x64) DMG/ZIP**을 각각 빌드해 **동일 Release**에 업로드 |
 
 - Windows: `Sync-Multi-Chat-Setup-0.10.2-x64.exe`
