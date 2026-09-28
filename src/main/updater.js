@@ -6,9 +6,13 @@
  */
 
 const { autoUpdater } = require('electron-updater');
-const { dialog, ipcMain, BrowserWindow, app } = require('electron');
+const { dialog, ipcMain, BrowserWindow, app, shell } = require('electron');
 const log = require('electron-log');
 const os = require('os');
+const path = require('path');
+const { getMacDmgAsset, getReleasePageUrl, downloadFile } = require('./mac-updater');
+
+const IS_MAC = process.platform === 'darwin';
 
 // Configure logging
 autoUpdater.logger = log;
@@ -16,13 +20,18 @@ autoUpdater.logger.transports.file.level = 'info';
 
 // Disable auto download - let user decide
 autoUpdater.autoDownload = false;
-autoUpdater.autoInstallOnAppQuit = true;
+// macOS builds are unsigned, so Squirrel.Mac cannot install them (see mac-updater.js).
+autoUpdater.autoInstallOnAppQuit = !IS_MAC;
 
 // Reference to main window for sending IPC messages
 let mainWindowRef = null;
 
 // Progress window for download status
 let progressWindow = null;
+
+// Latest update info (used by the macOS manual install path)
+let latestUpdateInfo = null;
+let macDownloadInProgress = false;
 
 /**
  * Get current platform info for logging and user display
@@ -50,6 +59,14 @@ function isMissingPlatformRelease(err) {
 }
 
 /**
+ * Squirrel.Mac rejects unsigned apps with code-signature errors
+ */
+function isCodeSignatureError(err) {
+  const msg = (err && err.message ? err.message : '').toLowerCase();
+  return msg.includes('code signature');
+}
+
+/**
  * Initialize the auto updater with event handlers
  * @param {BrowserWindow} mainWindow - The main application window
  */
@@ -65,6 +82,7 @@ function initAutoUpdater(mainWindow) {
   // Update available
   autoUpdater.on('update-available', (info) => {
     log.info('[Updater] Update available:', info.version);
+    latestUpdateInfo = info;
     sendStatusToRenderer({ 
       status: 'available', 
       version: info.version,
@@ -137,7 +155,9 @@ function initAutoUpdater(mainWindow) {
 
     // Show user-friendly notification instead of alarming error dialog
     if (mainWindowRef && !mainWindowRef.isDestroyed()) {
-      if (isMissingPlatformRelease(err)) {
+      if (IS_MAC && isCodeSignatureError(err) && latestUpdateInfo) {
+        showMacManualUpdateDialog(latestUpdateInfo, err.message);
+      } else if (isMissingPlatformRelease(err)) {
         // Platform-specific release not yet available — not a real error
         log.info(`[Updater] No ${platformName} (${archName}) release found — skipping update`);
         dialog.showMessageBox(mainWindowRef, {
@@ -247,10 +267,106 @@ async function showUpdateAvailableDialog(info) {
 
   if (result.response === 0) {
     log.info('[Updater] User chose to download update');
+    if (IS_MAC) {
+      downloadMacUpdate(info);
+      return;
+    }
     showDownloadProgressWindow();
     autoUpdater.downloadUpdate();
   } else {
     log.info('[Updater] User postponed update');
+  }
+}
+
+/**
+ * macOS: download the DMG for this CPU, verify it, and open it for a drag-install.
+ * @param {Object} info - Update info from electron-updater
+ */
+async function downloadMacUpdate(info) {
+  if (macDownloadInProgress) {
+    log.info('[Updater] macOS download already in progress');
+    return;
+  }
+  macDownloadInProgress = true;
+
+  const asset = getMacDmgAsset(info.version, info.files, process.arch);
+  const destPath = path.join(app.getPath('downloads'), asset.fileName);
+  log.info(`[Updater] macOS DMG download: ${asset.url} -> ${destPath} (sha512: ${asset.sha512 ? 'yes' : 'no'})`);
+
+  showDownloadProgressWindow();
+  try {
+    await downloadFile(asset.url, destPath, {
+      sha512: asset.sha512,
+      expectedSize: asset.size,
+      onProgress: ({ percent, transferred, total, bytesPerSecond }) => {
+        const pct = Math.round(percent);
+        const toMb = (n) => (n / 1024 / 1024).toFixed(2);
+        updateDownloadProgress(pct, `${pct}% (${toMb(transferred)}MB / ${toMb(total)}MB) - ${toMb(bytesPerSecond)}MB/s`);
+        sendStatusToRenderer({ status: 'downloading', percent: pct, message: `Downloading: ${pct}%` });
+      }
+    });
+    closeDownloadProgressWindow();
+    log.info('[Updater] macOS DMG downloaded and verified:', destPath);
+    sendStatusToRenderer({ status: 'downloaded', version: info.version, message: 'Update download complete' });
+    await showMacInstallDialog(info, destPath);
+  } catch (err) {
+    closeDownloadProgressWindow();
+    log.error('[Updater] macOS DMG download failed:', err);
+    sendStatusToRenderer({ status: 'error', error: err.message, message: 'Update download failed' });
+    await showMacManualUpdateDialog(info, err.message);
+  } finally {
+    macDownloadInProgress = false;
+  }
+}
+
+/**
+ * macOS: open the downloaded DMG and explain how to finish the update.
+ */
+async function showMacInstallDialog(info, dmgPath) {
+  const openError = await shell.openPath(dmgPath);
+  if (openError) {
+    log.error('[Updater] Failed to open DMG:', openError);
+    shell.showItemInFolder(dmgPath);
+  }
+  if (!mainWindowRef || mainWindowRef.isDestroyed()) return;
+
+  const result = await dialog.showMessageBox(mainWindowRef, {
+    type: 'info',
+    title: 'Update Ready',
+    message: `Version ${info.version} has been downloaded.`,
+    detail: `To finish updating:\n1. Quit Sync Multi Chat.\n2. In the opened installer window, drag Sync Multi Chat into Applications and choose Replace.\n3. Launch the app again.\n\nInstaller: ${dmgPath}`,
+    buttons: ['Quit Now', 'Later'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true
+  });
+
+  if (result.response === 0) {
+    log.info('[Updater] User chose to quit for macOS manual install');
+    app.quit();
+  }
+}
+
+/**
+ * macOS: fall back to the GitHub release page when the in-app download fails.
+ */
+async function showMacManualUpdateDialog(info, reason) {
+  if (!mainWindowRef || mainWindowRef.isDestroyed()) return;
+  const version = info && info.version ? info.version : app.getVersion();
+
+  const result = await dialog.showMessageBox(mainWindowRef, {
+    type: 'warning',
+    title: 'Update',
+    message: 'The update could not be downloaded automatically.',
+    detail: `You can download the installer for your Mac (${process.arch === 'arm64' ? 'Apple Silicon' : 'Intel'}) from the release page.\n\nReason: ${reason}`,
+    buttons: ['Open Download Page', 'Later'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true
+  });
+
+  if (result.response === 0) {
+    shell.openExternal(getReleasePageUrl(version));
   }
 }
 
@@ -420,6 +536,11 @@ function registerIpcHandlers() {
   ipcMain.handle('download-update', async () => {
     log.info('[Updater] Manual download requested');
     try {
+      if (IS_MAC) {
+        if (!latestUpdateInfo) return { success: false, error: 'No update available' };
+        await downloadMacUpdate(latestUpdateInfo);
+        return { success: true };
+      }
       await autoUpdater.downloadUpdate();
       return { success: true };
     } catch (error) {
@@ -431,6 +552,11 @@ function registerIpcHandlers() {
   // Install update (quit and install)
   ipcMain.handle('install-update', () => {
     log.info('[Updater] Install requested');
+    if (IS_MAC) {
+      // Squirrel.Mac cannot install unsigned builds; the DMG flow handles installation.
+      if (latestUpdateInfo) downloadMacUpdate(latestUpdateInfo);
+      return;
+    }
     autoUpdater.quitAndInstall(false, true);
   });
 
