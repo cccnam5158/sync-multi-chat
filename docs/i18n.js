@@ -14,7 +14,7 @@ const translations = {
         "nav.getStarted": "Get Started",
 
         // Hero Section
-        "hero.badge": "v0.10.2: Improved ChatGPT prompt delivery for the new composer, plus macOS Intel & Apple Silicon builds",
+        "hero.badge": "v0.10.3: Fixed Gemini Cross Check delivery and macOS auto-update for Intel & Apple Silicon",
         "hero.title1": "No API keys.",
         "hero.title2a": "Use your ChatGPT, Claude, Gemini",
         "hero.title2b": "subscriptions in one place.",
@@ -148,6 +148,10 @@ const translations = {
         "releaseNotes.v010.feature2": "In-app login (webview-first): Google and OAuth flows can complete inside the app—including a modal BrowserWindow on the same session partition as the service webview—so you are not forced to open external Chrome for every step.",
         "releaseNotes.v010.feature3": "ChatGPT subscription workspace (Skills): Sign in with ChatGPT Plus/Pro/Team (OpenAI OAuth / Codex-oriented flow) to use OpenAI-hosted models without BYOK, with Task workflows and bundled Skills under src/data/skills.",
         "releaseNotes.buildAndRelease": "Build & Release",
+        "releaseNotes.v0103.fix1": "Gemini Cross Check: On Gemini's new input UI, Cross Check only delivered the first line (the predefined prompt) and dropped the other AIs' answers. The Quill editor's content is now selected and replaced instead of cleared, so the whole multi-line prompt is sent.",
+        "releaseNotes.v0103.fix2": "Gemini send button: Added the Korean label (메시지 보내기) to Gemini's send-button selectors so sending no longer depends only on the Enter-key fallback.",
+        "releaseNotes.v0103.fix3": "macOS auto-update: Fixed \"Could not get code signature for running application\" (Intel Macs). Update Now now downloads the DMG for your chip, verifies its sha512 and opens it for a drag-to-Applications install. Users on v0.10.2 or earlier should install v0.10.3 manually once.",
+        "releaseNotes.v0103.build1": "Downloads: Windows installer built by GitHub Actions; separate macOS DMGs for Apple Silicon (arm64) and Intel (x64) are uploaded to the same GitHub Release.",
         "releaseNotes.v0102.imp1": "ChatGPT prompt delivery: Supports ChatGPT's new ProseMirror composer (data-composer-markdown, role=\"textbox\") so prompts are injected into the correct input.",
         "releaseNotes.v0102.imp2": "ChatGPT send button detection: Adds form submit and data-composer-submit button selectors ahead of the legacy ones, so broadcast sends no longer stall on the new UI.",
         "releaseNotes.v0102.imp3": "ChatGPT login & response detection: Updated logged-in, message (data-turn-key), last-response, copy-button (EN/KO labels) and conversation-container selectors for Copy Chat Thread, Copy Last Response and Cross Check.",
@@ -245,7 +249,7 @@ const translations = {
         "nav.getStarted": "시작하기",
 
         // Hero Section
-        "hero.badge": "v0.10.2: 새 ChatGPT 입력창 대응 프롬프트 전송 개선, macOS Intel·Apple Silicon 빌드",
+        "hero.badge": "v0.10.3: Gemini 크로스 체크 전달 오류와 macOS(Intel·Apple Silicon) 자동 업데이트 문제 수정",
         "hero.title1": "API 키 없이.",
         "hero.title2a": "개인 구독 ChatGPT, Claude, Gemini를",
         "hero.title2b": "한 곳에서 최대한 활용.",
@@ -379,6 +383,10 @@ const translations = {
         "releaseNotes.v010.feature2": "앱 내 로그인(웹뷰 우선): Google/OAuth 흐름을 앱 안에서 완료할 수 있습니다. 서비스 웹뷰와 동일 세션 파티션의 모달 창으로 accounts.google.com 등을 처리합니다.",
         "releaseNotes.v010.feature3": "ChatGPT 구독 워크스페이스(Skills): ChatGPT Plus/Pro/Team(OpenAI OAuth·Codex 계열)으로 API 키 없이 OpenAI 호스팅 모델을 사용하고, Task에서 src/data/skills 번들 Skills를 활용합니다.",
         "releaseNotes.buildAndRelease": "빌드 및 릴리스",
+        "releaseNotes.v0103.fix1": "Gemini 크로스 체크: Gemini의 새 입력창에서 크로스 체크 시 첫 줄(기본 프롬프트)만 전달되고 다른 AI의 답변이 빠지던 문제를 고쳤습니다. Quill 에디터 내용을 비우지 않고 선택해 교체하도록 바꿔 여러 줄 프롬프트 전체가 전송됩니다.",
+        "releaseNotes.v0103.fix2": "Gemini 전송 버튼: 한국어 라벨(메시지 보내기)을 Gemini 전송 버튼 셀렉터에 추가해, Enter 키 대체 동작에만 의존하지 않고 전송합니다.",
+        "releaseNotes.v0103.fix3": "macOS 자동 업데이트: Intel Mac에서 \"Could not get code signature for running application\" 오류로 업데이트가 끝나지 않던 문제를 고쳤습니다. Update Now를 누르면 칩에 맞는 DMG를 받아 sha512로 검증한 뒤 열어 주고, 응용 프로그램 폴더로 드래그해 설치합니다. v0.10.2 이하 사용자는 v0.10.3을 한 번만 직접 설치해 주세요.",
+        "releaseNotes.v0103.build1": "다운로드: Windows 설치 파일은 GitHub Actions에서 빌드하고, macOS는 Apple Silicon(arm64)·Intel(x64) DMG를 각각 같은 GitHub Release에 업로드합니다.",
         "releaseNotes.v0102.imp1": "ChatGPT 프롬프트 전송: ChatGPT의 새 ProseMirror 입력창(data-composer-markdown, role=\"textbox\")을 인식해 프롬프트가 올바른 입력창에 입력됩니다.",
         "releaseNotes.v0102.imp2": "ChatGPT 전송 버튼 탐지: form submit·data-composer-submit 버튼 셀렉터를 기존 셀렉터보다 먼저 확인해, 새 UI에서 일괄 전송이 멈추지 않습니다.",
         "releaseNotes.v0102.imp3": "ChatGPT 로그인·응답 탐지: 로그인 상태, 메시지(data-turn-key), 마지막 응답, 복사 버튼(영문·한글 라벨), 대화 컨테이너 셀렉터를 갱신해 Copy Chat Thread·Copy Last Response·Cross Check가 안정적으로 동작합니다.",
@@ -476,7 +484,7 @@ const translations = {
         "nav.getStarted": "始める",
 
         // Hero Section
-        "hero.badge": "v0.10.2: 新しいChatGPT入力欄に対応したプロンプト送信の改善、macOS Intel・Apple Siliconビルド",
+        "hero.badge": "v0.10.3: Geminiクロスチェックの送信不具合とmacOS（Intel・Apple Silicon）自動アップデートを修正",
         "hero.title1": "APIキー不要。",
         "hero.title2a": "個人のChatGPT・Claude・Geminiを",
         "hero.title2b": "1つのアプリで最大限に。",
@@ -610,6 +618,10 @@ const translations = {
         "releaseNotes.v010.feature2": "アプリ内ログイン（WebView 優先）: Google/OAuth をアプリ内で完了可能。サービス WebView と同一セッションパーティションのモーダルで accounts.google.com などを処理します。",
         "releaseNotes.v010.feature3": "ChatGPT サブスクリプション（Skills）: ChatGPT Plus/Pro/Team（OpenAI OAuth・Codex 系）で API キーなしのホストモデル。Task で src/data/skills の Skills を利用。",
         "releaseNotes.buildAndRelease": "ビルドとリリース",
+        "releaseNotes.v0103.fix1": "Geminiクロスチェック: Geminiの新しい入力欄で、クロスチェック時に1行目（既定プロンプト）だけが届き、他のAIの回答が抜け落ちる問題を修正しました。Quillエディタの内容を空にせず選択して置き換えるため、複数行のプロンプト全体が送信されます。",
+        "releaseNotes.v0103.fix2": "Gemini送信ボタン: 韓国語ラベル（메시지 보내기）をGeminiの送信ボタンセレクタに追加し、Enterキーのフォールバックだけに頼らず送信します。",
+        "releaseNotes.v0103.fix3": "macOS自動アップデート: Intel Macで \"Could not get code signature for running application\" エラーによりアップデートが完了しない問題を修正しました。Update Nowでチップに合ったDMGをダウンロードしてsha512で検証し、開いたDMGからアプリケーションフォルダへドラッグしてインストールします。v0.10.2以前をお使いの方は、v0.10.3を一度だけ手動でインストールしてください。",
+        "releaseNotes.v0103.build1": "ダウンロード: WindowsインストーラーはGitHub Actionsでビルドし、macOSはApple Silicon（arm64）・Intel（x64）それぞれのDMGを同じGitHub Releaseにアップロードします。",
         "releaseNotes.v0102.imp1": "ChatGPTプロンプト送信: ChatGPTの新しいProseMirror入力欄（data-composer-markdown、role=\"textbox\"）を認識し、プロンプトが正しい入力欄に入力されます。",
         "releaseNotes.v0102.imp2": "ChatGPT送信ボタン検出: form submit・data-composer-submit ボタンのセレクタを従来より先に確認し、新UIでも一斉送信が止まりません。",
         "releaseNotes.v0102.imp3": "ChatGPTログイン・応答検出: ログイン状態、メッセージ（data-turn-key）、最後の応答、コピーボタン（英語・韓国語ラベル）、会話コンテナのセレクタを更新し、Copy Chat Thread・Copy Last Response・Cross Checkが安定して動作します。",

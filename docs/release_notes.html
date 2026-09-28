@@ -4,14 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Multi Chat 릴리스 노트 | v0.10.2 업데이트 내역</title>
-    <meta name="description" content="Sync Multi Chat 업데이트 내역. v0.10.2 ChatGPT 프롬프트 전송 로직 개선(새 입력창·전송 버튼 셀렉터), macOS Intel·Apple Silicon 및 Windows CI 릴리스. Release notes and changelog.">
-    <meta name="keywords" content="Sync Multi Chat, 릴리스 노트, release notes, v0.10.2, v0.10.1, v0.10.0, macOS, ChatGPT, Skills, history preview, Custom Prompt Builder">
+    <title>Sync Multi Chat 릴리스 노트 | v0.10.3 업데이트 내역</title>
+    <meta name="description" content="Sync Multi Chat 업데이트 내역. v0.10.3 Gemini 크로스 체크 전달 오류 수정, macOS 자동 업데이트(코드 서명 오류) 수정, macOS Intel·Apple Silicon 및 Windows CI 릴리스. Release notes and changelog.">
+    <meta name="keywords" content="Sync Multi Chat, 릴리스 노트, release notes, v0.10.3, v0.10.2, v0.10.1, Gemini, Cross Check, v0.10.0, macOS, ChatGPT, Skills, history preview, Custom Prompt Builder">
     <link rel="canonical" href="https://cccnam5158.github.io/sync-multi-chat/release_notes.html">
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://cccnam5158.github.io/sync-multi-chat/release_notes.html">
-    <meta property="og:title" content="Sync Multi Chat 릴리스 노트 | v0.10.2 업데이트 내역">
+    <meta property="og:title" content="Sync Multi Chat 릴리스 노트 | v0.10.3 업데이트 내역">
     <meta property="og:description" content="Sync Multi Chat 업데이트 내역. Custom Prompt Builder, Single AI 모드, 크로스 체크 등. Release notes and changelog.">
     <meta property="og:image" content="https://raw.githubusercontent.com/cccnam5158/sync-multi-chat/master/assets/mutli-ai-chat.png">
     <meta property="og:site_name" content="Sync Multi Chat">
@@ -20,7 +20,7 @@
     <meta property="og:locale:alternate" content="ja_JP">
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Sync Multi Chat 릴리스 노트 | v0.10.2 업데이트 내역">
+    <meta name="twitter:title" content="Sync Multi Chat 릴리스 노트 | v0.10.3 업데이트 내역">
     <meta name="twitter:description" content="Sync Multi Chat 업데이트 내역. Custom Prompt Builder, Single AI 모드, 크로스 체크 등.">
     <meta name="twitter:image" content="https://raw.githubusercontent.com/cccnam5158/sync-multi-chat/master/assets/mutli-ai-chat.png">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -40,7 +40,7 @@
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     Sync Multi Chat                     <span class="version-badge"
-                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.10.2</span>
+                        style="font-size: 0.8rem; opacity: 0.6; margin-left: 8px; border: 1px solid #333; padding: 2px 6px; border-radius: 4px;" data-version>v0.10.3</span>
                 </a>
                 <div class="nav-links">
                     <a href="index.html#comparison" data-i18n="nav.howItWorks">How it Works</a>
@@ -106,13 +106,35 @@
 
         <div class="timeline">
 
-            <!-- v0.10.2 (Active) -->
+            <!-- v0.10.3 (Active) -->
             <div class="timeline-item active">
                 <div class="timeline-dot"></div>
 
                 <div class="version-header">
-                    <span class="version-number">v0.10.2</span>
+                    <span class="version-number">v0.10.3</span>
                     <span class="badge-current" data-i18n="releaseNotes.current">Current</span>
+                </div>
+
+                <div class="release-card-content">
+                    <h3>🔧 <span data-i18n="releaseNotes.bugFixes">Bug Fixes</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v0103.fix1"><strong>Gemini Cross Check</strong>: On Gemini's new input UI, Cross Check only delivered the first line (the predefined prompt) and dropped the other AIs' answers. The Quill editor's content is now selected and replaced instead of cleared, so the whole multi-line prompt is sent.</li>
+                        <li data-i18n="releaseNotes.v0103.fix2"><strong>Gemini send button</strong>: Added the Korean label (<code>메시지 보내기</code>) to Gemini's send-button selectors so sending no longer depends only on the Enter-key fallback.</li>
+                        <li data-i18n="releaseNotes.v0103.fix3"><strong>macOS auto-update</strong>: Fixed "Could not get code signature for running application" (Intel Macs). Update Now now downloads the DMG for your chip, verifies its sha512 and opens it for a drag-to-Applications install. Users on v0.10.2 or earlier should install v0.10.3 manually once.</li>
+                    </ul>
+                    <h3>🏗️ <span data-i18n="releaseNotes.buildAndRelease">Build &amp; Release</span></h3>
+                    <ul>
+                        <li data-i18n="releaseNotes.v0103.build1"><strong>Downloads</strong>: Windows installer built by GitHub Actions; separate macOS DMGs for Apple Silicon (arm64) and Intel (x64) are uploaded to the same GitHub Release.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- v0.10.2 -->
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+
+                <div class="version-header">
+                    <span class="version-number">v0.10.2</span>
                 </div>
 
                 <div class="release-card-content">

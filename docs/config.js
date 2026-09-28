@@ -5,7 +5,7 @@
 
 const SMC_CONFIG = {
     // Current version
-    version: 'v0.10.2',
+    version: 'v0.10.3',
 
     // Release date
     releaseDate: '2026-09-28',
@@ -14,13 +14,13 @@ const SMC_CONFIG = {
     downloads: {
         windows: {
             installer:
-                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.2/Sync-Multi-Chat-Setup-0.10.2-x64.exe',
+                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.3/Sync-Multi-Chat-Setup-0.10.3-x64.exe',
         },
         macos: {
             intelDmg:
-                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.2/Sync-Multi-Chat-Setup-0.10.2-x64.dmg',
+                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.3/Sync-Multi-Chat-Setup-0.10.3-x64.dmg',
             arm64Dmg:
-                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.2/Sync-Multi-Chat-Setup-0.10.2-arm64.dmg',
+                'https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.3/Sync-Multi-Chat-Setup-0.10.3-arm64.dmg',
         },
         linux: null,
     },

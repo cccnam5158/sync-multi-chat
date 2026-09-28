@@ -1,5 +1,20 @@
 # Release Notes
 
+## v0.10.3 (2026-09-28)
+
+### 🔧 Bug Fixes
+*   **Gemini Cross Check — other AIs' answers now arrive**: On Gemini's new input UI (Quill editor, `ql-editor new-input-ui`), a Cross Check prompt only delivered its **first line** (the predefined prompt); the ChatGPT/Claude answers that followed were dropped. Prompt injection cleared the editor with `innerHTML = ''`, which removed Quill's `<p>` blocks, so multi-line text was inserted as `<div>` lines that Quill's normalizer discarded about a second later. For Quill editors the existing content is now **selected and replaced** instead, keeping Quill's block structure so every line is sent. Other services keep the previous behavior.
+*   **Gemini send button on the Korean UI**: Added `button[aria-label='메시지 보내기']` to Gemini's send-button selectors. The new UI no longer matched any existing selector, so sending relied only on the Enter-key fallback.
+*   **macOS auto-update — "Could not get code signature for running application"**: macOS builds are not signed with a Developer ID, so Squirrel.Mac (used by electron-updater) refused to install updates, most visibly on **Intel Macs**. On macOS, **Update Now** now downloads the DMG for your CPU (**Apple Silicon** or **Intel**) into **Downloads** with a progress window, verifies it against the **sha512** in `latest-mac.yml`, and opens it so you can drag the app into **Applications**. If the download fails, the app offers to open the GitHub release page. Windows auto-update is unchanged.
+
+> **Note for macOS users on v0.10.2 and earlier**: The fix ships inside v0.10.3, so the in-app updater of older versions can still show the code-signature error. Download v0.10.3 once manually (DMG links below). Later updates use the new flow.
+
+### 🏗️ Build & Release
+*   **Windows + macOS (per chip)**: The Windows installer is built by **GitHub Actions** (`windows-2022`); macOS **DMG/ZIP** artifacts for **Apple Silicon (arm64)** and **Intel (x64)** are built on `macos-latest` and uploaded to the **same GitHub Release**.
+*   **Version alignment**: `package.json` and `package-lock.json` both point to **0.10.3**; the app window title shows **v0.10.3**.
+
+---
+
 ## v0.10.2 (2026-09-28)
 
 ### ⬆️ Improvements

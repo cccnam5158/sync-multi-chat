@@ -29,6 +29,7 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 -   **In-app login flows** *(v0.10.0)*: Google and OAuth sign-in for supported services can complete **inside the app** (including a **modal login window** that shares the webview session partition), so you are not forced to open an external Chrome window for every login step.
 -   **ChatGPT subscription + Skills (Task UI)** *(v0.10.0)*: Connect your **ChatGPT Plus / Pro / Team** subscription (OpenAI OAuth / Codex-oriented sign-in) to chat with OpenAI-hosted models **without BYOK**, and use **Skills** in **Task** workflows (bundled packs shipped under `src/data/skills`).
 -   **Reliable ChatGPT prompt delivery** *(v0.10.2)*: Prompt injection and send now target ChatGPT's new **ProseMirror composer** (`data-composer-markdown`) and **composer submit button**, with updated login, message, last-response and copy-button selectors so **Copy Chat Thread**, **Copy Last Response** and **Cross Check** keep working on the latest ChatGPT UI.
+-   **Gemini Cross Check fix** *(v0.10.3)*: On Gemini's new input UI, Cross Check now delivers the **full prompt including the other AIs' answers** (previously only the first line arrived). *(v0.10.3)* On macOS, **Update Now** downloads the DMG for your chip (Apple Silicon / Intel), verifies it, and opens it for a drag-to-Applications install—fixing the *"Could not get code signature for running application"* error on Intel Macs.
 -   **Simultaneous Prompting**: Send a message from a central "Master Input" to all active AI services instantly.
 -   **Broad Service Support**: Supports ChatGPT, Claude, Gemini, Grok (xAI), Perplexity, and **Genspark**. *(v0.8.1)* **Perplexity** login-state detection in the panel is improved (fewer false “logged in” / “logged out” mismatches).
 -   **Chat History Management**: Save and restore entire chat sessions including active services, layouts, and URLs.
@@ -45,7 +46,7 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 ## Version
 
--   **Current Version**: v0.10.2
+-   **Current Version**: v0.10.3
 
 ## Installation
 
@@ -53,17 +54,18 @@ It allows users to send a single prompt to **ChatGPT**, **Claude**, **Gemini**, 
 
 The Windows build is distributed as an **installer** with **automatic update support** (GitHub Releases).
 
-1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.10.2-x64.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.2/Sync-Multi-Chat-Setup-0.10.2-x64.exe)
+1.  Download the latest installer: [Sync-Multi-Chat-Setup-0.10.3-x64.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.3/Sync-Multi-Chat-Setup-0.10.3-x64.exe)
 2.  Run the installer and follow the installation wizard.
 3.  The app will automatically check for updates on startup.
 
 ### macOS
 
 1.  Download the **DMG** for your Mac:
-    - **Apple Silicon (M1/M2/M3…)** — [Sync-Multi-Chat-Setup-0.10.2-arm64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.2/Sync-Multi-Chat-Setup-0.10.2-arm64.dmg)
-    - **Intel (x64)** — [Sync-Multi-Chat-Setup-0.10.2-x64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.2/Sync-Multi-Chat-Setup-0.10.2-x64.dmg)
+    - **Apple Silicon (M1/M2/M3…)** — [Sync-Multi-Chat-Setup-0.10.3-arm64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.3/Sync-Multi-Chat-Setup-0.10.3-arm64.dmg)
+    - **Intel (x64)** — [Sync-Multi-Chat-Setup-0.10.3-x64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.3/Sync-Multi-Chat-Setup-0.10.3-x64.dmg)
 2.  Open the DMG and drag **Sync Multi Chat** into **Applications**.
 3.  On first launch, if Gatekeeper prompts, allow the app under **System Settings → Privacy & Security** (or right-click → Open once).
+4.  **Updates** *(v0.10.3)*: When a new version is available, **Update Now** downloads the matching DMG to **Downloads** and opens it—quit the app, drag it into **Applications** and choose **Replace**. If you are on **v0.10.2 or earlier** and see a code-signature error, download v0.10.3 manually once using the links above.
 
 ### Development Setup (For Contributors)
 
@@ -91,6 +93,8 @@ The Windows build is distributed as an **installer** with **automatic update sup
 -   **Chat/Task History UX** *(v0.10.1)*: **Preview** modal for saved **chat thread** / **Task** content; **double-click** history **titles** for inline rename; **Custom Prompt Builder** list click uses stable **load-to-editor** routing (fixes wrong prompt after reorder/filter).
 -   **ChatGPT subscription & Skills** *(v0.10.0)*: Settings-driven **OpenAI OAuth** for subscription-backed models in the **Task** experience, with **Skills** directories shipped in the app bundle (`asarUnpack`) for agent-style tooling.
 -   **ChatGPT selector refresh** *(v0.10.2)*: `src/config/selectors.json` lists new-UI selectors first (ProseMirror input, `form button[type='submit']`, `button[data-composer-submit]`, `div[data-turn-key]`, `data-markdown-text-style='assistant-message'`) and keeps legacy selectors as fallbacks.
+-   **Gemini Quill input handling** *(v0.10.3)*: For Quill editors (`.ql-editor`), prompt injection selects and replaces existing content instead of clearing `innerHTML`, so Quill keeps its `<p>` blocks and multi-line prompts (Cross Check) survive Quill's normalization. Gemini's Korean send-button label (`메시지 보내기`) was added to the selectors.
+-   **macOS update path** *(v0.10.3)*: macOS builds are unsigned, so Squirrel.Mac cannot install them. `src/main/mac-updater.js` downloads the per-arch DMG listed in `latest-mac.yml`, verifies its sha512 and opens it; Windows keeps the electron-updater NSIS flow.
 -   **Bot Detection Evasion**: Uses User-Agent spoofing and human-like input event triggering to ensure compatibility.
 
 ---
