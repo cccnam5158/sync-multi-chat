@@ -26,6 +26,7 @@
 -   **macOS ビルド** *(v0.10.0新機能)*: **Intel (x64)** と **Apple Silicon (arm64)** 向けネイティブインストーラ（DMG/ZIP）。`npm run build:mac` でローカルビルドし、CPU に合った成果物をインストールします。
 -   **アプリ内ログイン** *(v0.10.0)*: 対応フローでは Google/OAuth ログインを**アプリ内**で完了できます（サービス WebView と**同一パーティション**の**モーダルログイン**を含む）。常に外部 Chrome を開く必要はありません。
 -   **ChatGPT サブスクリプション + Skills（Task UI）** *(v0.10.0)*: **ChatGPT Plus/Pro/Team**（OpenAI OAuth・Codex 系サインイン）で **API キーなし**に OpenAI ホストモデルを利用し、**Task** ワークフローで **Skills**（`src/data/skills` 同梱）を使えます。
+-   **ChatGPTプロンプト送信の安定化** *(v0.10.2)*: ChatGPTの新しい**ProseMirror入力欄**（`data-composer-markdown`）と**composer送信ボタン**を認識するよう入力・送信ロジックを改善し、ログイン・メッセージ・最後の応答・コピーボタンのセレクタも更新。最新のChatGPT UIでも**Copy Chat Thread**、**Copy Last Response**、**Cross Check**が動作します。
 -   **同時プロンプト送信**: 中央の「マスター入力欄」からメッセージを送ると、アクティブな全AIサービスに即座に送信されます。
 -   **幅広いサービス対応**: ChatGPT、Claude、Gemini、Grok (xAI)、Perplexity、**Genspark** に対応しています。*(v0.8.1)* **Perplexity** パネルのログイン状態検出を改善し、バッジ表示と実際のセッションがより一致します。
 -   **チャット履歴管理**: アクティブなサービス、レイアウト、URLを含むチャットセッション全体を保存・復元できます。
@@ -42,7 +43,7 @@
 
 ## バージョン
 
--   **現在のバージョン**: v0.10.1
+-   **現在のバージョン**: v0.10.2
 
 ## インストール
 
@@ -50,15 +51,15 @@
 
 **Windows インストーラー**として配布され、**自動更新**に対応しています（GitHub Releases）。
 
-1.  最新インストーラー: [Sync-Multi-Chat-Setup-0.10.1-x64.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.1/Sync-Multi-Chat-Setup-0.10.1-x64.exe)
+1.  最新インストーラー: [Sync-Multi-Chat-Setup-0.10.2-x64.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.2/Sync-Multi-Chat-Setup-0.10.2-x64.exe)
 2.  インストールウィザードに従います。
 3.  起動時にアップデートを確認します。
 
 ### macOS
 
 1.  Mac 向け **DMG** をダウンロードします。
-    - **Apple Silicon (M1/M2/M3…)** — [Sync-Multi-Chat-Setup-0.10.1-arm64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.1/Sync-Multi-Chat-Setup-0.10.1-arm64.dmg)
-    - **Intel (x64)** — [Sync-Multi-Chat-Setup-0.10.1-x64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.1/Sync-Multi-Chat-Setup-0.10.1-x64.dmg)
+    - **Apple Silicon (M1/M2/M3…)** — [Sync-Multi-Chat-Setup-0.10.2-arm64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.2/Sync-Multi-Chat-Setup-0.10.2-arm64.dmg)
+    - **Intel (x64)** — [Sync-Multi-Chat-Setup-0.10.2-x64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.2/Sync-Multi-Chat-Setup-0.10.2-x64.dmg)
 2.  DMG を開き、**Sync Multi Chat** を **アプリケーション** にドラッグします。
 3.  初回起動時に Gatekeeper が表示された場合は、**システム設定 → プライバシーとセキュリティ** で許可するか、**コントロールキーを押しながらクリック → 開く** を使用します。
 
@@ -87,6 +88,7 @@
 -   **Prompt Hub / カスタムプロンプトのカテゴリUX** *(v0.9.1)*: カテゴリの**ダブルクリックリネーム**とシングルクリックフィルタの競合を解消。Grid.js更新後も**プロンプト→カテゴリ**のドラッグを維持。カテゴリ**ドラッグ＆ドロップ**の並べ替え・親変更・安全なno-opを整理し、ドロップ先の**ハイライト**で割り当て先を分かりやすくしました。
 -   **チャット/Task履歴UX** *(v0.10.1)*: 保存された**チャットスレッド**・**Task**の**プレビュー**、履歴タイトルの**ダブルクリックインラインリネーム**、カスタムプロンプト一覧の**正しいエディタ読み込み**（並べ替え後の誤開き修正）。
 -   **ChatGPT サブスクリプション & Skills** *(v0.10.0)*: 設定から **OpenAI OAuth** でサブスクリプションモデルを **Task** 体験に接続し、同梱 **Skills**（`asarUnpack`）をツール系ワークフローで利用します。
+-   **ChatGPTセレクタ更新** *(v0.10.2)*: `src/config/selectors.json` で新UIのセレクタ（ProseMirror入力欄、`form button[type='submit']`、`button[data-composer-submit]`、`div[data-turn-key]`、`data-markdown-text-style='assistant-message'`）を優先し、従来のセレクタはフォールバックとして維持します。
 -   **ボット検知回避**: 互換性を確保するため、User-Agentスプーフィングや人間のような入力イベントトリガーを使用しています。
 
 ---

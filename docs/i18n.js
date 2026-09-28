@@ -14,7 +14,7 @@ const translations = {
         "nav.getStarted": "Get Started",
 
         // Hero Section
-        "hero.badge": "v0.10.1: Chat/Task history preview, title quick rename, and fixed prompt opening from list",
+        "hero.badge": "v0.10.2: Improved ChatGPT prompt delivery for the new composer, plus macOS Intel & Apple Silicon builds",
         "hero.title1": "No API keys.",
         "hero.title2a": "Use your ChatGPT, Claude, Gemini",
         "hero.title2b": "subscriptions in one place.",
@@ -139,7 +139,7 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "Release History",
-        "releaseNotes.lastUpdated": "Last updated: Apr 7, 2026",
+        "releaseNotes.lastUpdated": "Last updated: Sep 28, 2026",
         "releaseNotes.v091.fix1": "Category tree editing (Hub + CPB): Single-click filter is deferred so double-click rename no longer refreshes the list before the inline editor opens.",
         "releaseNotes.v091.fix2": "Custom Prompt Builder — prompts to categories: Grid.js re-renders no longer break drag-and-drop; rows stay in sync via MutationObserver and delegated dragstart on the modal.",
         "releaseNotes.v091.fix3": "Category drag-and-drop: Reorder/reparent rules for roots and subcategories are completed; dropping on self or Uncategorized is a safe no-op.",
@@ -148,6 +148,10 @@ const translations = {
         "releaseNotes.v010.feature2": "In-app login (webview-first): Google and OAuth flows can complete inside the app—including a modal BrowserWindow on the same session partition as the service webview—so you are not forced to open external Chrome for every step.",
         "releaseNotes.v010.feature3": "ChatGPT subscription workspace (Skills): Sign in with ChatGPT Plus/Pro/Team (OpenAI OAuth / Codex-oriented flow) to use OpenAI-hosted models without BYOK, with Task workflows and bundled Skills under src/data/skills.",
         "releaseNotes.buildAndRelease": "Build & Release",
+        "releaseNotes.v0102.imp1": "ChatGPT prompt delivery: Supports ChatGPT's new ProseMirror composer (data-composer-markdown, role=\"textbox\") so prompts are injected into the correct input.",
+        "releaseNotes.v0102.imp2": "ChatGPT send button detection: Adds form submit and data-composer-submit button selectors ahead of the legacy ones, so broadcast sends no longer stall on the new UI.",
+        "releaseNotes.v0102.imp3": "ChatGPT login & response detection: Updated logged-in, message (data-turn-key), last-response, copy-button (EN/KO labels) and conversation-container selectors for Copy Chat Thread, Copy Last Response and Cross Check.",
+        "releaseNotes.v0102.build1": "Downloads: Windows installer built by GitHub Actions; separate macOS DMGs for Apple Silicon (arm64) and Intel (x64) are uploaded to the same GitHub Release.",
         "releaseNotes.v0101.feature1": "Chat & Task History preview: Open a read-only preview of saved chat-thread columns or Task transcripts from the sidebar without restoring the full session.",
         "releaseNotes.v0101.feature2": "Inline history title rename: Double-click a Chat/Task history row title to edit in place (Enter saves, Esc cancels).",
         "releaseNotes.v0101.fix1": "Custom Prompt Builder — correct prompt on click: Saved-list navigation now uses load-to-editor so the intended prompt opens after sort, filter, or Grid refresh.",
@@ -241,7 +245,7 @@ const translations = {
         "nav.getStarted": "시작하기",
 
         // Hero Section
-        "hero.badge": "v0.10.1: 채팅/Task 히스토리 미리보기, 제목 빠른 수정, 프롬프트 목록 열기 수정",
+        "hero.badge": "v0.10.2: 새 ChatGPT 입력창 대응 프롬프트 전송 개선, macOS Intel·Apple Silicon 빌드",
         "hero.title1": "API 키 없이.",
         "hero.title2a": "개인 구독 ChatGPT, Claude, Gemini를",
         "hero.title2b": "한 곳에서 최대한 활용.",
@@ -366,7 +370,7 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "릴리스 히스토리",
-        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 4월 7일",
+        "releaseNotes.lastUpdated": "최종 업데이트: 2026년 9월 28일",
         "releaseNotes.v091.fix1": "카테고리 트리 편집(Hub + CPB): 단일 클릭 필터를 짧게 지연해 더블클릭 이름 변경 시 목록이 먼저 갱신되지 않습니다.",
         "releaseNotes.v091.fix2": "커스텀 프롬프트 빌더 — 프롬프트를 카테고리로: Grid.js 재렌더 후에도 드래그 앤 드롭이 유지되도록 MutationObserver와 모달 위임 dragstart로 행 속성을 동기화합니다.",
         "releaseNotes.v091.fix3": "카테고리 드래그 앤 드롭: 루트/서브 재정렬·재부모 규칙을 보완했고, 자기 자신·미분류에 드롭 시 안전하게 무시합니다.",
@@ -375,6 +379,10 @@ const translations = {
         "releaseNotes.v010.feature2": "앱 내 로그인(웹뷰 우선): Google/OAuth 흐름을 앱 안에서 완료할 수 있습니다. 서비스 웹뷰와 동일 세션 파티션의 모달 창으로 accounts.google.com 등을 처리합니다.",
         "releaseNotes.v010.feature3": "ChatGPT 구독 워크스페이스(Skills): ChatGPT Plus/Pro/Team(OpenAI OAuth·Codex 계열)으로 API 키 없이 OpenAI 호스팅 모델을 사용하고, Task에서 src/data/skills 번들 Skills를 활용합니다.",
         "releaseNotes.buildAndRelease": "빌드 및 릴리스",
+        "releaseNotes.v0102.imp1": "ChatGPT 프롬프트 전송: ChatGPT의 새 ProseMirror 입력창(data-composer-markdown, role=\"textbox\")을 인식해 프롬프트가 올바른 입력창에 입력됩니다.",
+        "releaseNotes.v0102.imp2": "ChatGPT 전송 버튼 탐지: form submit·data-composer-submit 버튼 셀렉터를 기존 셀렉터보다 먼저 확인해, 새 UI에서 일괄 전송이 멈추지 않습니다.",
+        "releaseNotes.v0102.imp3": "ChatGPT 로그인·응답 탐지: 로그인 상태, 메시지(data-turn-key), 마지막 응답, 복사 버튼(영문·한글 라벨), 대화 컨테이너 셀렉터를 갱신해 Copy Chat Thread·Copy Last Response·Cross Check가 안정적으로 동작합니다.",
+        "releaseNotes.v0102.build1": "다운로드: Windows 설치 파일은 GitHub Actions에서 빌드하고, macOS는 Apple Silicon(arm64)·Intel(x64) DMG를 각각 같은 GitHub Release에 업로드합니다.",
         "releaseNotes.v0101.feature1": "채팅 및 Task 히스토리 미리보기: 세션 전체 복원 없이 저장된 채팅 스레드(서비스별 열) 또는 Task 대화를 미리 봅니다.",
         "releaseNotes.v0101.feature2": "히스토리 제목 인라인 수정: 채팅/Task 히스토리 행 제목을 더블클릭해 바로 편집합니다(Enter 저장, Esc 취소).",
         "releaseNotes.v0101.fix1": "커스텀 프롬프트 빌더 — 클릭 시 올바른 프롬프트: 저장 목록에서 load-to-editor 경로로 열어 정렬·필터·그리드 갱신 후에도 의도한 프롬프트가 열립니다.",
@@ -468,7 +476,7 @@ const translations = {
         "nav.getStarted": "始める",
 
         // Hero Section
-        "hero.badge": "v0.10.1: チャット/Task履歴プレビュー、タイトルのクイック編集、プロンプト一覧の誤開き修正",
+        "hero.badge": "v0.10.2: 新しいChatGPT入力欄に対応したプロンプト送信の改善、macOS Intel・Apple Siliconビルド",
         "hero.title1": "APIキー不要。",
         "hero.title2a": "個人のChatGPT・Claude・Geminiを",
         "hero.title2b": "1つのアプリで最大限に。",
@@ -593,7 +601,7 @@ const translations = {
 
         // Release Notes
         "releaseNotes.title": "リリース履歴",
-        "releaseNotes.lastUpdated": "最終更新: 2026年4月7日",
+        "releaseNotes.lastUpdated": "最終更新: 2026年9月28日",
         "releaseNotes.v091.fix1": "カテゴリツリー編集（Hub + CPB）: シングルクリックのフィルタを短く遅延させ、ダブルクリックのリネーム時にリストが先に更新されないようにしました。",
         "releaseNotes.v091.fix2": "カスタムプロンプトビルダー — プロンプトをカテゴリへ: Grid.jsの再レンダ後もDnDが壊れないよう、MutationObserverとモーダル委譲のdragstartで行属性を同期します。",
         "releaseNotes.v091.fix3": "カテゴリのドラッグ＆ドロップ: ルート/サブの並べ替え・親変更ルールを補完。自分自身や未分類へのドロップは安全に無視します。",
@@ -602,6 +610,10 @@ const translations = {
         "releaseNotes.v010.feature2": "アプリ内ログイン（WebView 優先）: Google/OAuth をアプリ内で完了可能。サービス WebView と同一セッションパーティションのモーダルで accounts.google.com などを処理します。",
         "releaseNotes.v010.feature3": "ChatGPT サブスクリプション（Skills）: ChatGPT Plus/Pro/Team（OpenAI OAuth・Codex 系）で API キーなしのホストモデル。Task で src/data/skills の Skills を利用。",
         "releaseNotes.buildAndRelease": "ビルドとリリース",
+        "releaseNotes.v0102.imp1": "ChatGPTプロンプト送信: ChatGPTの新しいProseMirror入力欄（data-composer-markdown、role=\"textbox\"）を認識し、プロンプトが正しい入力欄に入力されます。",
+        "releaseNotes.v0102.imp2": "ChatGPT送信ボタン検出: form submit・data-composer-submit ボタンのセレクタを従来より先に確認し、新UIでも一斉送信が止まりません。",
+        "releaseNotes.v0102.imp3": "ChatGPTログイン・応答検出: ログイン状態、メッセージ（data-turn-key）、最後の応答、コピーボタン（英語・韓国語ラベル）、会話コンテナのセレクタを更新し、Copy Chat Thread・Copy Last Response・Cross Checkが安定して動作します。",
+        "releaseNotes.v0102.build1": "ダウンロード: WindowsインストーラーはGitHub Actionsでビルドし、macOSはApple Silicon（arm64）・Intel（x64）それぞれのDMGを同じGitHub Releaseにアップロードします。",
         "releaseNotes.v0101.feature1": "チャット・Task履歴プレビュー: セッション全体を復元せず、保存済みチャットスレッド（サービス列）やTaskのトランスクリプトを閲覧できます。",
         "releaseNotes.v0101.feature2": "履歴タイトルのインライン編集: チャット/Task履歴の行タイトルをダブルクリックしてその場で編集（Enterで確定、Escでキャンセル）。",
         "releaseNotes.v0101.fix1": "カスタムプロンプトビルダー — クリックで正しいプロンプト: 保存一覧は load-to-editor で開き、並べ替え・フィルタ・グリッド更新後も意図したプロンプトが開きます。",

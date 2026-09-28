@@ -1,5 +1,18 @@
 # Release Notes
 
+## v0.10.2 (2026-09-28)
+
+### ⬆️ Improvements
+*   **ChatGPT prompt delivery — new composer support**: ChatGPT moved its prompt box to a **ProseMirror** composer. Input detection now checks `div.ProseMirror[contenteditable='true'][data-composer-markdown]` and `div[contenteditable='true'][role='textbox']` (plus `textarea[name='prompt']`) **before** the legacy `#prompt-textarea` selectors, so broadcast prompts are typed into the correct field again.
+*   **ChatGPT send button detection**: Sending now tries `form button[type='submit']` and `button[data-composer-submit]` first, falling back to `send-button` / `aria-label='Send prompt'`. This prevents prompts from being typed but never submitted on the new UI.
+*   **ChatGPT login & response detection**: Updated the **logged-in** selectors (new composer), **message** selector (`div[data-turn-key]`), **last response** selector (`div[data-markdown-text-style='assistant-message']`), **copy button** (`Copy message` / `메시지 복사` labels) and **conversation container** (`main [data-app-action-timeline-scroll]`). **Copy Chat Thread**, **Copy Last Response**, **Cross Check** and the **Login Required** badge work with the current ChatGPT DOM; legacy selectors are kept as fallbacks.
+
+### 🏗️ Build & Release
+*   **Windows + macOS (per chip)**: The Windows installer is built by **GitHub Actions** (`windows-latest`), and separate macOS **DMG/ZIP** artifacts for **Apple Silicon (arm64)** and **Intel (x64)** are built on `macos-latest` and uploaded to the **same GitHub Release**.
+*   **Version alignment**: `package.json` and `package-lock.json` both point to **0.10.2**; the app window title shows **v0.10.2**.
+
+---
+
 ## v0.10.1 (2026-04-07)
 
 ### ✨ New Features
