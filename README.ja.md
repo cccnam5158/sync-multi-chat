@@ -27,7 +27,7 @@
 -   **アプリ内ログイン** *(v0.10.0)*: 対応フローでは Google/OAuth ログインを**アプリ内**で完了できます（サービス WebView と**同一パーティション**の**モーダルログイン**を含む）。常に外部 Chrome を開く必要はありません。
 -   **ChatGPT サブスクリプション + Skills（Task UI）** *(v0.10.0)*: **ChatGPT Plus/Pro/Team**（OpenAI OAuth・Codex 系サインイン）で **API キーなし**に OpenAI ホストモデルを利用し、**Task** ワークフローで **Skills**（`src/data/skills` 同梱）を使えます。
 -   **ChatGPTプロンプト送信の安定化** *(v0.10.2)*: ChatGPTの新しい**ProseMirror入力欄**（`data-composer-markdown`）と**composer送信ボタン**を認識するよう入力・送信ロジックを改善し、ログイン・メッセージ・最後の応答・コピーボタンのセレクタも更新。最新のChatGPT UIでも**Copy Chat Thread**、**Copy Last Response**、**Cross Check**が動作します。
--   **Geminiクロスチェックの修正** *(v0.10.3)*: Geminiの新しい入力欄でも、クロスチェック時に**他のAIの回答を含むプロンプト全体**が届くようになりました（以前は1行目のみ）。*(v0.10.3)* macOSでは**Update Now**でチップ（Apple Silicon / Intel）に合ったDMGをダウンロード・検証して開くため、Intel Macの *"Could not get code signature for running application"* エラーが解消されます。
+-   **Geminiクロスチェックの修正** *(v0.10.3)*: Geminiの新しい入力欄でも、クロスチェック時に**他のAIの回答を含むプロンプト全体**が届くようになりました（以前は1行目のみ）。*(v0.10.3)* macOSでは**Update Now**でチップ（Apple Silicon / Intel）に合ったDMGをダウンロード・検証して開くため、Intel Macの *"Could not get code signature for running application"* エラーが解消されます。*(v0.10.4)* macOSでダウンロード完了後に **Downloading update...** ウィンドウが正しく閉じるようになりました。
 -   **同時プロンプト送信**: 中央の「マスター入力欄」からメッセージを送ると、アクティブな全AIサービスに即座に送信されます。
 -   **幅広いサービス対応**: ChatGPT、Claude、Gemini、Grok (xAI)、Perplexity、**Genspark** に対応しています。*(v0.8.1)* **Perplexity** パネルのログイン状態検出を改善し、バッジ表示と実際のセッションがより一致します。
 -   **チャット履歴管理**: アクティブなサービス、レイアウト、URLを含むチャットセッション全体を保存・復元できます。
@@ -44,7 +44,7 @@
 
 ## バージョン
 
--   **現在のバージョン**: v0.10.3
+-   **現在のバージョン**: v0.10.4
 
 ## インストール
 
@@ -52,18 +52,18 @@
 
 **Windows インストーラー**として配布され、**自動更新**に対応しています（GitHub Releases）。
 
-1.  最新インストーラー: [Sync-Multi-Chat-Setup-0.10.3-x64.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.3/Sync-Multi-Chat-Setup-0.10.3-x64.exe)
+1.  最新インストーラー: [Sync-Multi-Chat-Setup-0.10.4-x64.exe](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.4/Sync-Multi-Chat-Setup-0.10.4-x64.exe)
 2.  インストールウィザードに従います。
 3.  起動時にアップデートを確認します。
 
 ### macOS
 
 1.  Mac 向け **DMG** をダウンロードします。
-    - **Apple Silicon (M1/M2/M3…)** — [Sync-Multi-Chat-Setup-0.10.3-arm64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.3/Sync-Multi-Chat-Setup-0.10.3-arm64.dmg)
-    - **Intel (x64)** — [Sync-Multi-Chat-Setup-0.10.3-x64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.3/Sync-Multi-Chat-Setup-0.10.3-x64.dmg)
+    - **Apple Silicon (M1/M2/M3…)** — [Sync-Multi-Chat-Setup-0.10.4-arm64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.4/Sync-Multi-Chat-Setup-0.10.4-arm64.dmg)
+    - **Intel (x64)** — [Sync-Multi-Chat-Setup-0.10.4-x64.dmg](https://github.com/cccnam5158/sync-multi-chat/releases/download/v0.10.4/Sync-Multi-Chat-Setup-0.10.4-x64.dmg)
 2.  DMG を開き、**Sync Multi Chat** を **アプリケーション** にドラッグします。
 3.  初回起動時に Gatekeeper が表示された場合は、**システム設定 → プライバシーとセキュリティ** で許可するか、**コントロールキーを押しながらクリック → 開く** を使用します。
-4.  **アップデート** *(v0.10.3)*: 新しいバージョンがあると、**Update Now** が対応する DMG を **ダウンロード** フォルダに保存して開きます。アプリを終了し、**アプリケーション** にドラッグして **置き換え** を選択してください。**v0.10.2 以前**でコード署名エラーが表示される場合は、上のリンクから v0.10.3 を一度だけ手動でインストールしてください。
+4.  **アップデート** *(v0.10.3)*: 新しいバージョンがあると、**Update Now** が対応する DMG を **ダウンロード** フォルダに保存して開きます。アプリを終了し、**アプリケーション** にドラッグして **置き換え** を選択してください。**v0.10.2 以前**でコード署名エラーが表示される場合は、上のリンクから最新の DMG を一度だけ手動でインストールしてください。
 
 ### 開発環境セットアップ（コントリビューター向け）
 

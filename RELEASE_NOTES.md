@@ -1,5 +1,17 @@
 # Release Notes
 
+## v0.10.4 (2026-09-28)
+
+### 🔧 Bug Fixes
+*   **macOS update — "Downloading update..." window no longer stays open**: The download progress window is created with `closable: false`, and on macOS `close()` is ignored for such windows, so the progress window stayed on screen after the download finished or failed. It is now destroyed explicitly. Verified end to end on an unsigned Intel build: **Update Now** downloads the v0.10.3 DMG, verifies its sha512, opens it and closes the progress window.
+
+> **Note for macOS users on v0.10.2 and earlier**: Older versions still use the previous installer path and will keep showing *"Could not get code signature for running application"*. Download the DMG for your Mac from the release page and install it once manually; updates from v0.10.4 onward use the new flow.
+
+### 🏗️ Build & Release
+*   **Version alignment**: `package.json` and `package-lock.json` both point to **0.10.4**; the app window title shows **v0.10.4**. Windows installer via **GitHub Actions** (`windows-2022`); macOS **Apple Silicon (arm64)** and **Intel (x64)** DMG/ZIP on the same GitHub Release.
+
+---
+
 ## v0.10.3 (2026-09-28)
 
 ### 🔧 Bug Fixes
