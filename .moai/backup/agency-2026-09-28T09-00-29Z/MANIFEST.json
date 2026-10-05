@@ -1,0 +1,196 @@
+{
+  "spec_id": "SPEC-V3R3-UPDATE-CLEANUP-001",
+  "deleted_at": "2026-09-28T09:00:29.806296Z",
+  "files": [
+    {
+      "path": ".claude/commands/agency/agency.md",
+      "hash": "sha256:ca29a0ab1388d68e65320793db29bc63329ed22ae483c7140233aa9f530b661c",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/commands/agency/brief.md",
+      "hash": "sha256:ebc056432c220f29a164ec22738dd7248af51479b36a8124f020296d86e0c0d3",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/commands/agency/build.md",
+      "hash": "sha256:573121e419f0d6d5a914f082806e2f110b49dff6761aa2bf0426032572782d7d",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/commands/agency/evolve.md",
+      "hash": "sha256:229651d78079b683ef0c2f43583fb11b6c476226e960839e0cb4d9ea3e456f2f",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/commands/agency/learn.md",
+      "hash": "sha256:0ac5c4892cd5466dc79b57ea6e6f5a32eba6ed25bf0ec4be0a554775968b47a9",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/commands/agency/profile.md",
+      "hash": "sha256:84a740c52ecbbb47bbab95edd27bdf7fb6f25ecf47da87db43f8e2c88ac2b258",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/commands/agency/resume.md",
+      "hash": "sha256:61f9407da07719fe9c12edd6b6c39f3c19afd0fe72f4250c5243c9b0a3c896da",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/commands/agency/review.md",
+      "hash": "sha256:e4eaff4c7029d0fa325603d3bd794e37615dce4a2cfddf3275239f38a63c9e73",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/rules/agency/constitution.md",
+      "hash": "sha256:fe67b27974072694c62fa88547a4b8bd8b81eced450d00036cbe5bf3e35cf91a",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency/.DS_Store",
+      "hash": "sha256:c29f66cf32f31f6a9367c7577a0c583aa3fe061342c9bb5802b9acf027588320",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency/config.yaml",
+      "hash": "sha256:7d5241d656f3a9b5f6c4d7af2fabdf353f620999213496d77768b5fffbbf726b",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency/context/brand-voice.md",
+      "hash": "sha256:1999e1ee646e3b6803dd3f046f4c13443d1e5041764183077566b2d56d9ad98c",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency/context/quality-standards.md",
+      "hash": "sha256:b6566a747aaf6e8d582f0ea597edc1626ce090ccbadf5d39d9a63c27171540f4",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency/context/target-audience.md",
+      "hash": "sha256:24cf428a787d6bd9618f23b6163cd60cd455041785b61a4e70d293d2373070f4",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency/context/tech-preferences.md",
+      "hash": "sha256:9823dd96afb685062dda69516a8b6c20a84c1eef5a84fdff771ffbd17167adfd",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency/context/visual-identity.md",
+      "hash": "sha256:9cce6d9a4f9d9f39e873b176ddbf2a123928531b5dec26f76d2afec21b4333e7",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency/fork-manifest.yaml",
+      "hash": "sha256:c52c6f518b7d9dc3e94fdb99fe45fd895ffe500d4510e9622f5463cae970c3dd",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency/templates/brief-template.md",
+      "hash": "sha256:dc01c884c2ee5242511757dda39c86a582a4a5e9d154487d3a63b9b77e2aefb6",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency.archived/.DS_Store",
+      "hash": "sha256:c29f66cf32f31f6a9367c7577a0c583aa3fe061342c9bb5802b9acf027588320",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency.archived/config.yaml",
+      "hash": "sha256:7d5241d656f3a9b5f6c4d7af2fabdf353f620999213496d77768b5fffbbf726b",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency.archived/context/brand-voice.md",
+      "hash": "sha256:1999e1ee646e3b6803dd3f046f4c13443d1e5041764183077566b2d56d9ad98c",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency.archived/context/quality-standards.md",
+      "hash": "sha256:b6566a747aaf6e8d582f0ea597edc1626ce090ccbadf5d39d9a63c27171540f4",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency.archived/context/target-audience.md",
+      "hash": "sha256:24cf428a787d6bd9618f23b6163cd60cd455041785b61a4e70d293d2373070f4",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency.archived/context/tech-preferences.md",
+      "hash": "sha256:9823dd96afb685062dda69516a8b6c20a84c1eef5a84fdff771ffbd17167adfd",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency.archived/context/visual-identity.md",
+      "hash": "sha256:9cce6d9a4f9d9f39e873b176ddbf2a123928531b5dec26f76d2afec21b4333e7",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency.archived/fork-manifest.yaml",
+      "hash": "sha256:c52c6f518b7d9dc3e94fdb99fe45fd895ffe500d4510e9622f5463cae970c3dd",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".agency.archived/templates/brief-template.md",
+      "hash": "sha256:dc01c884c2ee5242511757dda39c86a582a4a5e9d154487d3a63b9b77e2aefb6",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/agents/moai/manager-strategy.md",
+      "hash": "sha256:150d19ef1d2844dc3067c08a97bb8c9c7ee41bf1fcc2c2f1a01cdf7c307835b5",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/agents/moai/manager-quality.md",
+      "hash": "sha256:10972eeaf870e4b7a18bdd81da69097fe6dea16bff4503154975421aa362a043",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/agents/moai/manager-project.md",
+      "hash": "sha256:d5fcf0df6c1164dcf29a5da4bfce99729f277d57b1950910f69e179e4b282863",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/agents/moai/researcher.md",
+      "hash": "sha256:9b101145f17256bb9af67d6885592bf43dd4c408ff032c5f43aad46daf23a6be",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/agents/moai/expert-backend.md",
+      "hash": "sha256:6e7c7f21a9a7b2467e5862d69ea8349b4158cbb479e339bbb52f6d516cc98502",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/agents/moai/expert-frontend.md",
+      "hash": "sha256:9fa061e7c505d55b5885ef5347f2cafa0cdbb2215ee8daee9a390203f32f0680",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/agents/moai/expert-security.md",
+      "hash": "sha256:2a4886e2814f5fb84cee4be9dd5c5a28eecc4328f334a7714b2bb3e461b6b955",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/agents/moai/expert-devops.md",
+      "hash": "sha256:f23bba61a63b6763f20f977d77199d499ff48c1c69ec22e40c09f4b075ebc774",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/agents/moai/expert-performance.md",
+      "hash": "sha256:b5337ae7ed5f38c3957be78a14fbb9c6a4a72011008175f00f0da92c69264513",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".claude/agents/moai/expert-refactoring.md",
+      "hash": "sha256:bdc9a5af4fddf8871338934a0f4a9695060866d6e77c188e0d8e0d1f1eeb5590",
+      "classification": "UnverifiedDeprecated"
+    },
+    {
+      "path": ".moai/config/sections/memo.yaml",
+      "hash": "sha256:e4687ef6dd82ee0f3cc102f34d9325ea07f3a4d14c1707cfb5e19ed275c16de1",
+      "classification": "UnverifiedDeprecated"
+    }
+  ]
+}

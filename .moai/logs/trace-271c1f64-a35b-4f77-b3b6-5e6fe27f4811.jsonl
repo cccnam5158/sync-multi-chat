@@ -1,0 +1,4 @@
+{"ts":"2026-09-28T17:17:00.620084499+09:00","event":"SessionStart","handler":"*hook.sessionStartHandler","duration_ms":3,"session_id":"271c1f64-a35b-4f77-b3b6-5e6fe27f4811"}
+{"ts":"2026-09-28T17:17:00.623216349+09:00","event":"SessionStart","handler":"*hook.autoUpdateHandler","duration_ms":0,"session_id":"271c1f64-a35b-4f77-b3b6-5e6fe27f4811"}
+{"ts":"2026-09-28T17:17:00.623454773+09:00","event":"SessionStart","handler":"*hook.handoffInjectHandler","duration_ms":0,"session_id":"271c1f64-a35b-4f77-b3b6-5e6fe27f4811"}
+{"ts":"2026-09-28T17:17:00.623466075+09:00","event":"SessionStart","handler":"*hook.sessionStartCompactHandler","duration_ms":0,"session_id":"271c1f64-a35b-4f77-b3b6-5e6fe27f4811"}

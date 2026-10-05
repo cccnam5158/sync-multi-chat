@@ -1,3 +1,7 @@
+# User Configuration
+# User-specific information and preferences
 user:
-    github_username: cccnam5158
-    name: joseph
+  # User name for personalization and commit attribution
+  # Used in git commits when configured with Co-Authored-By
+  name: joseph
+  github_username: cccnam5158

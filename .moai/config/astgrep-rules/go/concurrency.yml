@@ -1,0 +1,27 @@
+---
+id: go-goroutine-without-context
+language: go
+severity: warning
+message: Goroutine started without passing context. Pass a context.Context parameter to support cancellation propagation.
+note: A goroutine without context can keep running after its parent function
+  returns, leaking goroutines at service shutdown.
+rule:
+  pattern: "go func() {\n  $$$BODY\n}()\n"
+---
+id: go-defer-in-loop
+language: go
+severity: error
+message: defer inside a loop holds the file/resource open until the loop's enclosing function returns.
+note: defer inside a loop does not run until the function returns. Extract the
+  loop body into a separate function or close explicitly.
+rule:
+  pattern: "for $$$INIT {\n  $$$PRE\n  defer $RESOURCE.$METHOD()\n  $$$POST\n}\n"
+---
+id: go-channel-send-no-select
+language: go
+severity: warning
+message: Channel send without select-default. The goroutine can block forever if no receiver is ready.
+note: 'Use the select { case ch <- v: default: } pattern, or select together
+  with context.Done().'
+rule:
+  pattern: $CHAN <- $VALUE

@@ -1,0 +1,15 @@
+{"ts":"2026-09-27T18:10:16.322312835+09:00","event":"SessionStart","handler":"*hook.sessionStartHandler","duration_ms":7,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.656113384+09:00","event":"InstructionsLoaded","handler":"*hook.instructionsLoadedHandler","duration_ms":1,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.659505996+09:00","event":"InstructionsLoaded","handler":"*hook.instructionsLoadedHandler","duration_ms":0,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.681087792+09:00","event":"InstructionsLoaded","handler":"*hook.instructionsLoadedHandler","duration_ms":0,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.696417363+09:00","event":"InstructionsLoaded","handler":"*hook.instructionsLoadedHandler","duration_ms":0,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.697156764+09:00","event":"InstructionsLoaded","handler":"*hook.instructionsLoadedHandler","duration_ms":0,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.708316344+09:00","event":"InstructionsLoaded","handler":"*hook.instructionsLoadedHandler","duration_ms":0,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.710189655+09:00","event":"InstructionsLoaded","handler":"*hook.instructionsLoadedHandler","duration_ms":0,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.713815086+09:00","event":"InstructionsLoaded","handler":"*hook.instructionsLoadedHandler","duration_ms":0,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.714110893+09:00","event":"InstructionsLoaded","handler":"*hook.instructionsLoadedHandler","duration_ms":0,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.716944575+09:00","event":"InstructionsLoaded","handler":"*hook.instructionsLoadedHandler","duration_ms":0,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.329827172+09:00","event":"SessionStart","handler":"*hook.autoUpdateHandler","duration_ms":476,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.806244558+09:00","event":"SessionStart","handler":"*hook.handoffInjectHandler","duration_ms":0,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:16.806254789+09:00","event":"SessionStart","handler":"*hook.sessionStartCompactHandler","duration_ms":0,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}
+{"ts":"2026-09-27T18:10:17.127502441+09:00","event":"SessionEnd","handler":"*hook.sessionEndHandler","duration_ms":56,"session_id":"2b025a09-5ac5-4ed1-905d-1833ec882da1"}

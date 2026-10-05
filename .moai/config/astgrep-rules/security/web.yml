@@ -1,0 +1,36 @@
+---
+id: sec-template-injection-html
+language: go
+severity: error
+message: Marking user input as trusted HTML via html/template.HTML() enables XSS.
+note: The template.HTML() conversion bypasses escaping. Never use it on user
+  input; where unavoidable, sanitize with a library such as bluemonday.
+rule:
+  pattern: template.HTML($USER_INPUT)
+metadata:
+  owasp: A03:2021 - Injection
+  cwe: CWE-79
+---
+id: sec-log-injection-unsanitized
+language: go
+severity: warning
+message: External input written to logs verbatim. Log injection can corrupt the logs.
+note: Escape user input before logging, e.g. with fmt.Sprintf(%q) or
+  strconv.Quote(). Embedded newlines break log parsing.
+rule:
+  pattern: log.Printf($FORMAT, $$$ARGS)
+metadata:
+  owasp: A09:2021 - Security Logging and Monitoring Failures
+  cwe: CWE-117
+---
+id: sec-csrf-no-token-check
+language: go
+severity: warning
+message: POST handler without CSRF token verification. Potentially vulnerable to CSRF attacks.
+note: Apply gorilla/csrf or an equivalent middleware to every state-changing
+  POST/PUT/DELETE endpoint.
+rule:
+  pattern: "func $HANDLER(w http.ResponseWriter, r *http.Request) {\n  $$$BODY\n}\n"
+metadata:
+  owasp: A01:2021 - Broken Access Control
+  cwe: CWE-352

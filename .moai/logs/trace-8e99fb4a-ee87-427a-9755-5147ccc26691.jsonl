@@ -1,0 +1,10 @@
+{"ts":"2026-09-27T18:08:57.015863558+09:00","event":"SessionStart","handler":"*hook.sessionStartHandler","duration_ms":0,"session_id":"8e99fb4a-ee87-427a-9755-5147ccc26691"}
+{"ts":"2026-09-27T18:09:45.689000919+09:00","event":"UserPromptSubmit","handler":"*hook.userPromptSubmitHandler","duration_ms":0,"session_id":"8e99fb4a-ee87-427a-9755-5147ccc26691"}
+{"ts":"2026-09-27T18:09:45.838780102+09:00","event":"StopFailure","handler":"*hook.stopFailureHandler","duration_ms":1,"session_id":"8e99fb4a-ee87-427a-9755-5147ccc26691"}
+{"ts":"2026-09-27T18:10:17.648238371+09:00","event":"ConfigChange","handler":"*hook.configChangeHandler","duration_ms":0,"session_id":"8e99fb4a-ee87-427a-9755-5147ccc26691"}
+{"ts":"2026-09-27T18:10:38.244423306+09:00","event":"UserPromptSubmit","handler":"*hook.userPromptSubmitHandler","duration_ms":0,"session_id":"8e99fb4a-ee87-427a-9755-5147ccc26691"}
+{"ts":"2026-09-27T18:10:42.273229977+09:00","event":"PreToolUse","handler":"*hook.preToolHandler","tool":"Bash","duration_ms":0,"decision":"allow","session_id":"8e99fb4a-ee87-427a-9755-5147ccc26691"}
+{"ts":"2026-09-27T18:10:47.450737336+09:00","event":"PreToolUse","handler":"*hook.preToolHandler","tool":"Bash","duration_ms":0,"decision":"allow","session_id":"8e99fb4a-ee87-427a-9755-5147ccc26691"}
+{"ts":"2026-09-27T18:10:53.296423808+09:00","event":"PreToolUse","handler":"*hook.preToolHandler","tool":"Bash","duration_ms":0,"decision":"allow","session_id":"8e99fb4a-ee87-427a-9755-5147ccc26691"}
+{"ts":"2026-09-27T18:11:05.300307782+09:00","event":"Stop","handler":"*hook.stopHandler","duration_ms":0,"session_id":"8e99fb4a-ee87-427a-9755-5147ccc26691"}
+{"ts":"2026-09-27T18:48:20.437621509+09:00","event":"SessionEnd","handler":"*hook.sessionEndHandler","duration_ms":78,"session_id":"8e99fb4a-ee87-427a-9755-5147ccc26691"}
