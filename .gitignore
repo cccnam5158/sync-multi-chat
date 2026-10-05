@@ -118,6 +118,8 @@ logs/*
 *.backup/
 *-backup/
 *_backup_*/
+.moai/logs/
+.moai/state/
 
 # ===========================================
 # Secrets and Credentials (CRITICAL)
